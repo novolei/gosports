@@ -1,0 +1,18 @@
+model: gemini-3-pro-image
+location: global
+aspect: 1:1
+size: 1K
+references:
+  art_src\gemini\raw\bonk_procedural_ref.png
+prompt:
+Create ONE game UI icon: a cartoon "BONK" collision emblem for a bright, cheerful 3D cartoon volleyball game (soft, glossy, in the spirit of Nintendo Switch Sports and Mii-style characters).
+
+Subject, centered and fully visible with a small margin around it: a jagged comic impact starburst (about 12 irregular spikes) in warm orange fading to bright yellow at the centre, with a thick white sticker-style border and a thin dark-brown outer outline. Inside the burst sits a round, cute, chubby cartoon face that has just been bonked: big white eyes with blue-purple dizzy spirals, a tiny wobbly mouth, rosy cheeks, and one big shiny red swollen bump on the forehead with two small impact tick marks beside it. Three or four small yellow five-pointed stars with dark outlines fly around the face.
+
+Style: clean soft rounded shapes, gentle glossy highlights and subtle soft shading, saturated but friendly colours, one consistent outline weight, like a polished mobile-game sticker icon. Use the attached image only as a rough composition reference; make the result much more polished, charming and readable at small size.
+
+Background: a perfectly flat, solid, pure chroma-key green (#00FF00) filling the entire image edge to edge. No gradient, no vignette, no floor, no cast shadow, no glow. There must be NO green anywhere inside the icon itself.
+
+DO NOT include any text, letters, numbers or logos; no frame or border box around the icon, no extra characters, no watermark.
+
+model notes:

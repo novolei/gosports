@@ -1,0 +1,11 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+/build/
+/.tools/
+
+# local scratch / test output
+/tmp_shots/
+*.apk
+*.idsig
+*.exe
