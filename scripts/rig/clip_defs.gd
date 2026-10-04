@@ -7,7 +7,7 @@ extends RefCounted
 
 const LOOPING := ["idle_a", "idle_b", "idle_c", "idle_d", "run_forward", "run_backwards", "run_left", "run_right",
 		"run_strafe_left", "run_strafe_right", "walk_forward", "walk_backwards", "walk_left", "walk_right",
-		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep", "photo_idle", "photo_crouch", "clap"]
+		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep", "photo_idle", "photo_crouch", "clap", "dance_a", "dance_b", "dance_c"]
 
 # retargeted Mixamo clips: name -> {file, loop, keep_xz, trim}
 ## Locomotion blend-space clips: direction -> Cubebrush source clip (all 0.79 s cycles, phase aligned).
@@ -35,6 +35,30 @@ static func _m(base: Dictionary, over: Dictionary) -> Dictionary:
 	var r := base.duplicate()
 	for k in over.keys():
 		r[k] = over[k]
+	return r
+
+
+## left <-> right mirror of a pose spec (swap the _l / _r keys, negate the sideways components, flip yaw / roll)
+static func _mir(sp: Dictionary) -> Dictionary:
+	var r := {}
+	for k in sp.keys():
+		var v = sp[k]
+		var nk: String = k
+		if k.ends_with("_l"):
+			nk = k.substr(0, k.length() - 2) + "_r"
+		elif k.ends_with("_r"):
+			nk = k.substr(0, k.length() - 2) + "_l"
+		elif k.contains("_l_"):
+			nk = k.replace("_l_", "_r_")
+		elif k.contains("_r_"):
+			nk = k.replace("_r_", "_l_")
+		if v is Vector3:
+			var vv: Vector3 = v
+			if k == "body" or k == "torso" or k == "head":
+				v = Vector3(vv.x, -vv.y, -vv.z)
+			else:
+				v = Vector3(-vv.x, vv.y, vv.z)
+		r[nk] = v
 	return r
 
 
@@ -308,8 +332,55 @@ static func authored() -> Dictionary:
 	var th_fol := _m(ready, {
 		"body": Vector3(14, 10, 0), "torso": Vector3(14, 18, 0), "handc_r": Vector3(-0.1, -0.1, 0.8), "elbow_r": Vector3(0.7, -0.3, 0.0)})
 
+	# --- celebrations: a high five (the left player uses the right hand, the right player the left hand: the hands meet in the middle),
+	#     three dances and a wild punch (scripts/match/mate_banter.gd)
+	var hf_base := _m(stand, {
+		"hips": Vector3(0, -0.04, 0.02), "body": Vector3(6, 0, 0), "head": Vector3(-8, 0, 0),
+		"foot_l_off": Vector3(-0.06, 0, 0.0), "foot_r_off": Vector3(0.06, 0, 0.0)})
+	var hf_wind_o := {"handc_r": Vector3(0.55, 0.9, 0.05), "elbow_r": Vector3(0.9, 0.3, -0.5), "body": Vector3(2, -6, 0)}
+	var hf_hit_o := {"hips": Vector3(0, 0.06, 0.04), "handc_r": Vector3(0.2, 0.92, 0.92), "elbow_r": Vector3(0.9, 0.5, -0.3),
+		"foot_l_off": Vector3(-0.06, 0.12, 0.0), "foot_r_off": Vector3(0.06, 0.2, -0.05), "body": Vector3(4, 4, 0)}
+	var hf_hit_b_o := {"hips": Vector3(0, 0.0, 0.03), "handc_r": Vector3(0.2, 0.92, 0.92), "elbow_r": Vector3(0.9, 0.5, -0.3),
+		"foot_l_off": Vector3(-0.06, 0.0, 0.0), "foot_r_off": Vector3(0.06, 0.0, 0.0), "body": Vector3(4, 4, 0)}
+
+	var da1 := _m(stand, {
+		"hips": Vector3(0.04, -0.12, 0.0), "body": Vector3(4, 8, -6), "torso": Vector3(0, 10, 0), "head": Vector3(-6, -10, 6),
+		"handc_r": Vector3(0.42, 1.0, 0.15), "elbow_r": Vector3(0.9, 0.6, -0.2), "handc_l": Vector3(-0.42, -0.22, 0.22), "elbow_l": Vector3(-1, -0.2, -0.7),
+		"foot_l_off": Vector3(-0.1, 0, 0.0), "foot_r_off": Vector3(0.16, 0.06, 0.04), "knee_l": Vector3(-0.3, 0, 1), "knee_r": Vector3(0.3, 0, 1)})
+	var da2 := _mir(da1)
+	var db_dn := _m(stand, {
+		"hips": Vector3(0, -0.16, 0.02), "body": Vector3(10, 0, 0), "head": Vector3(-6, 0, 0),
+		"handc_l": Vector3(-0.5, 0.35, 0.3), "handc_r": Vector3(0.5, 0.35, 0.3), "elbow_l": Vector3(-0.9, 0.0, -0.4), "elbow_r": Vector3(0.9, 0.0, -0.4),
+		"foot_l_off": Vector3(-0.1, 0, 0.0), "foot_r_off": Vector3(0.1, 0, 0.0), "knee_l": Vector3(-0.3, 0, 1), "knee_r": Vector3(0.3, 0, 1)})
+	var db_up := _m(stand, {
+		"hips": Vector3(0, 0.12, 0.0), "body": Vector3(-4, 0, 0), "head": Vector3(-12, 0, 0),
+		"handc_l": Vector3(-0.5, 1.0, 0.1), "handc_r": Vector3(0.5, 1.0, 0.1), "elbow_l": Vector3(-0.9, 0.2, -0.3), "elbow_r": Vector3(0.9, 0.2, -0.3),
+		"foot_l_off": Vector3(-0.06, 0.3, -0.08), "foot_r_off": Vector3(0.06, 0.26, -0.1)})
+	var dc1 := _m(stand, {
+		"hips": Vector3(0.08, -0.08, 0.0), "body": Vector3(4, 0, -8), "torso": Vector3(0, -10, 0), "head": Vector3(0, 8, -8),
+		"handc_l": Vector3(-0.55, 0.15, 0.3), "handc_r": Vector3(0.5, 0.75, 0.2), "elbow_l": Vector3(-1, 0.0, -0.5), "elbow_r": Vector3(0.8, 0.4, -0.4),
+		"foot_l_off": Vector3(-0.12, 0, 0.0), "foot_r_off": Vector3(0.1, 0, 0.0), "knee_l": Vector3(-0.25, 0, 1), "knee_r": Vector3(0.25, 0, 1)})
+	var dc2 := _mir(dc1)
+
+	var pu_wind := _m(angry_a, {
+		"torso": Vector3(4, -34, 0), "body": Vector3(8, -14, 0), "hips": Vector3(0, -0.1, -0.04),
+		"handc_r": Vector3(0.5, -0.15, -0.5), "elbow_r": Vector3(1, -0.2, -0.9), "handc_l": Vector3(-0.2, 0.25, 0.55), "elbow_l": Vector3(-0.8, 0.1, -0.4),
+		"foot_r_off": Vector3(0.06, 0, -0.14), "foot_l_off": Vector3(-0.06, 0, 0.12)})
+	var pu_hit := _m(angry_a, {
+		"torso": Vector3(16, 30, 0), "body": Vector3(14, 16, 0), "hips": Vector3(0, -0.08, 0.1), "head": Vector3(-8, -10, 0),
+		"handc_r": Vector3(0.12, 0.1, 1.08), "elbow_r": Vector3(0.7, 0.0, 0.1), "handc_l": Vector3(-0.4, -0.1, 0.2),
+		"foot_r_off": Vector3(0.06, 0, 0.14), "foot_l_off": Vector3(-0.06, 0, -0.1)})
+
 	return {
 		"ready": {"loop": true, "keys": [[0.0, ready], [0.55, ready_b, "smooth"], [1.1, ready, "smooth"]]},
+		"highfive_r": {"keys": [[0.0, hf_base], [0.2, _m(hf_base, hf_wind_o), "smooth"], [0.36, _m(hf_base, hf_hit_o), "out"], [0.5, _m(hf_base, hf_hit_b_o), "smooth"],
+				[0.85, _m(hf_base, hf_hit_o), "smooth"], [1.35, hf_base, "smooth"]]},
+		"highfive_l": {"keys": [[0.0, hf_base], [0.2, _m(hf_base, _mir(hf_wind_o)), "smooth"], [0.36, _m(hf_base, _mir(hf_hit_o)), "out"], [0.5, _m(hf_base, _mir(hf_hit_b_o)), "smooth"],
+				[0.85, _m(hf_base, _mir(hf_hit_o)), "smooth"], [1.35, hf_base, "smooth"]]},
+		"dance_a": {"loop": true, "keys": [[0.0, da1], [0.3, da2, "smooth"], [0.6, da1, "smooth"], [0.9, da2, "smooth"], [1.2, da1, "smooth"]]},
+		"dance_b": {"loop": true, "keys": [[0.0, db_dn], [0.2, db_up, "out"], [0.4, db_dn, "in"], [0.6, db_up, "out"], [0.8, db_dn, "in"]]},
+		"dance_c": {"loop": true, "keys": [[0.0, dc1], [0.5, dc2, "smooth"], [1.0, dc1, "smooth"]]},
+		"punch": {"keys": [[0.0, angry_a], [0.22, pu_wind, "smooth"], [0.34, pu_hit, "out"], [0.62, pu_hit], [1.0, angry_a, "smooth"]]},
 		"clap": {"loop": true, "keys": [[0.0, clap_apart], [0.1, clap_hit, "out"], [0.2, clap_apart, "smooth"], [0.3, clap_hit, "out"], [0.4, clap_apart, "smooth"]]},
 		"angry": {"keys": [[0.0, stand], [0.12, angry_a, "out"], [0.26, angry_b], [0.4, angry_a], [0.54, angry_b], [0.68, angry_a], [0.82, angry_b], [1.2, sad_a, "smooth"]]},
 		"throw_fish": {"keys": [[0.0, ready], [0.28, th_wind, "smooth"], [0.42, th_rel, "out"], [0.65, th_fol, "smooth"], [1.1, ready, "smooth"]]},

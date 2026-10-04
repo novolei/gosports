@@ -513,3 +513,27 @@ PC 手感新增：
   * `--aimlog`（真实击球的计划目标）：按住 ← / → / ↑ / ↓ 时，发球和扣球的目标 x / z 分别是 −3.1…−3.3 / +3.2…+3.7 / z ≈ −5.7…−6.0（深）/ z ≈ −2.3（短）；不按方向时由智能落点决定；垫球和二传不受影响（设计如此）。目标区域（绿 / 橙 / 红圆盘）也已在游戏里显示。
 * **Minitanks 广告**（`tools/make_ads.py`，素材在 `art_src/brand/minitanks/`：`app_icon_1024.png`（与 app_icon_128 同一图标的高清版，避免放大发糊）、`tank_large.png`）：在 16 格广告图集里换进 **3 个** Minitanks 广告，风格各不同——(1) **图标主视觉**（电光蓝底 + 速度线 + 圆角应用图标 + 黄色网址胶囊），(2) **警示条模板**（黑黄斜纹 + 坦克图标圆章 +「TANK TIME」+ 网址），(3) **街机复古**（深紫底 + 扫描线 + 霓虹青 / 洋红字 +「PRESS START」+ 网址）；都带官网 **game.if2.ai**。占比 3/16，和其它虚构品牌轮播。**换屏方式**也变成四种之一（按刷新次数和板子编号选择）：向右擦、向左擦、百叶窗展开、像素溶解（`shaders/ad_board.gdshader`）。`--adoffset=<秒>` 调试轮播。
 
+
+## 32. 第十四轮：随机庆祝（击掌 / 跳舞 / 拍手 / 欢呼）、可跳过、对手队伍也会内讧（2026‑10‑04）
+
+* **每球得分后随机一段庆祝**（`MateBanter._on_point`，两队都有，练习模式不触发）：权重 欢呼 14 / 拍手 20 / **双人击掌 36** / **跳舞 22**（Ace 或回合 ≥ 8 拍时跳舞权重升到 30）。胜方两名队员同时演，败方两名队员仍是失落（`SAD`）姿态。
+  * **击掌**（`_highfive`）：按 x 排序，两人**走到一起**（间距 = 2×0.82×臂长 夹在 0.8–1.7 m，`Athlete.choreo_walk`），面对面（`choreo_pose(yaw)`，a 面向 +x 用右手，b 面向 −x 用左手，`highfive_r / highfive_l` 两个镜像剪辑：抬手蓄力 → 0.36 s 手掌相碰 → 回落），相碰的瞬间 `hit_burst` + 彩带 + `hit_perfect` 音 + 镜头轻震。
+  * **跳舞**（`_dance`）：三套循环动作随机选一个 `dance_a`（扭胯 + 举手）/ `dance_b`（原地蹦跳）/ `dance_c`（左右摇摆），两人面向镜头，错开 0.1 s 起舞，约 3.1 s。
+  * 新增 `Athlete.choreo`（编排期间屏蔽输入缓冲、不会被 AI 抢走）+ `choreo_walk / choreo_arrived / choreo_pose / choreo_end`，`reset_to_ready` 会清掉，下一球一定恢复正常。
+  * `CharacterRig` 姿态：`_mir()` 左右镜像辅助函数，新剪辑 `highfive_r/l`、`dance_a/b/c`、`punch`（改了 `clip_defs.gd` 后需重新 `bake_anims -- cube / ninja`）。
+* **庆祝可以被跳过**（像精彩回放一样）：庆祝开始 0.5 s 后，**按任意键 / 点一下屏幕 / 手柄任意键**即跳过（底部出现「按任意键跳过」/ 手机「轻触跳过」小胶囊），`MatchDirector.skip_point_wait()` 立刻进入下一球。`celebration_hold` 把得分阶段最短时长延长到约 3.9 s（回放 / 鹰眼会等优先；回放期间只做欢呼 / 拍手、不做内讧）。实测：强制击掌庆祝在 1 s 处注入一个按键 → 得分到下一次发球准备只隔 1.67 s（不跳过则 ≥ 3.9 s）。`--skiptest` 做这个检查。
+* **对手队伍也会内讧**：一方失误丢分（出界 / 触网 / 发球失误 / 发球超时），如果搭档是 CPU，以 45 % 概率（每队至少隔 3 分）生气，之后随机 **扔沙丁鱼 45 % / 挥拳 30 % / 只是生气 25 %**。
+  * **挥拳**（`_do_punch`）：生气的一方头顶出现怒气红十字、走到失误者面前 0.95 m（`punch` 剪辑：收拳蓄力 → 出拳），0.34 s 后命中 `Athlete.punched_by(dir)`：被击飞倒地（`_begin_knock`）+ 头顶转圈的星星 + 起身，出拳点出现一个倾斜的「POW!」字（位置跟着被打者的头，不再压在得分卡上）+ 屏幕轻震。
+  * 沙丁鱼与第十三轮相同（`ThrowProp.launch_at`），但现在**无论哪队**都会发生；己方（玩家）失误时仍由 CPU 队友出手。
+  * 验证：`--banter=<cheer|clap|highfive|dance|angry|sardine|punch> --banter_team=0|1`（`_dev_point` 在 1.2 s 时强制判一个球；强制庆祝时随机内讧被抑制），`--dance=dance_a|dance_b|dance_c`，`--skiptest`（庆祝 1 s 后注入按键并打印各阶段时间）。（`--banter_team` = 赢球的队伍，输球一方的搭档才会内讧。）
+* **比赛结束时输的一方更容易内讧**（`MateBanter._on_point` 在 `director.phase == OVER` 时）：以 70 %（`P_FINAL`）的概率输方的 CPU 搭档生气后**扔沙丁鱼或挥拳（各 50 %）**打向另一名队友——输方有真人玩家时一定以玩家为目标（`_final_target`：真人 > 失误者 > 任意；搭档必须是 CPU），对手队伍输了则在两个 AI 之间互殴。赢方同时照常随机庆祝（击掌 / 跳舞…）。`MatchScene._on_match_over` 在最终回放 / 「Win!」横幅之前 `await banter.wait_idle(2.4)`，让这段表演先演完（按任意键可跳过，超时强制收尾）。`--banter=punch|sardine --banter_final --banter_team=0|1` 强制在比赛点上触发，`--log` 打印 `[matchover]` 时间线。
+* **被击中 / 被打的角色都有「!」**：沙丁鱼命中本来就有 `AlertMark`；挥拳命中现在也在被打者头顶弹出同一个「!」（`_do_punch`）。对面（远侧）场地的角色在镜头里很小，所以 `AlertMark` / `AngerMark` 按**到摄像机的距离放大**（`AlertMark.dist_scale`：距离 / 9 m，夹在 1.0–2.4 倍），远处的「!」和怒气红十字也看得清。
+* **自己队伍输了：结算页不再放对手的庆祝**（`ResultsScreen.setup`）：玩家一方（solo / coop / 锦标赛）输掉比赛时，舞台前景只放**己方两人**，播放垂头丧气的 `sad` 循环（位置左移到不被右侧面板挡住），**不显示对手、不放彩带**；赢了 / versus / 练习保持原样。比赛点上也一样：玩家一方输掉最后一球时，赢方不再做击掌 / 跳舞 / 拍手，只站着（`ready`）——输方 sad + 可能的内讧（`MateBanter.sulk_final`）。`--screen=results --resultloss` 预览败北页。
+
+## 33. 打包：Minitanks 式的 AES-256 加密包（2026‑10‑04）
+
+发给玩家 / 装到手机上的包都用**加密的 pck**（脚本、场景、贴图、音频和文件目录都不能被现成的解包器直接打开；这是防随手拆包，不是 DRM）。方式和 Minitanks 一致：用**把密钥编进去的自编译导出模板** + 导出时通过环境变量传同一把密钥 + **检查成品**。
+* **模板和密钥**：直接引用 Minitanks 的 `H:/GDP/mini-tanks/.tools/encrypted-templates/`（`windows_release_x86_64.exe(+_console.exe)` / `android_release.apk` 及各自的 `.key`；Godot 4.7.1 stable 源码编译）。**不复制进本仓库**（`.tools/`、`*.exe`、`*.apk` 都在 `.gitignore`），`-EncTemplates <目录>` 或环境变量 `GOSPORTS_ENC_TEMPLATES` 可改位置。⚠ 目前和 Minitanks 共用同一把 Windows / Android 密钥（一把泄露两个游戏都暴露）；需要独立密钥时：用 `H:\GDP\mini-tanks\tools\build-android-template.ps1` 同样的流程换新密钥重编模板（同引擎版本），放一个新目录后用 `-EncTemplates` 指过去。
+* **`tools/build_windows.ps1`**：暂存一份项目（`.tools/build-windows-project`）→ 改暂存的 `export_presets.cfg`（`custom_template/release`、`encryption_include_filters="*"`、`encrypt_pck=true`、`encrypt_directory=true`；仓库里的预设保持不加密，没有密钥的机器照常能开发）→ 导入 → `--export-release`，密钥**只存在导出进程的环境变量里**，`finally` 清除，不打印不落盘 → **检查成品**：在内嵌 pck 里按 `GDPC`+引擎版本找到头，`flags` 的 bit 0（目录加密）必须置位；导出的 exe 引擎版本要等于编辑器版本 → `build/windows/GoSports.exe` + `build_record.json`。模板或密钥缺失直接报错，**不会悄悄降级成明文包**（`-Plain` 才是明文，仅本机调试）。
+* **`tools/build_android.ps1 -Mode sideload`**：安装到手机的构建——**release 导出 + 加密模板**，用同一把本地 debug keystore 签名、同一个 `.dev` 包名（所以能直接覆盖安装旧的调试包、存档保留），versionCode = 自 2025‑01‑01 起的分钟数。成品检查：`assets/assets.sparsepck` 头 flags bit 0 置位，并且所有 `assets/<sha256>` 打包文件开头**没有任何明文签名**（`RSRC`、`GDSC`、`PNG`、`OggS`、`PK\3\4`…，按字节序比较），再加 apksigner / aapt 的包名与 versionCode 校验。`-Mode debug`（默认）仍是不加密的调试包，只在本机用。
+* 解包 / 验证提示：加密模板编译时带 `disable_path_overrides`，`--main-pack`、`--script` 不能用；自测参数写在 `--` 之后（`GoSports.exe -- --screen=match --autoplay …`）。导出的 exe 如果报「Couldn't load project data」，先怀疑密钥不一致。

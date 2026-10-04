@@ -28,6 +28,7 @@ var touches := [0, 0]
 var last_team := -1
 var last_hitter: Athlete = null
 var rally_len := 0
+var celebration_hold := 0.0                # seconds of the point phase a choreographed celebration needs (0 = the normal wait)
 var hold_next := false                   # the scene keeps the point on hold (instant replay) before the next serve
 var feed_target: Athlete = null            # practice: aim the ball machine at this athlete instead of the human (the coach sets it)
 var phase_time := 0.0
@@ -214,7 +215,7 @@ func _physics_process_impl(dt: float) -> void:
 			_update_plans(dt)
 			_check_blocks()
 		P.POINT:
-			if phase_time > (1.5 if is_practice() else 2.7) and not hold_next:
+			if phase_time > maxf(1.5 if is_practice() else 2.7, celebration_hold) and not hold_next:
 				if phase == P.POINT:
 					_next_point()
 	if phase == P.SERVING or phase == P.RALLY:
@@ -963,7 +964,15 @@ func _end_point(winner: int, reason: String, pos: Vector3) -> void:
 		rally_event.emit("match_point", {"team": winner})
 
 
+## the player skipped the celebration: go to the next serve now
+func skip_point_wait() -> void:
+	celebration_hold = 0.0
+	if phase == P.POINT:
+		phase_time = maxf(phase_time, 2.8)
+
+
 func _next_point() -> void:
+	celebration_hold = 0.0
 	for a in athletes:
 		a.reset_to_ready()
 	ball.set_trail(false)

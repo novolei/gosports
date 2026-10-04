@@ -10,7 +10,8 @@ const GAP := 0.5
 static func spawn_over(a: Node3D, head_y: float, hold := 1.2) -> AngerMark:
 	var m := AngerMark.new()
 	a.add_child(m)
-	m.position = Vector3(0, head_y + GAP, 0)
+	var sz := AlertMark.dist_scale(a)
+	m.position = Vector3(0, head_y + GAP * sz, 0)
 	var st := CourtDeco.Mesher.new()
 	for k in 4:
 		var ang := PI * 0.25 + PI * 0.5 * float(k)
@@ -39,10 +40,10 @@ static func spawn_over(a: Node3D, head_y: float, hold := 1.2) -> AngerMark:
 	m.add_child(mi)
 	m.scale = Vector3.ZERO
 	var tw := m.create_tween()
-	tw.tween_property(m, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "scale", Vector3.ONE * sz, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	for i in 2:                                                     # the throbbing
-		tw.tween_property(m, "scale", Vector3(1.28, 1.28, 1.28), 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tw.tween_property(m, "scale", Vector3.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(m, "scale", Vector3(1.28, 1.28, 1.28) * sz, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(m, "scale", Vector3.ONE * sz, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(maxf(hold - 0.9, 0.1))
 	tw.tween_property(m, "scale", Vector3.ZERO, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tw.tween_callback(m.queue_free)

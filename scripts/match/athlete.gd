@@ -86,6 +86,7 @@ var in_perfect_zone := false
 var last_quality := ""
 var facing_override := NAN
 var locked := false
+var choreo := false                 # the post-point choreography (celebration walk / dance / punch) drives this athlete: input is ignored
 var _stun_t := 0.0                  # STUMBLE: time left
 var _stun_total := 0.0
 var _stagger := Vector2.ZERO        # world direction we were shoved in
@@ -280,6 +281,10 @@ func _physics_process(dt: float) -> void:
 		Prof.add("ai.think", _pb)
 	else:
 		cmd_move = Vector2.ZERO
+	if choreo:
+		_hit_buf = 0.0
+		_jump_buf = 0.0
+		_dive_buf = 0.0
 	_hit_buf = maxf(_hit_buf - dt, 0.0)
 	_jump_buf = maxf(_jump_buf - dt, 0.0)
 	_dive_buf = maxf(_dive_buf - dt, 0.0)
@@ -905,6 +910,51 @@ func _end_dizzy_fx() -> void:
 		_dizzy_fx = null
 
 
+# ------------------------------------------------------------------ choreography (scripts/match/mate_banter.gd)
+## walk to `p` with the normal run animation, input ignored (up to max_t seconds)
+func choreo_walk(p: Vector3, max_t := 2.2) -> void:
+	choreo = true
+	locked = true
+	state = S.READY
+	vy = 0.0
+	facing_override = NAN
+	_block_pose = false
+	auto_walk_to(p)
+	_walk_t = max_t
+	rig.play_loco(0.12)
+
+
+func choreo_arrived() -> bool:
+	return not _auto_walk_active()
+
+
+## stand still, face `yaw_to` and play `clip` (celebration pose; the idle-locked state keeps the pose)
+func choreo_pose(yaw_to: float, clip: String, blend := 0.12, spd := 1.0) -> void:
+	choreo = true
+	locked = true
+	_walk_target = null
+	cmd_move = Vector2.ZERO
+	state = S.CELEB
+	facing_override = yaw_to
+	rig.play(clip, blend, spd)
+
+
+## ends the choreography in the plain cheer pose (the next serve resets everything anyway)
+func choreo_end(cheer := true) -> void:
+	_walk_target = null
+	choreo = false
+	facing_override = NAN
+	if cheer and state != S.KNOCKED and state != S.GETUP:
+		state = S.CELEB
+		rig.play("cheer", 0.2)
+
+
+## a team mate's punch: knocked down and dazed (stars), regardless of the state we are in
+func punched_by(push: Vector2) -> void:
+	_bump_cd = 0.0
+	_begin_knock(push, KNOCK_JOLT + 1.2)
+
+
 # ------------------------------------------------------------------ states set by the director
 func celebrate() -> void:
 	state = S.CELEB
@@ -918,6 +968,8 @@ func sad() -> void:
 
 
 func reset_to_ready() -> void:
+	choreo = false
+	locked = false
 	_bonk_t = 0.0
 	state = S.READY
 	vy = 0.0

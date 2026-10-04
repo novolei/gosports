@@ -23,6 +23,7 @@ var _elapsed := 0.0
 var _stats_log := []
 var replay: ReplaySystem = null
 var hawk: HawkEye = null
+var banter: MateBanter = null
 var _points_since_replay := 2
 var _pause_test_done := false
 var _last_replay_ours := true          # the previous replay was for the player's team (so one against them may follow)
@@ -143,7 +144,7 @@ func _build() -> void:
 			a.skill = s
 
 	if not humans.is_empty() and not Game.is_practice() and not Game.dbg("nobanter"):
-		var banter := MateBanter.new()
+		banter = MateBanter.new()
 		add_child(banter)
 		banter.build(self, director)
 
@@ -478,6 +479,10 @@ func _on_match_over(winner: int) -> void:
 		await get_tree().create_timer(3.4, true, false, true).timeout
 	else:
 		await get_tree().create_timer(1.9, true, false, true).timeout
+		if is_inside_tree() and banter != null:
+			await banter.wait_idle(2.4)                       # the final celebration / the losers' tantrum plays out first
+			if _log_events:
+				print("[matchover] final show done at %.2f s" % _elapsed)
 		if is_inside_tree() and replay != null and replay.can_play():
 			replay.start(0.8)
 			await replay.finished
@@ -513,6 +518,8 @@ func _on_match_over(winner: int) -> void:
 			print("MATCH OVER score=", director.score, " rallies=", lens, " reasons=", reasons, " time=%.0f" % _elapsed)
 			get_tree().quit()
 			return
+		if _log_events:
+			print("[matchover] -> results at %.2f s" % _elapsed)
 		Game.goto("results", Game.last_result)
 
 

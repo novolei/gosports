@@ -4,21 +4,27 @@
 #   templates) -> self-contained editor copy with its own editor settings (the user's Godot settings are never touched)
 #   -> import (twice on a fresh stage) -> export -> APK checks (manifest, native lib, pack, apksigner, aapt) -> build_record.json
 #
-#   powershell -ExecutionPolicy Bypass -File tools/build_android.ps1 [-Mode debug|release] [-PackageId com.x.y] [-VersionCode N] [-DryRun]
+#   powershell -ExecutionPolicy Bypass -File tools/build_android.ps1 [-Mode debug|sideload|release] [-PackageId com.x.y] [-VersionCode N] [-DryRun]
 # debug   (default) debug export signed with the standard Android debug keystore (created under .tools/android-editor/).
+# sideload  the build that is installed on phones: a RELEASE export with the AES-256 ENCRYPTED template (same scheme as Minitanks
+#         tools/build-android.ps1 -Mode sideload), signed with the same local debug keystore and the same .dev package id, so it installs
+#         over the old debug APK and keeps the save. Template + key come from -EncTemplates (default: the Minitanks .tools/encrypted-templates:
+#         android_release.apk + android_release.key). The key is only put in the environment of the export process and cleared afterwards;
+#         the finished APK is checked (pack header flag, no plain resource signature among the packed files).
 # release release export; signing key comes ONLY from the environment (never a file in the repo):
 #           GOSPORTS_KEYSTORE_PATH, GOSPORTS_KEYSTORE_ALIAS, GOSPORTS_KEYSTORE_PASS
 # Toolchain lookup (first hit wins): -JavaHome / -AndroidSdk / -GodotBin, $env:JAVA_HOME / ANDROID_HOME / GODOT_BIN, the Minitanks
 # toolchain H:\GDP\mini-tanks\.tools\android-setup\{jdk,sdk}, Android Studio's jbr, %LOCALAPPDATA%\Android\Sdk.
 # Keep this file ASCII (PowerShell 5.1 reads BOM-less scripts in the ANSI code page).
 param(
-    [ValidateSet('debug', 'release')][string]$Mode = 'debug',
+    [ValidateSet('debug', 'sideload', 'release')][string]$Mode = 'debug',
     [string]$GodotBin = '',
     [string]$JavaHome = '',
     [string]$AndroidSdk = '',
     [string]$PackageId = 'com.gosports.volleyball.dev',
     [long]$VersionCode = 0,
     [string]$Preset = 'Android',
+    [string]$EncTemplates = '',
     [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
@@ -65,6 +71,18 @@ $templates = Join-Path $env:APPDATA "Godot/export_templates/$tag"
 $tplDebug = Join-Path $templates 'android_debug.apk'
 $tplRelease = Join-Path $templates 'android_release.apk'
 foreach ($t in @($tplDebug, $tplRelease)) { if (-not (Test-Path -LiteralPath $t)) { throw "Stock Android export template missing: $t" } }
+$encKey = ''
+if ($Mode -eq 'sideload') {
+    if (-not $EncTemplates) { $EncTemplates = $env:GOSPORTS_ENC_TEMPLATES }
+    if (-not $EncTemplates) { $EncTemplates = 'H:/GDP/mini-tanks/.tools/encrypted-templates' }
+    $tplEnc = Join-Path $EncTemplates 'android_release.apk'
+    $keyFile = Join-Path $EncTemplates 'android_release.key'
+    # never fall back to a plain build: a missing template or key is an error
+    if (-not (Test-Path -LiteralPath $tplEnc)) { throw "Encrypted Android template missing: $tplEnc" }
+    if (-not (Test-Path -LiteralPath $keyFile)) { throw "Encryption key file missing: $keyFile" }
+    $encKey = ([IO.File]::ReadAllText($keyFile)).Trim()
+    if ($encKey -notmatch '^[0-9A-Fa-f]{64}$') { throw 'The encrypted-template key must be a 64-character hexadecimal AES-256 key.' }
+}
 
 # ---- version ----
 $epoch = [DateTime]::SpecifyKind([DateTime]'2025-01-01', 'Utc')
@@ -85,7 +103,7 @@ if ($DryRun) { Write-Host 'dry run: nothing built.'; return }
 # ---- signing ----
 $debugKeystore = Join-Path $editorDir 'debug.keystore'
 New-Item -ItemType Directory -Force -Path $editorDir | Out-Null
-if ($Mode -eq 'debug') {
+if ($Mode -ne 'release') {
     if (-not (Test-Path -LiteralPath $debugKeystore)) {
         [void](Invoke-Native 'keytool (debug keystore)' { & (Join-Path $jdk 'bin/keytool.exe') -genkeypair -keystore $debugKeystore -storepass android -keypass android `
             -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US' 2>&1 })
@@ -134,7 +152,19 @@ $opts = Set-Opt $opts 'package/unique_name' ('"' + $PackageId + '"')
 $opts = Set-Opt $opts 'custom_template/debug' ('"' + ($tplDebug -replace '\\', '/') + '"')
 $opts = Set-Opt $opts 'custom_template/release' ('"' + ($tplRelease -replace '\\', '/') + '"')
 $opts = Set-Opt $opts 'package/signed' 'true'
-$patched = $text.Substring(0, $optPos) + $opts + $text.Substring($optEnd)
+$head = $text.Substring(0, $optPos)
+if ($Mode -eq 'sideload') {
+    $opts = Set-Opt $opts 'custom_template/release' ('"' + ($tplEnc -replace '\\', '/') + '"')
+    # the preset header (before its options section) carries the pack encryption switches
+    foreach ($kv in @(@('encryption_include_filters', '"*"'), @('encrypt_pck', 'true'), @('encrypt_directory', 'true'))) {
+        $rx = '(?m)^' + [regex]::Escape($kv[0]) + '=.*$'
+        $hs = $head.Substring($sectionStart)
+        if (-not [regex]::IsMatch($hs, $rx)) { throw ('Preset header has no ' + $kv[0]) }
+        $newLine = $kv[0] + '=' + $kv[1]
+        $head = $head.Substring(0, $sectionStart) + [regex]::Replace($hs, $rx, { param($m) $newLine })
+    }
+}
+$patched = $head + $opts + $text.Substring($optEnd)
 [IO.File]::WriteAllText($presets, $patched, (New-Object Text.UTF8Encoding($false)))
 
 # ---- self-contained editor copy ----
@@ -153,7 +183,7 @@ $settings = @('[gd_resource type="EditorSettings" format=3]', '', '[resource]',
 $sc = Join-Path $editorDir $godotName
 
 $secretEnv = @('GODOT_ANDROID_KEYSTORE_DEBUG_PATH', 'GODOT_ANDROID_KEYSTORE_DEBUG_USER', 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD',
-    'GODOT_ANDROID_KEYSTORE_RELEASE_PATH', 'GODOT_ANDROID_KEYSTORE_RELEASE_USER', 'GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD')
+    'GODOT_ANDROID_KEYSTORE_RELEASE_PATH', 'GODOT_ANDROID_KEYSTORE_RELEASE_USER', 'GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD', 'GODOT_SCRIPT_ENCRYPTION_KEY')
 $saved = @{ JAVA_HOME = $env:JAVA_HOME; ANDROID_HOME = $env:ANDROID_HOME; ANDROID_SDK_ROOT = $env:ANDROID_SDK_ROOT }
 $tempApk = ''
 try {
@@ -178,6 +208,11 @@ try {
         $env:GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $debugKeystore
         $env:GODOT_ANDROID_KEYSTORE_DEBUG_USER = 'androiddebugkey'
         $env:GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = 'android'
+    } elseif ($Mode -eq 'sideload') {
+        $env:GODOT_ANDROID_KEYSTORE_RELEASE_PATH = $debugKeystore
+        $env:GODOT_ANDROID_KEYSTORE_RELEASE_USER = 'androiddebugkey'
+        $env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD = 'android'
+        $env:GODOT_SCRIPT_ENCRYPTION_KEY = $encKey
     } else {
         $env:GODOT_ANDROID_KEYSTORE_RELEASE_PATH = $env:GOSPORTS_KEYSTORE_PATH
         $env:GODOT_ANDROID_KEYSTORE_RELEASE_USER = $env:GOSPORTS_KEYSTORE_ALIAS
@@ -205,6 +240,31 @@ try {
         if (-not $pack) { throw 'APK carries no game pack.' }
         Write-Host "android: APK structure ok ($($libs -join ', '); $pack)"
     } finally { $zip.Dispose() }
+    $encChecked = $false
+    if ($Mode -eq 'sideload') {
+        # the artifact, not the preset: pack header flag (offset 20, bit 0 = encrypted directory) + no plain signature among the packed files
+        $zip = [IO.Compression.ZipFile]::OpenRead($tempApk)
+        try {
+            $packE = $zip.Entries | Where-Object { $_.FullName -match '^assets/[^/]+\.(sparsepck|pck)$' } | Select-Object -First 1
+            $ps = $packE.Open()
+            try { $hdr = [byte[]]::new(24); $got = 0; while ($got -lt 24) { $n = $ps.Read($hdr, $got, 24 - $got); if ($n -le 0) { break }; $got += $n } } finally { $ps.Dispose() }
+            if ($got -lt 24 -or [Text.Encoding]::ASCII.GetString($hdr, 0, 4) -ne 'GDPC') { throw 'APK pack header not recognised.' }
+            if (([BitConverter]::ToUInt32($hdr, 20) -band 1) -eq 0) { throw 'The Android pack is NOT encrypted although the encrypted template is configured.' }
+            $sigs = @('RSRC', 'RSCC', 'GDSC', 'GDST', 'GST2', '[gd_', '[rem', 'OggS', 'RIFF', 'glTF', ([string][char]0x89 + 'PNG'), ('PK' + [char]3 + [char]4))
+            $plain = 0; $sealed = 0
+            foreach ($e in $zip.Entries) {
+                if ($e.FullName -notmatch '^assets/[0-9a-f]{64}$') { continue }
+                $sealed++
+                $es = $e.Open()
+                try { $mg = [byte[]]::new(4); $g2 = 0; while ($g2 -lt 4) { $n = $es.Read($mg, $g2, 4 - $g2); if ($n -le 0) { break }; $g2 += $n } } finally { $es.Dispose() }
+                $prefix = [Text.Encoding]::GetEncoding(28591).GetString($mg)      # Latin-1: bytes -> chars 1:1, ordinal compare below
+                if ($sigs | Where-Object { [string]::Equals($_, $prefix, [StringComparison]::Ordinal) }) { $plain++ }
+            }
+            if ($plain -gt 0 -or $sealed -eq 0) { throw "Android resources not encrypted: $plain plain of $sealed packed files." }
+            Write-Host "android: encryption verified (directory flag set; $sealed packed files, none with a plain signature)"
+            $encChecked = $true
+        } finally { $zip.Dispose() }
+    }
     $signOut = Invoke-Native 'apksigner verify' { & $apksigner verify --verbose $tempApk 2>&1 }
     $schemes = @($signOut | Where-Object { "$_" -match 'Verified using v\d.*true' } | ForEach-Object { ("$_" -replace '^Verified using ', '' -replace ' scheme.*', '') })
     Write-Host "android: apksigner verify ok ($($schemes -join ', '))"
@@ -227,8 +287,8 @@ try {
     $record = [ordered]@{
         platform = 'android'; mode = $Mode; package_id = $PackageId; version = $verName; version_code = $VersionCode; build = $build
         engine = $versionLine; commit = $commit; built_at = $now.ToString('o'); apk = (Split-Path -Leaf $apkPath)
-        size = (Get-Item -LiteralPath $apkPath).Length; sha256 = $hash; encrypted = $false
-        validation = 'manifest+native-lib+pack+apksigner+aapt'
+        size = (Get-Item -LiteralPath $apkPath).Length; sha256 = $hash; encrypted = $encChecked
+        validation = $(if ($encChecked) { 'manifest+native-lib+pack+encryption+apksigner+aapt' } else { 'manifest+native-lib+pack+apksigner+aapt' })
     }
     [IO.File]::WriteAllText((Join-Path $outDir 'build_record.json'), ($record | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
     Write-Host ("android: {0} ({1:N1} MiB, sha256 {2})" -f $apkPath, ((Get-Item -LiteralPath $apkPath).Length / 1MB), $hash)

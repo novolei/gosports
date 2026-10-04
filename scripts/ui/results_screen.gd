@@ -1,5 +1,5 @@
 extends Node
-## Match results: winners celebrate on the court, losers sulk. A reward card counts up the XP (play / points / Nice! ...
+## Match results: winners celebrate on the court, losers sulk (when the PLAYER's team lost, only its own pair is shown, dejected). A reward card counts up the XP (play / points / Nice! ...
 ## x win / difficulty / teamwork bonuses), fills the level bar, reveals unlocked cosmetics, achievements and today's
 ## missions. Variants for the practice modes and the tournament.
 
@@ -43,7 +43,9 @@ func _demo_data() -> Dictionary:
 			"stats": stats, "spike_points": 4})
 	if Game.profile == null:
 		Game.profile = prof
-	return {"winner": 0, "score": [11, 8], "stats": stats, "mode": "solo", "reward": reward, "team_a": Game.team_a, "team_b": Game.team_b}
+	var lost: bool = Game.main != null and Game.main.dev.has("resultloss")                   # dev: --resultloss previews the loss screen
+	return {"winner": 1 if lost else 0, "score": [8, 11] if lost else [11, 8], "stats": stats, "mode": "solo", "reward": reward,
+			"team_a": Game.team_a, "team_b": Game.team_b}
 
 
 func setup(data: Dictionary) -> void:
@@ -62,12 +64,20 @@ func setup(data: Dictionary) -> void:
 	var win_ids: Array = ids_a if winner == 0 else ids_b
 	var lose_ids: Array = ids_b if winner == 0 else ids_a
 	var practice: bool = data.has("practice")
-	for i in 2:
-		var r := stage.add_rig(Roster.by_id(win_ids[i]), Vector3(-1.4 + i * 2.8, 0, 3.4), PI + (0.25 if i == 0 else -0.25), "cheer")
-		r.scale = Vector3.ONE * float(Roster.by_id(win_ids[i])["scale"]) * 1.25
-	for i in 2:
-		var r2 := stage.add_rig(Roster.by_id(lose_ids[i]), Vector3(-3.0 + i * 6.0, 0, -0.8), PI + (0.3 if i == 0 else -0.3), "cheer" if practice else "sad")
-		r2.scale = Vector3.ONE * float(Roster.by_id(lose_ids[i])["scale"]) * 1.0
+	# the player's side lost: the stage belongs to OUR pair, dejected (the opponents' celebration is not shown at all - nobody wants to
+	# watch the other team dance on the loss screen); in versus / practice / a win the winners cheer in front as usual
+	var player_lost := winner != 0 and not practice and Game.mode != "versus"
+	if player_lost:
+		for i in 2:
+			var rs := stage.add_rig(Roster.by_id(ids_a[i]), Vector3(-1.5 + i * 1.95, 0, 3.4), PI + (0.2 if i == 0 else -0.2), "sad")
+			rs.scale = Vector3.ONE * float(Roster.by_id(ids_a[i])["scale"]) * 1.25
+	else:
+		for i in 2:
+			var r := stage.add_rig(Roster.by_id(win_ids[i]), Vector3(-1.4 + i * 2.8, 0, 3.4), PI + (0.25 if i == 0 else -0.25), "cheer")
+			r.scale = Vector3.ONE * float(Roster.by_id(win_ids[i])["scale"]) * 1.25
+		for i in 2:
+			var r2 := stage.add_rig(Roster.by_id(lose_ids[i]), Vector3(-3.0 + i * 6.0, 0, -0.8), PI + (0.3 if i == 0 else -0.3), "cheer" if practice else "sad")
+			r2.scale = Vector3.ONE * float(Roster.by_id(lose_ids[i])["scale"]) * 1.0
 	Sfx.crowd(false)
 	var human_good := (winner == 0) or Game.mode == "versus" or practice
 	Sfx.jingle("jingle_win" if human_good else "jingle_lose")
@@ -85,7 +95,8 @@ func setup(data: Dictionary) -> void:
 	var vfx := Vfx.new()
 	stage.add_child(vfx)
 	await get_tree().process_frame
-	vfx.confetti(Vector3(0, 0, 3.0), 120)
+	if not (winner != 0 and not practice and Game.mode != "versus"):                 # (no party confetti over a lost match)
+		vfx.confetti(Vector3(0, 0, 3.0), 120)
 	if not _reward.is_empty():
 		_play_reward()
 	if Game.main != null and Game.main.dev.has("resultshot"):
