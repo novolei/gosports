@@ -76,6 +76,8 @@ const ACHIEVEMENTS := [
 	{"id": "rally_25", "name": "拉锯大战", "desc": "单回合 25 次触球", "key": "longest_rally", "goal": 25, "kind": "max", "xp": 120},
 	{"id": "power_1", "name": "三连默契", "desc": "完成一次垫传扣全 Nice! 的强力扣球", "key": "power_spikes", "goal": 1, "xp": 60},
 	{"id": "power_10", "name": "扣杀之王", "desc": "累计 10 次强力扣球", "key": "power_spikes", "goal": 10, "xp": 140},
+	{"id": "smash_1", "name": "网前一击", "desc": "在网前打出一次大力扣杀", "key": "smashes", "goal": 1, "xp": 60},
+	{"id": "smash_10", "name": "重炮手", "desc": "累计 10 次大力扣杀", "key": "smashes", "goal": 10, "xp": 140},
 	{"id": "ace_5", "name": "发球机器", "desc": "累计 5 个 ACE", "key": "aces", "goal": 5, "xp": 60},
 	{"id": "block_5", "name": "铜墙铁壁", "desc": "累计 5 次拦网得分", "key": "blocks", "goal": 5, "xp": 60},
 	{"id": "dizzy", "name": "头晕目眩", "desc": "把队友或自己撞得眼冒金星", "key": "knockdowns", "goal": 1, "xp": 30},
@@ -100,6 +102,7 @@ const MISSION_POOL := [
 	{"id": "block", "text": "拦网得分 %d 次", "key": "blocks", "goals": [1, 2, 3], "xp": 80},
 	{"id": "fever", "text": "触发 %d 次热血时刻", "key": "fever", "goals": [1, 2], "xp": 90},
 	{"id": "power", "text": "完成 %d 次强力扣球", "key": "power_spikes", "goals": [1, 2], "xp": 100},
+	{"id": "smash", "text": "完成 %d 次大力扣杀", "key": "smashes", "goals": [1, 2, 3], "xp": 100},
 	{"id": "play", "text": "完成 %d 场比赛", "key": "matches", "goals": [2, 3], "xp": 60},
 ]
 
@@ -129,8 +132,9 @@ func _init(p_path := PATH) -> void:
 
 
 func _defaults() -> void:
-	stats = {"matches": 0, "wins": 0, "points": 0, "aces": 0, "blocks": 0, "perfects": 0, "power_spikes": 0,
-			"longest_rally": 0, "knockdowns": 0, "fever": 0, "playtime": 0.0}
+	stats = {"matches": 0, "wins": 0, "points": 0, "aces": 0, "blocks": 0, "perfects": 0, "power_spikes": 0, "smashes": 0,
+			"longest_rally": 0, "knockdowns": 0, "fever": 0, "playtime": 0.0,
+			"t_perfect": 0, "t_good": 0, "t_ok": 0, "t_early": 0, "t_late": 0}      # lifetime hit-timing telemetry (the human on the near team)
 
 
 # ---------------------------------------------------------------- levels
@@ -359,8 +363,9 @@ func finish_match(sum: Dictionary) -> Dictionary:
 	var aces := int(_pick(st, "aces", mine))
 	var blocks := int(_pick(st, "blocks", mine))
 	var powers := int(_pick(st, "power_spikes", mine))
+	var smashes := int(_pick(st, "smashes", mine))
 	var longest := int(st.get("longest", 0))
-	var extra := mini(aces * 4, 20) + mini(blocks * 4, 20) + mini(powers * 6, 30) + mini(maxi(longest - 4, 0), 20)
+	var extra := mini(aces * 4, 20) + mini(blocks * 4, 20) + mini(powers * 6, 30) + mini(smashes * 4, 20) + mini(maxi(longest - 4, 0), 20)
 	if extra > 0:
 		lines.append({"name": "精彩表现", "value": extra})
 	var subtotal := base + pts + perf_xp + extra
@@ -413,6 +418,18 @@ func finish_match(sum: Dictionary) -> Dictionary:
 		mission_progress("spike_points", spk)
 	record_max("longest_rally", longest)
 	mission_progress("longest_rally", longest, true)
+	# hit-timing telemetry, lifetime and per window setting (so the default window can be tuned from real play)
+	var tm: Dictionary = st.get("timing", {})
+	if not tm.is_empty():
+		for k in ["perfect", "good", "ok", "early", "late"]:
+			stats["t_" + k] = int(stats.get("t_" + k, 0)) + int(tm.get(k, 0))
+		var by_w: Dictionary = stats.get("timing_by_window", {})
+		var wk := str(int(sum.get("window", 0)))
+		var cur: Dictionary = by_w.get(wk, {})
+		for k in ["perfect", "good", "ok", "early", "late"]:
+			cur[k] = int(cur.get(k, 0)) + int(tm.get(k, 0))
+		by_w[wk] = cur
+		stats["timing_by_window"] = by_w
 	xp += gained
 	var fresh := _drain_fresh()
 	var lv1 := level()

@@ -40,7 +40,8 @@ var difficulty := 1
 var sets_won := [0, 0]
 var chain := [0, 0]                 # consecutive "perfect" touches of a team in its current possession
 var stats := {"aces": [0, 0], "spikes": [0, 0], "blocks": [0, 0], "perfects": [0, 0], "longest": 0,
-		"power_spikes": [0, 0], "knockdowns": [0, 0], "fever": [0, 0], "spike_points": [0, 0], "smashes": [0, 0]}
+		"power_spikes": [0, 0], "knockdowns": [0, 0], "fever": [0, 0], "spike_points": [0, 0], "smashes": [0, 0],
+		"timing": {"perfect": 0, "good": 0, "ok": 0, "early": 0, "late": 0}}      # the near-team human's hit timing (telemetry for tuning the windows)
 const FEVER_TIME := 9.0
 
 ## NET SMASH: a perfect spike taken close to the net may turn into a smash (faster, steeper, a block rarely stuffs it). The chance is
@@ -438,6 +439,11 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 	stats["longest"] = maxi(stats["longest"], rally_len)
 	if info["quality"] == "perfect":
 		stats["perfects"][a.team] += 1
+	if a.is_human and a.team == 0 and info["kind"] != "serve":
+		var tm: Dictionary = stats["timing"]
+		tm[info["quality"]] = int(tm.get(info["quality"], 0)) + 1
+		if info["quality"] != "perfect":
+			tm["early" if bool(info.get("early", true)) else "late"] += 1
 	_last_kind = kind
 	if kind == "spike":
 		stats["spikes"][a.team] += 1

@@ -1545,7 +1545,7 @@ func _fill_settings(cat: int) -> void:
 	for i in int(_set_cards.get_meta("n")):
 		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
 	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
-	var rows_n: int = [2, 4, 4, 4, 1][cat]
+	var rows_n: int = [2, 4, 4, 5, 1][cat]
 	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
 	var old_panel := _set_panel
 	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
@@ -1589,6 +1589,7 @@ func _fill_settings(cat: int) -> void:
 		3:
 			col.add_child(GW.option_row("落点提示", ["关闭", "简洁", "标准"], int(Game.settings["landing_hint"]), func(i): Game.settings["landing_hint"] = i; Game.settings["landing_hint_set"] = true; Game.save_settings(), 904.0, 150.0))
 			onoff.call("击球时机提示圈", "timing_guide")
+			col.add_child(GW.option_row("击球时机窗口", ["宽松", "标准", "精准"], int(Game.settings.get("timing_window", 0)), func(i): Game.settings["timing_window"] = i; Game.save_settings(), 904.0, 150.0))
 			onoff.call("目标区域提示（绿 / 橙 / 红）", "aim_zone")
 			onoff.call("击球精度环", "aim_scatter")
 		4:

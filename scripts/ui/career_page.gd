@@ -391,9 +391,9 @@ func _build_overview() -> void:
 	var wins := int(st.get("wins", 0))
 	var rows := [
 		["比赛", "%d 场" % matches], ["胜场", "%d 场" % wins],
-		["胜率", ("%d%%" % int(100.0 * float(mini(wins, matches)) / float(matches))) if matches > 0 else "-"], ["得分", str(int(st.get("points", 0)))],
+		["胜率", ("%d%%" % int(100.0 * float(mini(wins, matches)) / float(matches))) if matches > 0 else "-"], ["击球完美率", _perfect_rate(st)],
 		["ACE", str(int(st.get("aces", 0)))], ["拦网得分", str(int(st.get("blocks", 0)))],
-		["Nice! 击球", str(int(st.get("perfects", 0)))], ["强力扣球", str(int(st.get("power_spikes", 0)))],
+		["Nice! 击球", str(int(st.get("perfects", 0)))], ["强力扣球 / 大力扣杀", "%d / %d" % [int(st.get("power_spikes", 0)), int(st.get("smashes", 0))]],
 		["最长回合", "%d 次" % int(st.get("longest_rally", 0))], ["撞晕次数", str(int(st.get("knockdowns", 0)))],
 		["热血时刻", str(int(st.get("fever", 0)))], ["游玩时间", _fmt_time(float(st.get("playtime", 0.0)))],
 	]
@@ -486,6 +486,12 @@ func _next_unlock(level: int) -> Dictionary:
 ## cards below, so the page never becomes a long scroll
 const COL_KINDS := ["trail", "ball", "court", "deco", "net"]
 var _col_kind := 0
+
+
+## the share of the human's timed hits that were perfect ("-" until there is data)
+func _perfect_rate(st: Dictionary) -> String:
+	var n := int(st.get("t_perfect", 0)) + int(st.get("t_good", 0)) + int(st.get("t_ok", 0))
+	return ("%d%%" % int(round(100.0 * float(int(st.get("t_perfect", 0))) / float(n)))) if n >= 10 else "-"
 
 
 func _build_collection() -> void:

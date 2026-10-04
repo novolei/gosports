@@ -564,7 +564,7 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 垫、传、扣三次全是 Nice!，球色变粉红，几乎拦不住。	Bump, set and spike all Nice! and the ball turns pink: nearly unstoppable.
 每个角色都有独门特性：有的跑得快、有的拦网强，挑最适合你的。	Every character has a unique perk: some run faster, some block better. Pick what suits you.
 比赛和练习都能获得经验，解锁球拖尾、比赛用球、球场主题，在「生涯」里装备。	Matches and practice earn XP and unlock ball trails, balls and court themes. Equip them under Career.
-每天 3 个随机任务，连续登录提升经验加成，成就可收集 20 个。	3 random missions every day; log in on consecutive days for an XP bonus; 20 achievements to collect.
+每天 3 个随机任务，连续登录提升经验加成，成就可收集 22 个。	3 random missions every day; log in on consecutive days for an XP bonus; 22 achievements to collect.
 三轮连战（小组赛 → 半决赛 → 决赛），夺冠有大量经验；练习场的回合挑战可拿铜 / 银 / 金牌。	Three rounds (groups → semi-final → final) with big XP for winning; the Practice rally challenge awards bronze / silver / gold.
 小心碰撞	Collisions
 我的角色	My Character
@@ -642,4 +642,14 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 大力扣杀	Net smash
 在网前起跳、打出 Nice! 的扣球，有机会变成大力扣杀：时机越准、离网越近，越容易触发。	Jump at the net and hit a spike with Nice! timing for a chance at a net smash: the better the timing and the closer to the net, the likelier.
 在 [p]网前[/p] 起跳扣球，时机越准越有机会触发 [t]大力扣杀[/t]：球又快又陡，很难拦!	Jump at the [p]net[/p] and spike: the better your timing, the likelier a [t]net smash[/t] - fast, steep and hard to block!
+击球时机窗口	Hit timing window
+宽松	Relaxed
+精准	Precise
+网前一击	Net strike
+在网前打出一次大力扣杀	Land a net smash
+重炮手	Heavy gunner
+累计 10 次大力扣杀	10 net smashes
+完成 %d 次大力扣杀	Land %d net smashes
+击球完美率	Perfect rate
+强力扣球 / 大力扣杀	Power spikes / Net smashes
 """

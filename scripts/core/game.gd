@@ -28,6 +28,7 @@ var settings := {
 	"aim_scatter": true,     # ring around the target = where the ball can land with the current timing (small = precise)
 	"language": "auto",       # auto / zh / en (see Loc)
 	"landing_hint": 1,       # where-to-stand marker: 0 off / 1 minimal / 2 standard (see Vfx._update_marks)
+	"timing_window": 0,      # the human's hit-timing window: 0 relaxed (x1.4, default) / 1 standard (x1.2) / 2 precise (x1.0, the original)
 	"landing_hint_set": false, # the player chose a level (otherwise newcomers get the full marker for a few matches)
 	"replays": true,         # instant replay after the big points and at the end of a match
 	"render_scale": 0.0,     # 3D resolution scale; 0 = automatic (phones render below native resolution)
@@ -312,6 +313,14 @@ func apply_settings() -> void:
 
 ## dev render kill switches, e.g. settings.cfg "dbg=nosky,noferns": ambient (flat ambient + no reflections), nosky, nofog,
 ## noadjust, notonemap, noshadow, noferns, nostands, nobackdrop, nocrowd, nohud, nocourt, fsr
+## the human's timing-window multiplier for the chosen setting (see Athlete.timing_window_scale); the computer always uses 1.0
+const TIMING_WINDOWS := [1.4, 1.2, 1.0]
+
+
+func human_window() -> float:
+	return float(TIMING_WINDOWS[clampi(int(settings.get("timing_window", 0)), 0, TIMING_WINDOWS.size() - 1)])
+
+
 func dbg(flag: String) -> bool:
 	return String(settings.get("dbg", "")).split(",").has(flag)
 

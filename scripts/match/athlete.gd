@@ -700,15 +700,13 @@ func _ball_approaching(kind: String) -> bool:
 	return later < now - 0.002 and ball.live
 
 
-## the human's timing windows (the yellow "good" and the green "perfect" part of the timing ring) are wider than the computer's:
-## "Nice" was by far the most common result and a perfect felt like luck, so a hit inside the ring now lands a perfect far more often
-const HUMAN_WINDOW := 1.4
-
-
+## the human's timing windows (the yellow "good" and the green "perfect" part of the timing ring) are wider than the computer's
+## (Game.human_window(): relaxed x1.4 by default, standard x1.2, precise x1.0 = the original): "Nice" was by far the most common
+## result and a perfect felt like luck, so a hit inside the ring now lands a perfect far more often
 func timing_window_scale() -> float:
 	var s := 1.0
 	if is_human:
-		s *= HUMAN_WINDOW
+		s *= Game.human_window()
 	if director != null and director.is_fever(team):
 		s *= 1.35                            # fever time: a roomier timing window
 	if perk == "eagle":

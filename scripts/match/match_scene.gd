@@ -537,8 +537,11 @@ func _on_match_over(winner: int) -> void:
 				"won": winner == 0, "score": director.score.duplicate(), "target": director.target_points,
 				"difficulty": Game.match_difficulty, "mode": Game.mode, "time": _elapsed, "deuce": director.deuce,
 				"comeback": winner == 0 and int(director.max_deficit[0]) >= 5, "stats": st, "spike_points": int(st["spike_points"][0]),
+				"window": int(Game.settings.get("timing_window", 0)),
 			})
 		Game.save_settings()
+		if _log_events:
+			print("[timing] window=%d %s" % [int(Game.settings.get("timing_window", 0)), str(director.stats["timing"])])
 		if autoplay and Game.main.dev.has("quit_on_over"):
 			var lens := []
 			var reasons := {}

@@ -41,6 +41,8 @@ func _ready() -> void:
 	if dev.has("quality"):
 		Game.settings["quality"] = int(dev["quality"])
 		Game.apply_settings()
+	if dev.has("timingwin"):                                    # dev: --timingwin=0|1|2 (relaxed / standard / precise) for this run
+		Game.settings["timing_window"] = clampi(int(dev["timingwin"]), 0, 2)
 	if dev.has("music") or dev.has("sfx"):                      # dev (promo recording): --music=0 --sfx=0.9 override the saved volumes for this run
 		if dev.has("music"):
 			Game.settings["music"] = float(dev["music"])

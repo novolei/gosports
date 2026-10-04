@@ -556,3 +556,9 @@ PC 手感新增：
   * 统计 / 界面：`stats.smashes`、结算页新增「大力扣杀」一行（>0 才显示，行距在 7 行时收紧）、操作说明「规则 & 技巧」页新增一条、加载卡提示新增一条（中英文）。
 * 开发开关：`--smash` 强制每个满足条件（perfect + 网前 + 够高）的扣球变成大力扣杀；`--smashshot=<前缀>` 保存第一次大力扣杀后的 8 帧（每 0.06 s 真实时间）；`--log` 打印 `[smashroll]`（距离 / 窗口 / 概率）、`[smashshot]`（落点 / 飞行时间）、`[smash]`、`[smashts]`（时间缩放序列：0.02 → 慢动作 → 回到 1）。
 * **调试客户端失去焦点不再自动暂停**（`MatchScene._notification`）：桌面的 debug 客户端（`OS.has_feature("debug")` 且不是手机）窗口不活跃时继续跑——测试时弹出新窗口不会再把游戏暂停；release 导出版和手机（切后台 / 返回键）仍然自动暂停；`--focuspause` 可强制恢复暂停行为用于测试。
+
+## 36. 时间窗设置、扣杀成就 / 任务、击球时机数据（2026‑10‑05）
+
+* **设置 → 提示 →「击球时机窗口」**（`Game.settings["timing_window"]`，`Game.TIMING_WINDOWS`）：宽松 ×1.4（默认）/ 标准 ×1.2 / 精准 ×1.0（原版）；只对真人，电脑永远 ×1.0；`Athlete.timing_window_scale()` 读 `Game.human_window()`，圈、脚下亮圈、瞄准散布圈、大力扣杀概率都跟着变。开发开关 `--timingwin=0|1|2`。用同一个机器人、同一套出手时机各打 4 个难度：宽松窗口 perfect 69/78 ≈ 88 %，精准窗口 43/73 ≈ 59 %（机器人不代表真人，只证明窗口确实起作用）。
+* **成就 / 任务**：成就「网前一击」（1 次大力扣杀）、「重炮手」（累计 10 次）→ 共 22 个；每日任务池新增「完成 N 次大力扣杀」；`Profile` 终身统计 `smashes`；大力扣杀进「精彩表现」经验（每次 +4，最多 +20）；生涯页「强力扣球 / 大力扣杀」一格，「得分」格换成「击球完美率」。
+* **击球时机数据**（给以后调窗口用）：`MatchDirector.stats["timing"]` 统计近端真人每次非发球击球的 perfect / good / ok，以及非 perfect 里是「早」还是「晚」（球还在逼近理想点 = 早）；`Profile.finish_match` 累加到终身 `t_*` 和按窗口设置分开的 `timing_by_window`；`--log` 打印 `[timing]`。读取：`python tools/timing_report.py [profile.json]`（默认读 Windows 桌面版存档）。
