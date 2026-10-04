@@ -8,7 +8,7 @@ extends RefCounted
 ##             italic  Kanit ExtraBold Italic (in-match flying text, logo) -> Fonts.display_italic()
 ## tools/make_fonts.py builds the OFL files; all are subset to the characters the game can show.
 
-const DIR := "res://core/core/assets/fonts/"
+const DIR := "res://core/assets/fonts/"
 
 static var _body: Font
 static var _display: Font
