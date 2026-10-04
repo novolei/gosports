@@ -1,0 +1,179 @@
+1
+00:00:06,500 --> 00:00:10,670
+This is GoSports — a cartoon two-on-two volleyball game.
+
+2
+00:00:09,960 --> 00:00:13,930
+And from the first line of code to the installer on my phone,
+
+3
+00:00:13,930 --> 00:00:16,690
+I built it together with Claude Sonnet 5.5.
+
+4
+00:00:17,400 --> 00:00:20,540
+Serve: hold a direction to pick your target, toss,
+
+5
+00:00:20,540 --> 00:00:24,530
+and hit at the peak. The better the timing, the harder the ball.
+
+6
+00:00:24,940 --> 00:00:27,580
+Bump, set, spike: three touches in one flow.
+
+7
+00:00:27,580 --> 00:00:31,750
+Hit inside the ring for a perfect, and combos ignite fever time.
+
+8
+00:00:32,160 --> 00:00:34,790
+Jump to block at the net, dive to save.
+
+9
+00:00:34,790 --> 00:00:37,090
+Every ball can still be won.
+
+10
+00:00:37,460 --> 00:00:41,590
+Instant replays, hawk-eye line calls, press photographers flashing.
+
+11
+00:00:41,590 --> 00:00:43,860
+Every point feels like a broadcast.
+
+12
+00:00:44,500 --> 00:00:48,500
+Next up: the signature of GoSports, the gag moments.
+
+13
+00:00:49,000 --> 00:00:53,945
+Dawdle on your serve? The animal umpire warns you, then throws things:
+
+14
+00:00:53,945 --> 00:00:59,070
+pencil stubs, bananas, rubber ducks, slippers, and the signature sardine.
+
+15
+00:00:59,420 --> 00:01:02,720
+Ignore two warnings, and you lose the point.
+
+16
+00:01:03,120 --> 00:01:06,375
+Make a mistake and your partner steams up and hurls a sardine,
+
+17
+00:01:06,375 --> 00:01:08,550
+or even charges over for a punch.
+
+18
+00:01:08,900 --> 00:01:12,030
+Lose the match, and there might be a falling-out.
+
+19
+00:01:12,640 --> 00:01:17,550
+Win a point and it's high-fives and dances, and the opponents react in their own way.
+
+20
+00:01:17,550 --> 00:01:18,810
+Skip them any time.
+
+21
+00:01:19,220 --> 00:01:22,225
+Solo, co-op, versus, tournament and training;
+
+22
+00:01:22,225 --> 00:01:25,980
+keyboard, gamepad and phone touch; Chinese and English.
+
+23
+00:01:26,840 --> 00:01:29,125
+This game wasn't generated in one shot.
+
+24
+00:01:29,125 --> 00:01:33,350
+It was talked into existence over fourteen rounds of conversation.
+
+25
+00:01:33,740 --> 00:01:35,610
+I just describe things in plain words.
+
+26
+00:01:35,610 --> 00:01:40,070
+Like: when I mess up, my partner gets angry, and might even throw a sardine at me.
+
+27
+00:01:40,480 --> 00:01:45,100
+Claude writes the code, runs the game, takes screenshots and checks them itself.
+
+28
+00:01:45,100 --> 00:01:47,440
+All I do is tell it what feels wrong.
+
+29
+00:01:48,090 --> 00:01:52,995
+Every round ends with compile checks, translation checks and full-match regression runs,
+
+30
+00:01:52,995 --> 00:01:56,115
+then design docs, encrypted Windows and Android builds,
+
+31
+00:01:56,115 --> 00:01:58,550
+and an adb install onto my phone.
+
+32
+00:01:58,920 --> 00:02:02,600
+About twenty-one hours, over twenty-five thousand lines of code,
+
+33
+00:02:02,600 --> 00:02:07,350
+thirty-three design-doc sections and more than two thousand tool calls.
+
+34
+00:02:07,900 --> 00:02:12,085
+Apart from the character pack and the Gemini-made icons,
+
+35
+00:02:12,085 --> 00:02:16,440
+the animation, effects, sound, music and UI are all generated in code.
+
+36
+00:02:16,880 --> 00:02:20,765
+Even better: I ran several Claude sessions side by side,
+
+37
+00:02:20,765 --> 00:02:23,875
+each on its own branch, building the next game.
+
+38
+00:02:23,875 --> 00:02:29,250
+Animation, art, audio, UI and venue, without stepping on each other.
+
+39
+00:02:30,110 --> 00:02:32,970
+So GoSports won't stop at volleyball.
+
+40
+00:02:33,320 --> 00:02:37,180
+Next stop: table tennis. Then football, and shuffleboard.
+
+41
+00:02:37,660 --> 00:02:40,790
+The same pick-up-and-play fun, a different sport.
+
+42
+00:02:41,600 --> 00:02:45,805
+GoSports, built in collaboration with Claude Sonnet 5.5.
+
+43
+00:02:45,805 --> 00:02:46,950
+Coming soon.
+
+44
+00:02:47,580 --> 00:02:51,540
+If you enjoyed this, follow, subscribe, and smash that like button.
+
+45
+00:02:51,540 --> 00:02:52,810
+See you in the next one!

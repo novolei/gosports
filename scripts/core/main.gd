@@ -41,6 +41,12 @@ func _ready() -> void:
 	if dev.has("quality"):
 		Game.settings["quality"] = int(dev["quality"])
 		Game.apply_settings()
+	if dev.has("music") or dev.has("sfx"):                      # dev (promo recording): --music=0 --sfx=0.9 override the saved volumes for this run
+		if dev.has("music"):
+			Game.settings["music"] = float(dev["music"])
+		if dev.has("sfx"):
+			Game.settings["sfx"] = float(dev["sfx"])
+		Game.apply_settings()
 	if dev.has("lang"):
 		Loc.apply(String(dev["lang"]))
 	var first: String = dev.get("screen", "menu")

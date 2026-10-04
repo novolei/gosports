@@ -9,3 +9,9 @@
 *.apk
 *.idsig
 *.exe
+
+# promo video work area (recordings, TTS wavs, renders) and the temporary recording override
+/promo_work/
+/override.cfg
+*.mp4
+*.avi

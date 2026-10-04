@@ -538,3 +538,10 @@ PC 手感新增：
 * **`tools/build_android.ps1 -Mode sideload`**：安装到手机的构建——**release 导出 + 加密模板**，用同一把本地 debug keystore 签名、同一个 `.dev` 包名（所以能直接覆盖安装旧的调试包、存档保留），versionCode = 自 2025‑01‑01 起的分钟数。成品检查：`assets/assets.sparsepck` 头 flags bit 0 置位，并且所有 `assets/<sha256>` 打包文件开头**没有任何明文签名**（`RSRC`、`GDSC`、`PNG`、`OggS`、`PK\3\4`…，按字节序比较），再加 apksigner / aapt 的包名与 versionCode 校验。`-Mode debug`（默认）仍是不加密的调试包，只在本机用。
 * 解包 / 验证提示：加密模板编译时带 `disable_path_overrides`，`--main-pack`、`--script` 不能用；自测参数写在 `--` 之后（`GoSports.exe -- --screen=match --autoplay …`）。导出的 exe 如果报「Couldn't load project data」，先怀疑密钥不一致。
 * **「!」移到头的一侧**：被裁判警告的发球人头顶正上方有「发球」气泡（`HUD._update_serve_bubble`，头顶 1.95 m），「!」和它重叠。现在 `AlertMark` 改为浮在**头的屏幕右侧**（`SIDE` 0.62 m，按摄像机的右向量算，头靠近屏幕右 22 % 时翻到左侧；脚底略低于头顶 `SIDE_LIFT`），不再挡住气泡和 P1 标签；远处角色仍按距离放大。验证：`--screen=match --mode=solo --servescale=0.2 --propid=fish`（约第 830–900 帧）。新增 dev 开关 `--serveridx=1`（让队内第二人先发球）。
+
+## 34. 宣传片（2026‑10‑04）
+
+`promo/` 里是一整条可复现的宣传片流水线（说明见 `promo/README.md`）：**本地 TTS 旁白**（Minitanks 的 VoxCPM2 工具链，一把声音设计 + 每句克隆，ASR 逐句核对）→ **游戏实机录制**（Godot Movie Maker，1440p60，`promo/rec*.sh`；强制触发各种搞怪镜头用的是第 13–14 轮的 `--banter=… --banter_final`、`--servescale`、`--propid`、`--hawkdemo` 等开关）→ **Python 剪辑引擎**（`nle.py` 帧精确合成、`cards*.py` 章节卡 / 字幕 / 终端 / 数据卡、`film_shots.py` 镜头表）→ **配乐**（`music.py`：把游戏自己的两首主题曲重编成 120 BPM，按剪辑分段）→ 混音（旁白压低配乐）→ 渲染中文版 / 英文版 + SRT + 封面（`cover.py`）+ 发布文案（`promo/publish/`）。
+* 新增录制用开关：`--cleanhud`（去掉底部键位提示和「按任意键跳过」小胶囊）、`--music=<0..1> --sfx=<0..1>`（只对本次运行覆盖音量）、`--serveridx=1`；Movie Maker 录制时 `MatchScene` 不再因失去焦点自动暂停（`OS.has_feature("movie")`）。
+* 经验：4K 的 Movie Maker 录制比实时慢 ~11 倍（回读受限），1440p60 约 2.3 倍实时，推近到 1080p 依然清晰；VoxCPM2 对「Go Sports / Claude Sonnet 5.5」读不稳，中文版用音译「克劳德·索内特五点五」、英文版多抽几遍取 ASR 听对的那一遍，字幕仍写正确拼写。
+* 版权 / 变现提醒：角色包（Cubebrush Simple Character Pack、Male Ninja Modular Pack）、中文字体文道潮黑的商用授权请自行确认（仓库里没有授权原文）。

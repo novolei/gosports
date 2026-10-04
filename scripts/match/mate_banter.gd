@@ -136,7 +136,7 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		_gag(gen, culprit, gag)
 	if kind != "cheer":
 		director.celebration_hold = director.phase_time + 3.9
-		_chip.visible = true
+		_chip.visible = not (Game.main != null and Game.main.dev.has("cleanhud"))
 		if Game.main != null and Game.main.dev.has("skiptest"):
 			_press_key_later(1.0, gen)
 	match kind:

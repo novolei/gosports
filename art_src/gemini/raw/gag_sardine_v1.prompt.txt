@@ -1,0 +1,9 @@
+model: gemini-3-pro-image
+location: global
+aspect: 1:1
+size: 1K
+references:
+  art_src\brand\ball_render.png
+prompt:
+Create ONE game icon in the same visual style as the reference image: a glossy soft-3D cartoon render with a thick dark-navy outline, bright saturated colours and gentle highlights. A single cute cartoon sardine: a slim silver-blue fish with a darker blue back, a big round friendly eye, a forked tail and small fins, diagonal pose as if it is flying through the air, with a tiny motion swoosh behind it. Centered, fully visible with a small margin, square canvas. Background: a perfectly flat, solid chroma-key green (#00FF00) filling the whole image edge to edge, no shadow, no floor, no ground line. There must be NO green anywhere inside the icon itself. No text, no logo, no watermark.
+model notes:

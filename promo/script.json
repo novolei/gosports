@@ -1,0 +1,418 @@
+{
+ "title": {
+  "zh": "GoSports｜一个人 + Claude Sonnet 5.5，聊出一款排球游戏",
+  "en": "GoSports | One person + Claude Sonnet 5.5 talked a volleyball game into existence"
+ },
+ "voice": {
+  "zh": "一位年轻的女性解说员，声音明亮清澈、自信亲切，像科技产品发布会的主讲人；语速轻快利落，吐字清楚，句尾上扬带笑意。",
+  "en": "A young female narrator, bright and clear, confident and friendly, like the host of a tech product launch; brisk and crisp, with a smile at the end of each phrase."
+ },
+ "moods": {
+  "intro": {
+   "zh": "自信明亮，开场的笑意，节奏利落。",
+   "en": "Confident and bright, an opening smile, crisp rhythm."
+  },
+  "explain": {
+   "zh": "清楚明快地讲解，关键词略加重，不拖沓。",
+   "en": "Clear and brisk explanation, light emphasis on the key words, never dragging."
+  },
+  "playful": {
+   "zh": "俏皮带笑，像在分享一个有趣的小秘密。",
+   "en": "Playful and smiling, as if sharing a funny secret."
+  },
+  "story": {
+   "zh": "真诚温暖，有分享经历的亲近感，语速平稳。",
+   "en": "Sincere and warm, like sharing an experience, steady pace."
+  },
+  "hype": {
+   "zh": "越说越兴奋，句尾上扬，充满期待但不尖叫。",
+   "en": "Getting more excited, rising endings, full of anticipation without shouting."
+  },
+  "close": {
+   "zh": "沉稳自信，带着笑意收尾，像在发出邀请。",
+   "en": "Calm and confident, closing with a smile like an invitation."
+  }
+ },
+ "lines": [
+  {
+   "id": "n01",
+   "mood": "intro",
+   "zh": "这是 GoSports——一款两对两的卡通排球游戏。",
+   "en": "This is GoSports — a cartoon two-on-two volleyball game.",
+   "chunks": [
+    [
+     "这是 GoSports——一款两对两的卡通排球游戏。",
+     "This is GoSports — a cartoon two-on-two volleyball game."
+    ]
+   ]
+  },
+  {
+   "id": "n02",
+   "mood": "intro",
+   "zh": "而它从第一行代码，到装进手机的安装包，都是我和克劳德·索内特五点五，一起完成的。",
+   "en": "And from the first line of code to the installer on my phone, I built it together with Claude Sonnet 5.5.",
+   "chunks": [
+    [
+     "而它从第一行代码，到装进手机的安装包，",
+     "And from the first line of code to the installer on my phone,"
+    ],
+    [
+     "都是我和 Claude Sonnet 5.5 一起完成的。",
+     "I built it together with Claude Sonnet 5.5."
+    ]
+   ]
+  },
+  {
+   "id": "n03",
+   "mood": "explain",
+   "zh": "发球：按住方向选落点，抛球，在最高点按下——时机越准，球越凶。",
+   "en": "Serve: hold a direction to pick your target, toss, and hit at the peak. The better the timing, the harder the ball.",
+   "chunks": [
+    [
+     "发球：按住方向选落点，抛球，",
+     "Serve: hold a direction to pick your target, toss,"
+    ],
+    [
+     "在最高点按下——时机越准，球越凶。",
+     "and hit at the peak. The better the timing, the harder the ball."
+    ]
+   ]
+  },
+  {
+   "id": "n04",
+   "mood": "explain",
+   "zh": "接球、传球、扣杀，三次触球一气呵成；圈内按键，打出完美时机，连击还会点燃热血状态。",
+   "en": "Bump, set, spike: three touches in one flow. Hit inside the ring for a perfect, and combos ignite fever time.",
+   "chunks": [
+    [
+     "接球、传球、扣杀，三次触球一气呵成；",
+     "Bump, set, spike: three touches in one flow."
+    ],
+    [
+     "圈内按键，打出完美时机，连击还会点燃热血状态。",
+     "Hit inside the ring for a perfect, and combos ignite fever time."
+    ]
+   ]
+  },
+  {
+   "id": "n05",
+   "mood": "explain",
+   "zh": "网前起跳拦网，飞身扑救，每一个球都有翻盘的机会。",
+   "en": "Jump to block at the net, dive to save. Every ball can still be won.",
+   "chunks": [
+    [
+     "网前起跳拦网，飞身扑救，",
+     "Jump to block at the net, dive to save."
+    ],
+    [
+     "每一个球都有翻盘的机会。",
+     "Every ball can still be won."
+    ]
+   ]
+  },
+  {
+   "id": "n06",
+   "mood": "explain",
+   "zh": "精彩回放，鹰眼判罚，场边记者的闪光灯——每一分都像电视转播。",
+   "en": "Instant replays, hawk-eye line calls, press photographers flashing. Every point feels like a broadcast.",
+   "chunks": [
+    [
+     "精彩回放，鹰眼判罚，场边记者的闪光灯——",
+     "Instant replays, hawk-eye line calls, press photographers flashing."
+    ],
+    [
+     "每一分都像电视转播。",
+     "Every point feels like a broadcast."
+    ]
+   ]
+  },
+  {
+   "id": "g01",
+   "mood": "playful",
+   "zh": "接下来，是 GoSports 最招牌的——搞怪环节。",
+   "en": "Next up: the signature of Go Sports, the gag moments.",
+   "chunks": [
+    [
+     "接下来，是 GoSports 最招牌的——搞怪环节。",
+     "Next up: the signature of GoSports, the gag moments."
+    ]
+   ]
+  },
+  {
+   "id": "g02",
+   "mood": "playful",
+   "zh": "发球磨蹭？动物裁判先警告你，再朝你扔东西：铅笔头、香蕉、小黄鸭、拖鞋，还有招牌的沙丁鱼。",
+   "en": "Dawdle on your serve? The animal umpire warns you, then throws things: pencil stubs, bananas, rubber ducks, slippers, and the signature sardine.",
+   "chunks": [
+    [
+     "发球磨蹭？动物裁判先警告你，再朝你扔东西：",
+     "Dawdle on your serve? The animal umpire warns you, then throws things:"
+    ],
+    [
+     "铅笔头、香蕉、小黄鸭、拖鞋，还有招牌的沙丁鱼。",
+     "pencil stubs, bananas, rubber ducks, slippers, and the signature sardine."
+    ]
+   ]
+  },
+  {
+   "id": "g03",
+   "mood": "playful",
+   "zh": "两次警告还不发球，这一分，直接判负。",
+   "en": "Ignore two warnings, and you lose the point.",
+   "chunks": [
+    [
+     "两次警告还不发球，这一分，直接判负。",
+     "Ignore two warnings, and you lose the point."
+    ]
+   ]
+  },
+  {
+   "id": "g04",
+   "mood": "playful",
+   "zh": "你要是失误了，队友会气得头上冒青筋，甩出一条沙丁鱼，甚至冲过来——就是一拳。",
+   "en": "Make a mistake and your partner steams up, hurls a sardine, or even charges over for a punch.",
+   "chunks": [
+    [
+     "你要是失误了，队友会气得头上冒青筋，甩出一条沙丁鱼，",
+     "Make a mistake and your partner steams up and hurls a sardine,"
+    ],
+    [
+     "甚至冲过来——就是一拳。",
+     "or even charges over for a punch."
+    ]
+   ]
+  },
+  {
+   "id": "g05",
+   "mood": "playful",
+   "zh": "输了比赛，说不定还要内讧一场。",
+   "en": "Lose the match, and there might be a falling-out.",
+   "chunks": [
+    [
+     "输了比赛，说不定还要内讧一场。",
+     "Lose the match, and there might be a falling-out."
+    ]
+   ]
+  },
+  {
+   "id": "n08",
+   "mood": "playful",
+   "zh": "赢了球，就击掌、跳舞，对手也有自己的反应——不想看，随时可以跳过。",
+   "en": "Win a point and it's high-fives and dances, and the opponents react in their own way. Skip them any time.",
+   "chunks": [
+    [
+     "赢了球，就击掌、跳舞，对手也有自己的反应——",
+     "Win a point and it's high-fives and dances, and the opponents react in their own way."
+    ],
+    [
+     "不想看，随时可以跳过。",
+     "Skip them any time."
+    ]
+   ]
+  },
+  {
+   "id": "n09",
+   "mood": "explain",
+   "zh": "单人、双人合作、对战、锦标赛、训练；键盘、手柄、手机触屏，中英文双语。",
+   "en": "Single-player, co-op, versus, tournament and training; keyboard, gamepad and phone touch; Chinese and English.",
+   "chunks": [
+    [
+     "单人、双人合作、对战、锦标赛、训练；",
+     "Solo, co-op, versus, tournament and training;"
+    ],
+    [
+     "键盘、手柄、手机触屏，中英文双语。",
+     "keyboard, gamepad and phone touch; Chinese and English."
+    ]
+   ]
+  },
+  {
+   "id": "n10",
+   "mood": "story",
+   "zh": "这个游戏不是一次生成的，而是十四轮对话，一点一点聊出来的。",
+   "en": "This game wasn't generated in one shot. It was talked into existence over fourteen rounds of conversation.",
+   "chunks": [
+    [
+     "这个游戏不是一次生成的，",
+     "This game wasn't generated in one shot."
+    ],
+    [
+     "而是十四轮对话，一点一点聊出来的。",
+     "It was talked into existence over fourteen rounds of conversation."
+    ]
+   ]
+  },
+  {
+   "id": "n11",
+   "mood": "story",
+   "zh": "我只用大白话提需求，比如：队友失误的时候，另一个会生气，甚至朝我扔沙丁鱼。",
+   "en": "I just describe things in plain words. Like: when I mess up, my partner gets angry, and might even throw a sardine at me.",
+   "chunks": [
+    [
+     "我只用大白话提需求，",
+     "I just describe things in plain words."
+    ],
+    [
+     "比如：队友失误的时候，另一个会生气，甚至朝我扔沙丁鱼。",
+     "Like: when I mess up, my partner gets angry, and might even throw a sardine at me."
+    ]
+   ]
+  },
+  {
+   "id": "n12",
+   "mood": "story",
+   "zh": "克劳德会自己写代码，自己运行游戏、自己截图，再自己看图验证——我只负责告诉它，哪里不对劲。",
+   "en": "Claude writes the code, runs the game, takes screenshots and checks them itself. All I do is tell it what feels wrong.",
+   "chunks": [
+    [
+     "Claude 会自己写代码，自己运行游戏、自己截图，再自己看图验证——",
+     "Claude writes the code, runs the game, takes screenshots and checks them itself."
+    ],
+    [
+     "我只负责告诉它，哪里不对劲。",
+     "All I do is tell it what feels wrong."
+    ]
+   ]
+  },
+  {
+   "id": "n13",
+   "mood": "story",
+   "zh": "每一轮收尾，它还会跑编译检查、中英文校验和整局回归测试，写好设计文档，再打出加密的 Windows 和 Android 安装包，用 adb 装进我的手机。",
+   "en": "Every round ends with compile checks, translation checks and full-match regression runs, then design docs, encrypted Windows and Android builds, and an adb install onto my phone.",
+   "chunks": [
+    [
+     "每一轮收尾，它还会跑编译检查、中英文校验和整局回归测试，",
+     "Every round ends with compile checks, translation checks and full-match regression runs,"
+    ],
+    [
+     "写好设计文档，再打出加密的 Windows 和 Android 安装包，",
+     "then design docs, encrypted Windows and Android builds,"
+    ],
+    [
+     "用 adb 装进我的手机。",
+     "and an adb install onto my phone."
+    ]
+   ]
+  },
+  {
+   "id": "n14",
+   "mood": "story",
+   "zh": "二十多个小时，代码超过两万五千行，三十三节设计文档，两千多次工具调用。",
+   "en": "About twenty-one hours, over twenty-five thousand lines of code, thirty-three design-doc sections and more than two thousand tool calls.",
+   "chunks": [
+    [
+     "二十多个小时，代码超过两万五千行，",
+     "About twenty-one hours, over twenty-five thousand lines of code,"
+    ],
+    [
+     "三十三节设计文档，两千多次工具调用。",
+     "thirty-three design-doc sections and more than two thousand tool calls."
+    ]
+   ]
+  },
+  {
+   "id": "n15",
+   "mood": "story",
+   "zh": "除了角色素材包和 Gemini 生成的图标，动画、特效、音效、音乐和界面，全都是代码生成的。",
+   "en": "Apart from the character pack and the Gemini-made icons, the animation, effects, sound, music and UI are all generated in code.",
+   "chunks": [
+    [
+     "除了角色素材包和 Gemini 生成的图标，",
+     "Apart from the character pack and the Gemini-made icons,"
+    ],
+    [
+     "动画、特效、音效、音乐和界面，全都是代码生成的。",
+     "the animation, effects, sound, music and UI are all generated in code."
+    ]
+   ]
+  },
+  {
+   "id": "n16",
+   "mood": "hype",
+   "zh": "更有意思的是——我还同时开了好几个克劳德会话，各自在独立的分支上，并行开发下一款：动画、美术、音效、界面、场馆，互不干扰。",
+   "en": "Even better: I ran several Claude sessions side by side, each on its own branch, building the next game. Animation, art, audio, UI and venue, without stepping on each other.",
+   "chunks": [
+    [
+     "更有意思的是——我还同时开了好几个 Claude 会话，",
+     "Even better: I ran several Claude sessions side by side,"
+    ],
+    [
+     "各自在独立的分支上，并行开发下一款：",
+     "each on its own branch, building the next game."
+    ],
+    [
+     "动画、美术、音效、界面、场馆，互不干扰。",
+     "Animation, art, audio, UI and venue, without stepping on each other."
+    ]
+   ]
+  },
+  {
+   "id": "n17",
+   "mood": "hype",
+   "zh": "所以，GoSports 不会只有排球。",
+   "en": "So Go Sports won't stop at volleyball.",
+   "chunks": [
+    [
+     "所以，GoSports 不会只有排球。",
+     "So GoSports won't stop at volleyball."
+    ]
+   ]
+  },
+  {
+   "id": "n18",
+   "mood": "hype",
+   "zh": "下一站，乒乓球；然后是足球，和沙狐球。",
+   "en": "Next stop: table tennis. Then football, and shuffleboard.",
+   "chunks": [
+    [
+     "下一站，乒乓球；然后是足球，和沙狐球。",
+     "Next stop: table tennis. Then football, and shuffleboard."
+    ]
+   ]
+  },
+  {
+   "id": "n19",
+   "mood": "hype",
+   "zh": "一样的轻松上手，换一项运动。",
+   "en": "The same pick-up-and-play fun, a different sport.",
+   "chunks": [
+    [
+     "一样的轻松上手，换一项运动。",
+     "The same pick-up-and-play fun, a different sport."
+    ]
+   ]
+  },
+  {
+   "id": "n20",
+   "mood": "close",
+   "zh": "Go Sports，由克劳德·索内特五点五协作开发。敬请期待。",
+   "en": "Go Sports, built in collaboration with Claude Sonnet five point five. Coming soon.",
+   "chunks": [
+    [
+     "GoSports，由 Claude Sonnet 5.5 协作开发。",
+     "GoSports, built in collaboration with Claude Sonnet 5.5."
+    ],
+    [
+     "敬请期待。",
+     "Coming soon."
+    ]
+   ]
+  },
+  {
+   "id": "n21",
+   "mood": "close",
+   "zh": "喜欢的话，别忘了关注、订阅，三连支持一下！我们下期见。",
+   "en": "If you enjoyed this, follow, subscribe, and smash that like button. See you in the next one!",
+   "chunks": [
+    [
+     "喜欢的话，别忘了关注、订阅，三连支持一下！",
+     "If you enjoyed this, follow, subscribe, and smash that like button."
+    ],
+    [
+     "我们下期见。",
+     "See you in the next one!"
+    ]
+   ]
+  }
+ ]
+}

@@ -1489,6 +1489,8 @@ func _build_tutorial() -> void:
 	tutorial.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tutorial.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(tutorial)
+	if Game.main != null and Game.main.dev.has("cleanhud"):        # dev (promo recording): no key prompt row
+		return
 	if Game.is_touch:
 		var l := UIKit.label("左侧滑动移动  ·  右侧按钮 击球 / 跳 / 扑  ·  点击对面场地设定落点", 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.95))
 		l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
