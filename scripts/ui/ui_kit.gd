@@ -19,6 +19,27 @@ const PALE_TXT := Color("1d6a70")
 const CHEVRON := Color("f28c28")
 
 static var _portraits := {}
+static var _emblems := {}
+
+
+## sticker-style emblem generated with Gemini (assets/ui/emb_<name>.png): flame, trophy, lock
+static func emblem(name: String) -> Texture2D:
+	if not _emblems.has(name):
+		var p := "res://assets/ui/emb_%s.png" % name
+		_emblems[name] = load(p) if ResourceLoader.exists(p) else null
+	return _emblems[name]
+
+
+## emblem as a ready-to-place TextureRect
+static func emblem_rect(name: String, size: float) -> TextureRect:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.texture = emblem(name)
+	t.size = Vector2(size, size)
+	t.custom_minimum_size = t.size
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 
 static func team_color(team: int) -> Color:
@@ -37,9 +58,9 @@ static func style_box(color: Color, radius := 24, border := 0, border_color := C
 		s.set_border_width_all(border)
 		s.border_color = border_color
 	if shadow > 0:
-		s.shadow_size = shadow
-		s.shadow_color = Color(0, 0, 0, 0.28)
-		s.shadow_offset = Vector2(0, shadow * 0.45)
+		s.shadow_size = maxi(int(float(shadow) * 0.5), 2)             # lightly flat: a short, faint contact shadow
+		s.shadow_color = Color(0, 0, 0, 0.16)
+		s.shadow_offset = Vector2(0, float(shadow) * 0.25)
 	if margin > 0:
 		s.content_margin_left = margin
 		s.content_margin_right = margin
@@ -134,28 +155,23 @@ class _Chevron:
 		draw_polyline(pts, CHEVRON, 6.5, true)
 
 
-## menu pill in the reference game's look: pale + teal text, teal + white text when selected (focus / hover), with an
-## orange chevron. `color` is only a hint: UIKit.GREEN marks the primary action (always teal).
+## menu pill in the reference game's look (see shaders/ui_pill.gdshader): pale glass with teal text, teal + diagonal stripes +
+## white text when selected (hover / focus), sinks when pressed, orange chevron while selected. `color == GREEN` marks the primary
+## action, which is always teal. All other colour hints are ignored on purpose: one calm palette instead of a rainbow of buttons.
 static func button(text: String, size := Vector2(360, 76), color := GREEN, font_size := 34) -> Button:
 	var primary := color == GREEN
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = size
+	b.size = size
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_size_override("font_size", font_size)
-	var rad := int(size.y * 0.5)
-	var idle_txt := Color.WHITE if primary else PALE_TXT
-	b.add_theme_color_override("font_color", idle_txt)
-	for n in ["font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		b.add_theme_color_override(n, Color.WHITE)
-	b.add_theme_constant_override("outline_size", 0)
-	b.add_theme_color_override("font_outline_color", Color(TEAL_DARK.r, TEAL_DARK.g, TEAL_DARK.b, 0.5))
-	var rest := TEAL if primary else PALE
-	b.add_theme_stylebox_override("normal", style_box(rest, rad, 3, Color(1, 1, 1, 0.9), 8))
-	b.add_theme_stylebox_override("hover", style_box(TEAL.lightened(0.06), rad, 4, Color.WHITE, 10))
-	b.add_theme_stylebox_override("pressed", style_box(TEAL_DARK, rad, 3, Color.WHITE, 4))
-	b.add_theme_stylebox_override("focus", style_box(TEAL.lightened(0.06), rad, 4, Color.WHITE, 10))
-	b.add_theme_stylebox_override("hover_pressed", style_box(TEAL_DARK, rad, 3, Color.WHITE, 4))
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "hover_pressed", "disabled"]:
+		b.add_theme_stylebox_override(st, empty)
+	var bg := GW.pill_bg(size, size.y * 0.5, TEAL if primary else PALE, 1.0 if primary else 0.0)
+	bg.show_behind_parent = true
+	b.add_child(bg)
 	var chev := _Chevron.new()
 	chev.size = Vector2(40, 48)
 	chev.position = Vector2(-52.0, size.y * 0.5 - 24.0)
@@ -163,16 +179,33 @@ static func button(text: String, size := Vector2(360, 76), color := GREEN, font_
 	chev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(chev)
 	b.pivot_offset = size * 0.5
-	var show_chev := func(on: bool):
-		chev.visible = on
-		b.add_theme_constant_override("outline_size", 6 if (on or primary) else 0)
-	if primary:
-		b.add_theme_constant_override("outline_size", 6)
-	b.mouse_entered.connect(func(): _bump(b, 1.04); show_chev.call(true))
-	b.focus_entered.connect(func(): _bump(b, 1.04); show_chev.call(true); Sfx.play("ui_hover", -8.0))
-	b.mouse_exited.connect(func(): _bump(b, 1.0); if not b.has_focus(): show_chev.call(false))
-	b.focus_exited.connect(func(): _bump(b, 1.0); show_chev.call(false))
+	var state := {"sel": false, "press": false}
+	var apply := func():
+		var m: ShaderMaterial = bg.material
+		var hot: bool = state["sel"] or state["press"] or primary
+		m.set_shader_parameter("base_col", (TEAL.darkened(0.14) if state["press"] else TEAL) if hot else PALE)
+		m.set_shader_parameter("stripes", 1.0 if hot else 0.0)
+		m.set_shader_parameter("lift", 1.0 if state["press"] else 0.0)
+		var col := Color.WHITE if hot else PALE_TXT
+		for n in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			b.add_theme_color_override(n, col)
+		b.add_theme_constant_override("outline_size", 6 if hot else 0)
+		b.add_theme_color_override("font_outline_color", Color(0.02, 0.35, 0.36, 0.7))
+		chev.visible = state["sel"]
+	var set_sel := func(on: bool):
+		if on != state["sel"]:
+			state["sel"] = on
+			_bump(b, 1.04 if on else 1.0)
+		apply.call()
+	apply.call()
+	b.mouse_entered.connect(func(): set_sel.call(true))
+	b.mouse_exited.connect(func(): set_sel.call(b.has_focus()))
+	b.focus_entered.connect(func(): set_sel.call(true); Sfx.play("ui_hover", -8.0))
+	b.focus_exited.connect(func(): set_sel.call(false))
+	b.button_down.connect(func(): state["press"] = true; apply.call())
+	b.button_up.connect(func(): state["press"] = false; apply.call())
 	b.pressed.connect(func(): Sfx.play("ui_click", -2.0))
+	b.resized.connect(func(): GW.pill_set(bg, b.size))
 	return b
 
 

@@ -22,12 +22,12 @@ var _last_xp := 0
 var _again: Button
 
 # dark scoreboard palette (light text on a deep teal board instead of a white web card)
-const T := Color(0.96, 0.98, 1.0)         # primary text
-const T2 := Color(0.62, 0.78, 0.88)       # secondary text
-const ACC := Color("ffe14a")              # accent / headings
-const GOOD := Color("7dffb0")             # positive values
-const BOARD := Color(0.06, 0.2, 0.32, 0.9)
-const TRACK := Color(0.02, 0.1, 0.18, 0.55)
+const T := Color(0.11, 0.17, 0.29)        # primary text (ink on frosted glass: lightly flat, airy like the menus)
+const T2 := Color(0.33, 0.45, 0.52)       # secondary text
+const ACC := Color("c4601a")              # accent / amounts
+const GOOD := Color("1f9a55")             # positive values
+const BOARD := Color(0.9, 0.96, 0.97, 0.9)
+const TRACK := Color(0.7, 0.8, 0.84, 0.75)
 
 
 ## dev preview (--screen=results): a made-up finished match with a reward computed on a throw-away profile
@@ -118,8 +118,8 @@ func _prepare_tournament(data: Dictionary, winner: int) -> void:
 
 
 # ------------------------------------------------------------------ layout
-func _panel(pos: Vector2, size: Vector2, col := BOARD) -> Control:
-	var b := GW.board(size, col, Color(1, 1, 1, 0.9), 0.02)
+func _panel(pos: Vector2, size: Vector2, _col := BOARD) -> Control:
+	var b := GW.frost(size, 40.0, Color(0.92, 0.97, 0.98), 0.8)
 	b.position = pos
 	return b
 
@@ -162,12 +162,25 @@ func _build_ui(data: Dictionary, winner: int) -> void:
 		head_text = "胜利!" if winner == 0 else "败北…"
 	if winner != 0 and not practice and mode != "versus":
 		col = Color("9ab4e8")
-	var head := UIKit.label(head_text, 140, col, 26, UIKit.INK)
+	var rb_col := UIKit.TEAL
+	if practice and mode == "rally":
+		var md := Profile.medal_for(int((data["practice"] as Dictionary).get("best", 0)))
+		if not md.is_empty():
+			rb_col = (md["color"] as Color).darkened(0.12)
+	elif winner != 0 and mode != "versus" and not practice:
+		rb_col = Color("6f86b8")
+	var head := GW.ribbon(head_text, 820.0, 150.0, rb_col, 104)
 	head.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	head.position = Vector2(-500, 8)
-	head.size = Vector2(1000, 170)
+	head.position = Vector2(-410, 14)
 	_root.add_child(head)
 	UIKit.pop_in(head, 0.3, 0.5)
+	if _reward.get("champion", false) and UIKit.emblem("trophy") != null:
+		for sx in [-1.0, 1.0]:
+			var tr := UIKit.emblem_rect("trophy", 150.0)
+			tr.set_anchors_preset(Control.PRESET_CENTER_TOP)
+			tr.position = Vector2(sx * 430.0 - 75.0, 14.0)
+			_root.add_child(tr)
+			UIKit.pop_in(tr, 0.2, 0.6)
 	# the three section titles of the board are ribbons, not bold text
 	# big card on the right
 	var card := _panel(Vector2(880, 178), Vector2(980, 770))
@@ -216,7 +229,7 @@ func _build_reward_column(card: Control) -> void:
 		_chips.append(chip)
 	var chip_rows := ceili(float((_reward["mults"] as Array).size()) / 3.0)
 	var ty := y + 12.0 + float(chip_rows) * 42.0
-	_total_label = _lbl(card, "+%d XP" % int(_reward["xp"]), Vector2(34, ty), Vector2(430, 70), 56, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, 12, Color("e0902a"))
+	_total_label = _lbl(card, "+%d XP" % int(_reward["xp"]), Vector2(34, ty), Vector2(430, 70), 56, Color("ff9a1f"), HORIZONTAL_ALIGNMENT_LEFT, 10, Color.WHITE)
 	_total_label.modulate.a = 0.0
 	var extra := int(_reward.get("bonus_xp", 0))
 	_bonus_label = _lbl(card, ("成就 / 任务 / 奖励  +%d XP" % extra) if extra > 0 else "", Vector2(34, ty + 68.0), Vector2(430, 30), 22, ACC)
@@ -260,7 +273,7 @@ func _build_reward_column(card: Control) -> void:
 		var uc := Panel.new()
 		uc.position = Vector2(ux, uy)
 		uc.size = Vector2(140, 104)
-		uc.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.12, 0.3, 0.44, 0.95), 22, 3, it.get("swatch", Color.WHITE), 6))
+		uc.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.85), 22, 3, it.get("swatch", Color.WHITE), 4))
 		uc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(uc)
 		var sw := Panel.new()
@@ -326,9 +339,9 @@ func _build_match_stats(card: Control, data: Dictionary, x0: float) -> void:
 	sr.position = Vector2(x0, 14)
 	sr.size = Vector2(430, 100)
 	card.add_child(sr)
-	_lbl(sr, str(score[0]), Vector2(0, 0), Vector2(170, 100), 84, UIKit.BLUE, HORIZONTAL_ALIGNMENT_RIGHT, 12, UIKit.INK)
+	_lbl(sr, str(score[0]), Vector2(0, 0), Vector2(170, 100), 84, UIKit.BLUE, HORIZONTAL_ALIGNMENT_RIGHT, 10, Color.WHITE)
 	_lbl(sr, ":", Vector2(170, 0), Vector2(90, 100), 70, T, HORIZONTAL_ALIGNMENT_CENTER)
-	_lbl(sr, str(score[1]), Vector2(260, 0), Vector2(170, 100), 84, UIKit.PINK, HORIZONTAL_ALIGNMENT_LEFT, 12, UIKit.INK)
+	_lbl(sr, str(score[1]), Vector2(260, 0), Vector2(170, 100), 84, UIKit.PINK, HORIZONTAL_ALIGNMENT_LEFT, 10, Color.WHITE)
 	var rows := [
 		["最长回合", "%d 次触球" % int(stats.get("longest", 0))],
 		["ACE 发球", "%d  :  %d" % [stats["aces"][0], stats["aces"][1]]],
@@ -349,7 +362,7 @@ func _build_practice_stats(card: Control, data: Dictionary, x0: float) -> void:
 	var pr: Dictionary = data["practice"]
 	if pr.get("mode", "rally") == "rally":
 		_lbl(card, "最长回合", Vector2(x0, 14), Vector2(430, 40), 30, ACC)
-		_lbl(card, "%d" % int(pr["best"]), Vector2(x0, 50), Vector2(250, 100), 90, UIKit.BLUE, HORIZONTAL_ALIGNMENT_LEFT, 12, UIKit.INK)
+		_lbl(card, "%d" % int(pr["best"]), Vector2(x0, 50), Vector2(250, 100), 90, UIKit.BLUE, HORIZONTAL_ALIGNMENT_LEFT, 10, Color.WHITE)
 		_lbl(card, "次触球", Vector2(x0 + 190.0, 100), Vector2(160, 40), 28, T2)
 		var mr := HUD_MedalRowProxy.new()
 		mr.position = Vector2(x0, 150)

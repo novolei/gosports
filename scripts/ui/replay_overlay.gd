@@ -23,7 +23,9 @@ class _Progress:
 		draw_circle(Vector2(size.x * u, 4), 7.0, Color.WHITE)
 
 
-func build() -> ReplayOverlay:
+func build(vp := Vector2(1920, 1080)) -> ReplayOverlay:
+	_w = vp.x
+	_h = vp.y
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var inset: Dictionary = Game.safe_insets()

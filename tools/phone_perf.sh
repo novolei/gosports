@@ -17,7 +17,7 @@ rm -f "$TMPF"
 "$ADB" -s "$S" shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 sleep 11
 "$ADB" -s "$S" shell input tap 305 310;  sleep 2.5      # main menu: Play
-"$ADB" -s "$S" shell input tap 582 938;  sleep 2.5      # mode page: Choose character
+"$ADB" -s "$S" shell input tap 2050 875;  sleep 2.5      # mode page: Start Game (bottom right)
 "$ADB" -s "$S" shell input tap 161 253;  sleep 2.5      # character grid: first tile
 "$ADB" -s "$S" shell input tap 1418 954; sleep 30       # line-up: Start match (VS card + intro run first)
 LINES="$("$ADB" -s "$S" logcat -d 2>&1 | grep -E "\[perf\]" | tail -3)"

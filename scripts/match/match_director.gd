@@ -153,14 +153,19 @@ func _wants_vs() -> bool:
 	return not is_practice() and not dev.has("autoplay") and not dev.has("skipvs")
 
 
-## everybody poses in a 3/4 view for the side-on VS camera: team A on the left, team B on the right
+## everybody poses for the VS shot (camera on our side, low, looking diagonally across the net): our pair in the foreground turned
+## three quarters to the lens, the opponents across the net facing us
 func _vs_pose() -> void:
 	for a in athletes:
-		var s := Court.team_sign(a.team)
 		var near: bool = a.slot == 0
-		var p := Vector3(0.8 if near else -0.4, 0.0, s * (1.15 if near else 2.55))
+		var p: Vector3
+		if a.team == 0:
+			p = Vector3(-0.9 if near else 1.7, 0.0, 3.5 if near else 5.1)
+			a.yaw = 0.95
+		else:
+			p = Vector3(1.0 if near else -1.8, 0.0, -3.6 if near else -5.1)
+			a.yaw = PI - 0.35
 		a.teleport(p)
-		a.yaw = -1.0 if a.team == 0 else -2.09
 		a.rotation.y = a.yaw
 
 

@@ -166,6 +166,9 @@ func _on_page(p: String) -> void:
 			if not ["solo", "coop", "versus"].has(Game.mode):
 				Game.mode = "solo"
 			_refresh_mode_cards(_mode_cards)
+			var st: Node = pages["mode"].find_child("Start", true, false)
+			if st != null:
+				(st as Control).call_deferred("grab_focus")
 			stage.look(Vector3(0.0, 4.5, 12.5), Vector3(0, 0.8, 0))
 			stage.add_rig(Roster.by_id(Game.p1_char), Vector3(-2.0, 0, 3.8), 0.4, "ready")
 		"practice":
@@ -205,89 +208,105 @@ var _welcome_shown := false
 var _career: CareerPage
 
 
+## three swoosh lines with dots under the logo (like the reference title screen)
+class _Swoosh:
+	extends Control
+
+	func _draw() -> void:
+		var cols := [Color("37d3d6"), Color("e65bdc"), Color("3b7cff")]
+		for i in 3:
+			var y := 10.0 + float(i) * 14.0
+			var x1 := size.x * (0.78 - 0.14 * float(i))
+			var pts := PackedVector2Array()
+			for k in 25:
+				var t := float(k) / 24.0
+				pts.append(Vector2(lerpf(0.0, x1, t), y - sin(t * PI) * 5.0 - t * 6.0))
+			draw_polyline(pts, cols[i], 5.0, true)
+			draw_circle(pts[pts.size() - 1], 6.0, cols[i])
+
+
 func _build_main() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# pale veil on the left so the menu reads like the reference's airy title screen, whatever is behind it
+	var veil := TextureRect.new()
+	var gt := GradientTexture2D.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.93, 0.97, 0.99, 0.80))
+	grad.set_color(1, Color(0.93, 0.97, 0.99, 0.0))
+	gt.gradient = grad
+	gt.fill_from = Vector2(0.0, 0.5)
+	gt.fill_to = Vector2(1.0, 0.5)
+	gt.width = 256
+	gt.height = 8
+	veil.texture = gt
+	veil.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	veil.stretch_mode = TextureRect.STRETCH_SCALE
+	veil.anchor_right = 0.56
+	veil.anchor_bottom = 1.0
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(veil)
 	# logo
 	var logo := Control.new()
-	logo.position = Vector2(70, 40)
+	logo.position = Vector2(90, 14)
 	root.add_child(logo)
-	var banner := Panel.new()
-	banner.position = Vector2(0, 0)
-	banner.size = Vector2(640, 150)
-	var sb := UIKit.style_box(Color("5bd65b"), 75, 0, Color.WHITE, 14)
-	banner.add_theme_stylebox_override("panel", sb)
-	logo.add_child(banner)
-	if Loc.is_en():
-		# English: "GoSports" is the logo, "Volleyball" the strap line (the Chinese logo has two words side by side)
-		var le := UIKit.label("GoSports", 92, Color.WHITE, 16, Color("1f7a32"))
-		le.position = Vector2(20, 4)
-		le.size = Vector2(600, 100)
-		logo.add_child(le)
-		var ls := UIKit.label("VOLLEYBALL", 42, Color("fff3a0"), 10, Color("1f7a32"))
-		ls.position = Vector2(20, 92)
-		ls.size = Vector2(600, 50)
-		logo.add_child(ls)
-	else:
-		var l1 := UIKit.label("排球", 108, Color.WHITE, 16, Color("1f7a32"))
-		l1.position = Vector2(40, 0)
-		l1.size = Vector2(300, 150)
-		logo.add_child(l1)
-		var l2 := UIKit.label("GoSports", 58, Color("fff3a0"), 12, Color("1f7a32"))
-		l2.position = Vector2(300, 22)
-		l2.size = Vector2(320, 110)
-		logo.add_child(l2)
-	var sub := UIKit.label("Volleyball · 2v2 · 键鼠 / 手柄 / 触屏", 26, Color.WHITE, 8, Color(0.05, 0.15, 0.35, 0.9))
-	sub.position = Vector2(10, 160)
-	sub.size = Vector2(620, 40)
-	logo.add_child(sub)
-	# buttons
-	var vb := VBoxContainer.new()
+	var l1 := UIKit.label("Go", 120, Color("20b9a8"), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	l1.position = Vector2(0, 0)
+	l1.size = Vector2(190, 140)
+	l1.rotation = deg_to_rad(-4.0)
+	logo.add_child(l1)
+	var l2 := UIKit.label("Sports", 120, Color("1b86d9"), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	l2.position = Vector2(176, 0)
+	l2.size = Vector2(470, 140)
+	l2.rotation = deg_to_rad(-4.0)
+	logo.add_child(l2)
+	var strap := UIKit.label("VOLLEYBALL" if Loc.is_en() else "排球  ·  VOLLEYBALL", 34, Color("1d6a70"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	strap.position = Vector2(24, 150)
+	strap.size = Vector2(560, 44)
+	logo.add_child(strap)
+	var sw := _Swoosh.new()
+	sw.position = Vector2(-64, 190)
+	sw.size = Vector2(760, 50)
+	logo.add_child(sw)
+	# the entries: tilted pills, selected = teal + stripes
+	var vb := Control.new()
 	vb.name = "Buttons"
-	vb.position = Vector2(90, 268)
-	vb.add_theme_constant_override("separation", 14)
 	root.add_child(vb)
-	var b1 := UIKit.button("开始比赛", Vector2(430, 84), UIKit.GREEN, 40)
-	b1.pressed.connect(func(): _show_page("mode"))
-	vb.add_child(b1)
-	var bt := UIKit.button("锦标赛", Vector2(430, 72), Color("ff9a2e"), 34)
-	bt.pressed.connect(func():
-		Game.mode = "tournament"
-		_show_page("select"))
-	vb.add_child(bt)
-	var bp := UIKit.button("练习场", Vector2(430, 72), UIKit.BLUE, 34)
-	bp.pressed.connect(func(): _show_page("practice"))
-	vb.add_child(bp)
-	var bc := UIKit.button("生涯  ·  装扮  ·  成就", Vector2(430, 72), Color("8e5bff"), 32)
-	bc.pressed.connect(func(): _show_page("career"))
-	vb.add_child(bc)
-	_news_dot = Control.new()
-	_news_dot.position = Vector2(396, -8)
-	_news_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bc.add_child(_news_dot)
-	var dot := Panel.new()
-	dot.size = Vector2(40, 40)
-	dot.add_theme_stylebox_override("panel", UIKit.style_box(Color("ff3b4f"), 20, 4, Color.WHITE, 4))
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_news_dot.add_child(dot)
-	var dl := UIKit.label("!", 28, Color.WHITE)
-	dl.size = Vector2(40, 38)
-	_news_dot.add_child(dl)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	vb.add_child(row)
-	var b2 := UIKit.button("操作说明", Vector2(208, 64), Color("22b8a8"), 28)
-	b2.pressed.connect(func(): _show_page("howto"))
-	row.add_child(b2)
-	var b3 := UIKit.button("设置", Vector2(208, 64), UIKit.YELLOW.darkened(0.1), 28)
-	b3.pressed.connect(func(): _show_page("settings"))
-	row.add_child(b3)
+	var entries := [
+		["开始比赛", "单人 · 双人合作 · 双人对决", "ball", "1-2", func(): _show_page("mode")],
+		["锦标赛", "三轮淘汰赛，夺冠拿大量经验", "cup", "1", func():
+			Game.mode = "tournament"
+			_show_page("select")],
+		["练习场", "新手教学 · 回合挑战", "target", "1", func(): _show_page("practice")],
+		["生涯", "等级 · 装扮 · 成就 · 每日任务", "star", "", func(): _show_page("career")],
+	]
+	var y := 258.0
+	var first := true
+	for e in entries:
+		var en := MenuEntry.new().build(String(e[0]), String(e[1]), String(e[2]), Vector2(700 if first else 660, 124 if first else 112), "dark", String(e[3]), 3.5, 46 if first else 40)
+		en.position = Vector2(112.0 - (0.0 if first else 0.0), y)
+		var cb: Callable = e[4]
+		en.chosen.connect(cb)
+		vb.add_child(en)
+		if String(e[0]) == "生涯":
+			en.add_badge()
+			_news_dot = en._badge
+		y += 142.0 if first else 128.0
+		first = false
+	# small entries
+	var small_y := y + 18.0
+	var smalls := [["操作说明", "bulb", func(): _show_page("howto")], ["设置", "gear", func(): _show_page("settings")]]
 	if not OS.has_feature("web") and not OS.has_feature("mobile"):
-		var b4 := UIKit.button("退出", Vector2(430, 58), UIKit.PINK, 30)
-		b4.pressed.connect(func(): get_tree().quit())
-		vb.add_child(b4)
+		smalls.append(["退出", "door", func(): get_tree().quit()])
+	var sx := 112.0
+	for e in smalls:
+		var sm := MenuEntry.new().build(String(e[0]), "", String(e[1]), Vector2(212, 78), "pale", "", 3.5, 30)
+		sm.position = Vector2(sx, small_y)
+		sm.chosen.connect(e[2])
+		vb.add_child(sm)
+		sx += 232.0
 	if not OS.has_feature("mobile"):
-		var foot := UIKit.label("F11 全屏", 22, Color.WHITE, 6, Color(0.05, 0.1, 0.3, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+		var foot := UIKit.label("F11 全屏", 22, Color(0.2, 0.4, 0.46), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		foot.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 		foot.position = Vector2(96, -56)
 		foot.size = Vector2(300, 36)
@@ -331,78 +350,122 @@ func _build_profile_cards(root: Control) -> void:
 	if not p.flags.has("seen_news"):
 		p.flags["seen_news"] = _news_count()              # a brand-new profile has nothing "new" yet
 	_news_dot.visible = _news_count() > int(p.flags["seen_news"])
-	# --- profile card
-	var pc := _board_button(Vector2(1370, 36), Vector2(490, 190), func(): _show_page("career"))
+	# --- profile pill (top right, anchored so wide phone screens keep it at the edge)
+	var pc := Button.new()
+	pc.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	pc.size = Vector2(560, 132)
+	pc.position = Vector2(-560.0 - 50.0, 40.0)
+	pc.focus_mode = Control.FOCUS_ALL
+	pc.pivot_offset = pc.size * 0.5
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+		pc.add_theme_stylebox_override(st, empty)
+	var pbg := GW.pill_bg(pc.size, 66.0, MenuEntry.SLATE, 0.0)
+	pbg.show_behind_parent = true
+	pc.add_child(pbg)
+	pc.pressed.connect(func(): Sfx.play("ui_click", -3.0); _show_page("career"))
+	pc.mouse_entered.connect(func(): UIKit._bump(pc, 1.03))
+	pc.mouse_exited.connect(func(): UIKit._bump(pc, 1.0))
+	pc.focus_entered.connect(func(): UIKit._bump(pc, 1.03))
+	pc.focus_exited.connect(func(): UIKit._bump(pc, 1.0))
 	root.add_child(pc)
 	var e := Roster.by_id(Game.p1_char)
-	var av := UIKit.avatar(Game.p1_char, 124, UIKit.BLUE, 5)
-	av.position = Vector2(22, 20)
+	var av := UIKit.avatar(Game.p1_char, 108, UIKit.BLUE, 5)
+	av.position = Vector2(14, 12)
 	pc.add_child(av)
-	var nm := UIKit.label(String(e["name"]), 36, Color.WHITE, 8, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
-	nm.position = Vector2(166, 14)
-	nm.size = Vector2(300, 46)
+	var nm := UIKit.label(String(e["name"]), 34, Color.WHITE, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	nm.position = Vector2(140, 12)
+	nm.size = Vector2(260, 42)
 	pc.add_child(nm)
-	var tt := UIKit.label(String(info["title"]), 26, Color("ffe14a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	tt.position = Vector2(166, 58)
-	tt.size = Vector2(300, 34)
+	var tt := UIKit.label(String(info["title"]), 22, Color("ffe14a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	tt.position = Vector2(140, 52)
+	tt.size = Vector2(260, 30)
 	pc.add_child(tt)
-	var lv := UIKit.label("Lv.%d" % int(info["level"]), 44, Color("7fd0ff"), 8, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
-	lv.position = Vector2(166, 92)
-	lv.size = Vector2(150, 52)
-	pc.add_child(lv)
-	var xt := UIKit.label(("%d / %d XP" % [int(info["into"]), int(info["need"])]) if int(info["level"]) < Profile.MAX_LEVEL else "MAX", 22, Color(0.7, 0.85, 0.95), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	xt.position = Vector2(300, 104)
-	xt.size = Vector2(170, 32)
+	var lvp := Panel.new()
+	lvp.position = Vector2(412, 20)
+	lvp.size = Vector2(130, 46)
+	lvp.add_theme_stylebox_override("panel", UIKit.style_box(UIKit.TEAL, 23, 3, Color.WHITE))
+	lvp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pc.add_child(lvp)
+	var lv := UIKit.label("Lv.%d" % int(info["level"]), 28, Color.WHITE, 6, Color(0.02, 0.35, 0.36, 0.7))
+	lv.size = lvp.size
+	lvp.add_child(lv)
+	var xt := UIKit.label(("%d / %d XP" % [int(info["into"]), int(info["need"])]) if int(info["level"]) < Profile.MAX_LEVEL else "MAX", 20, Color(0.78, 0.9, 0.94), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	xt.position = Vector2(380, 66)
+	xt.size = Vector2(160, 28)
 	pc.add_child(xt)
 	var pb := ProgressBar.new()
-	pb.position = Vector2(22, 150)
-	pb.size = Vector2(446, 22)
+	pb.position = Vector2(140, 94)
+	pb.size = Vector2(400, 20)
 	pb.min_value = 0.0
 	pb.max_value = 1.0
 	pb.value = float(info["ratio"])
 	pb.show_percentage = false
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.02, 0.1, 0.18, 0.6), 11, 2, Color(1, 1, 1, 0.5)))
-	pb.add_theme_stylebox_override("fill", UIKit.style_box(UIKit.GREEN, 11))
+	pb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.02, 0.1, 0.18, 0.55), 10, 2, Color(1, 1, 1, 0.55)))
+	pb.add_theme_stylebox_override("fill", UIKit.style_box(Color("ffb02e"), 10))
 	pc.add_child(pb)
-	# --- daily missions card
-	var mc := _board_button(Vector2(1370, 242), Vector2(490, 250), func(): _show_page("career"))
+	# --- daily missions: frosted glass panel under it
+	var mc := Button.new()
+	mc.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	mc.size = Vector2(560, 268)
+	mc.position = Vector2(-560.0 - 50.0, 196.0)
+	mc.focus_mode = Control.FOCUS_ALL
+	mc.pivot_offset = mc.size * 0.5
+	for st in ["normal", "hover", "pressed", "hover_pressed"]:
+		mc.add_theme_stylebox_override(st, empty)
+	var ring := StyleBoxFlat.new()
+	ring.draw_center = false
+	ring.set_border_width_all(5)
+	ring.border_color = UIKit.CHEVRON
+	ring.set_corner_radius_all(36)
+	mc.add_theme_stylebox_override("focus", ring)
 	root.add_child(mc)
-	var mh := UIKit.label("今日任务", 30, Color("8fe9d2"), 6, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
-	mh.position = Vector2(26, 10)
+	mc.add_child(GW.frost(mc.size, 36.0))
+	mc.pressed.connect(func(): Sfx.play("ui_click", -3.0); _show_page("career"))
+	mc.mouse_entered.connect(func(): UIKit._bump(mc, 1.02))
+	mc.mouse_exited.connect(func(): UIKit._bump(mc, 1.0))
+	var mh := UIKit.label("今日任务", 30, UIKit.PALE_TXT, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	mh.position = Vector2(30, 14)
 	mh.size = Vector2(200, 44)
 	mc.add_child(mh)
-	var mn := UIKit.label("%d/%d  ·  连续 %d 天" % [p.missions_done(), p.daily["list"].size(), int(p.daily["streak"])], 22, Color("7dffb0"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-	mn.position = Vector2(220, 14)
-	mn.size = Vector2(250, 36)
+	var mn := UIKit.label("%d/%d  ·  连续 %d 天" % [p.missions_done(), p.daily["list"].size(), int(p.daily["streak"])], 22, UIKit.TEAL_DARK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	mn.position = Vector2(250, 18)
+	mn.size = Vector2(280, 36)
 	mc.add_child(mn)
+	var rule := ColorRect.new()
+	rule.color = Color(UIKit.TEAL.r, UIKit.TEAL.g, UIKit.TEAL.b, 0.8)
+	rule.position = Vector2(30, 60)
+	rule.size = Vector2(500, 3)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mc.add_child(rule)
 	for i in p.daily["list"].size():
 		var m: Dictionary = p.daily["list"][i]
-		var y := 58.0 + float(i) * 60.0
+		var yy := 76.0 + float(i) * 62.0
 		var ck := _MiniDot.new()
-		ck.position = Vector2(24, y + 8)
+		ck.position = Vector2(28, yy + 6)
 		ck.size = Vector2(32, 32)
 		ck.on = bool(m["done"])
 		ck.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mc.add_child(ck)
-		var ml := UIKit.label(String(m["text"]), 23, Color(0.6, 0.74, 0.84) if m["done"] else Color.WHITE, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		ml.position = Vector2(68, y - 4)
-		ml.size = Vector2(330, 34)
+		var ml := UIKit.label(String(m["text"]), 23, Color(0.45, 0.58, 0.64) if m["done"] else UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		ml.position = Vector2(74, yy - 6)
+		ml.size = Vector2(350, 34)
 		mc.add_child(ml)
-		var xl := UIKit.label("+%d" % int(m["xp"]), 22, Color("ffe14a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
-		xl.position = Vector2(396, y - 4)
-		xl.size = Vector2(70, 34)
+		var xl := UIKit.label("+%d" % int(m["xp"]), 22, Color("e0782a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+		xl.position = Vector2(440, yy - 6)
+		xl.size = Vector2(92, 34)
 		mc.add_child(xl)
 		var mb := ProgressBar.new()
-		mb.position = Vector2(68, y + 31)
-		mb.size = Vector2(398, 12)
+		mb.position = Vector2(74, yy + 30)
+		mb.size = Vector2(458, 12)
 		mb.min_value = 0.0
 		mb.max_value = 1.0
 		mb.value = clampf(float(m["progress"]) / float(m["goal"]), 0.0, 1.0)
 		mb.show_percentage = false
 		mb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.02, 0.1, 0.18, 0.6), 6))
-		mb.add_theme_stylebox_override("fill", UIKit.style_box(UIKit.GREEN if m["done"] else UIKit.BLUE, 6))
+		mb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.7, 0.8, 0.84, 0.7), 6))
+		mb.add_theme_stylebox_override("fill", UIKit.style_box(UIKit.TEAL, 6))
 		mc.add_child(mb)
 
 
@@ -423,7 +486,7 @@ class _MiniDot:
 func _build_practice() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_page_title(root, "练习场", 420.0)
+	_page_title(root, "练习场", 420.0, "target")
 	var p := Game.profile
 	var tut_done: bool = p != null and p.flags.get("tutorial_done", false)
 	var rbest: int = int(p.flags.get("rally_best", 0)) if p != null else 0
@@ -498,10 +561,10 @@ func _build_practice() -> Control:
 # ---- daily greeting (once per launch, only when the day rolled over)
 func _maybe_daily_greeting() -> void:
 	var p := Game.profile
-	if p == null or not p.new_day or _welcome_shown:
+	if p == null or not p.new_day or _welcome_shown or page != "main":
 		return
 	p.new_day = false
-	var vp := Vector2(1920, 1080)
+	var vp := ui.get_viewport().get_visible_rect().size
 	var card := Panel.new()
 	card.size = Vector2(760, 96)
 	card.position = Vector2((vp.x - card.size.x) * 0.5, vp.y + 20.0)
@@ -665,7 +728,7 @@ func _slot_box(label: String, human_id: String, tint: Color) -> Control:
 		s.size = Vector2(110, 110)
 		s.tint = tint
 		holder.add_child(s)
-	v.add_child(UIKit.label(label, 26, Color.WHITE, 8, Color(0.05, 0.14, 0.3, 0.95)))
+	v.add_child(UIKit.label(label, 26, UIKit.INK))
 	return v
 
 
@@ -676,67 +739,82 @@ var _mode_desc: Label
 func _build_mode() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_page_title(root, "选择模式", 560.0)
-	# ---- left: the three modes as big pills straight on the scene (no container)
-	var cards := VBoxContainer.new()
-	cards.position = Vector2(100, 200)
-	cards.add_theme_constant_override("separation", 18)
+	var hd := GW.header("选择模式", "ball", 880.0)
+	hd.position = Vector2(70, 34)
+	root.add_child(hd)
+	# ---- left: the three modes (chosen = teal)
+	var cards := Control.new()
 	root.add_child(cards)
 	var modes := [
-		["solo", "单人对战", "你 + 电脑队友  VS  电脑二人组"],
-		["coop", "双人合作", "两位玩家同一队，一起对战电脑"],
-		["versus", "双人对决", "两位玩家各带一名电脑，同屏对抗"],
+		["solo", "单人对战", "你 + 电脑队友  VS  电脑二人组", "person"],
+		["coop", "双人合作", "两位玩家同一队，一起对战电脑", "person"],
+		["versus", "双人对决", "两位玩家各带一名电脑，同屏对抗", "person"],
 	]
+	var y := 190.0
 	for m in modes:
-		var b := UIKit.button(String(m[1]), Vector2(560, 92), UIKit.BLUE, 42)
-		b.toggle_mode = true
-		b.button_group = _mode_group()
-		b.button_pressed = (Game.mode == m[0])
-		for st in ["pressed", "hover_pressed"]:
-			b.add_theme_stylebox_override(st, UIKit.style_box(UIKit.TEAL, 46, 4, Color.WHITE, 10))
-		for n in ["font_pressed_color", "font_hover_pressed_color"]:
-			b.add_theme_color_override(n, Color.WHITE)
+		var en := MenuEntry.new().build(String(m[1]), String(m[2]), String(m[3]), Vector2(700, 118), "pale", "", 2.0, 40)
+		en.position = Vector2(110, y)
 		var mid: String = m[0]
-		b.pressed.connect(func():
+		en.chosen.connect(func():
 			Game.mode = mid
-			Sfx.play("ui_click", -3.0)
 			_refresh_mode_cards(cards))
-		cards.add_child(b)
+		en.focus_entered.connect(func():
+			Game.mode = mid
+			_refresh_mode_cards(cards))
+		cards.add_child(en)
+		y += 140.0
 	cards.set_meta("modes", modes)
 	_mode_cards = cards
-	_mode_desc = UIKit.label("", 30, Color.WHITE, 8, Color(0.05, 0.14, 0.3, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
-	_mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_mode_desc.position = Vector2(110, 520)
-	_mode_desc.size = Vector2(540, 120)
-	root.add_child(_mode_desc)
-	# ---- right: who plays (slots), then the match options as pill rows
-	var vs_title := UIKit.label("比赛设置", 44, Color.WHITE, 12, Color(0.05, 0.14, 0.3, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
-	vs_title.position = Vector2(860, 196)
-	vs_title.size = Vector2(500, 60)
-	root.add_child(vs_title)
+	_mode_desc = null
+	# ---- right: match settings on frosted glass
+	var hd2 := GW.header("比赛设置", "ball", 920.0, 48)
+	hd2.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	hd2.position = Vector2(-920.0 - 60.0, 34)
+	root.add_child(hd2)
+	var panel := GW.frost(Vector2(920, 650), 40.0)
+	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	panel.position = Vector2(-920.0 - 60.0, 160)
+	root.add_child(panel)
 	_vs_row = HBoxContainer.new()
-	_vs_row.position = Vector2(900, 270)
-	_vs_row.size = Vector2(840, 150)
+	_vs_row.position = Vector2(110, 26)
+	_vs_row.size = Vector2(700, 150)
+	_vs_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_vs_row.add_theme_constant_override("separation", 22)
-	root.add_child(_vs_row)
+	panel.add_child(_vs_row)
 	var rows := VBoxContainer.new()
-	rows.position = Vector2(860, 480)
-	rows.add_theme_constant_override("separation", 14)
-	root.add_child(rows)
-	rows.add_child(GW.row_pill("电脑难度", _segmented(Game.DIFFICULTY_NAMES, int(Game.settings["difficulty"]), func(i): Game.settings["difficulty"] = i; Game.save_settings(), 118, 54, 26), 900.0, 74.0, 240.0))
-	rows.add_child(GW.row_pill("比赛分数", _segmented(["7 分", "11 分", "15 分"], [7, 11, 15].find(Game.settings["points"]), func(i): Game.settings["points"] = [7, 11, 15][i]; Game.save_settings(), 140, 54, 26), 900.0, 74.0, 240.0))
-	rows.add_child(GW.row_pill("自动跑位辅助", _toggle_plain("assist"), 900.0, 74.0, 500.0))
-	rows.add_child(GW.row_pill("精彩回放", _toggle_plain("replays"), 900.0, 74.0, 500.0))
-	var nav := HBoxContainer.new()
-	nav.position = Vector2(70, 900)
-	nav.add_theme_constant_override("separation", 22)
-	root.add_child(nav)
-	var back := UIKit.button("返回", Vector2(280, 76), UIKit.PINK, 36)
-	back.pressed.connect(func(): _show_page("main"))
-	nav.add_child(back)
-	var next := UIKit.button("选择角色", Vector2(420, 76), UIKit.GREEN, 38)
+	rows.position = Vector2(0, 214)
+	rows.size = Vector2(920, 420)
+	rows.add_theme_constant_override("separation", 16)
+	panel.add_child(rows)
+	var wrap := func(c: Control) -> Control:
+		var h := HBoxContainer.new()
+		h.alignment = BoxContainer.ALIGNMENT_CENTER
+		h.add_child(c)
+		return h
+	rows.add_child(wrap.call(GW.option_row("电脑难度", Game.DIFFICULTY_NAMES, int(Game.settings["difficulty"]), func(i): Game.settings["difficulty"] = i; Game.save_settings(), 860.0, 150.0)))
+	rows.add_child(wrap.call(GW.option_row("比赛分数", ["7 分", "11 分", "15 分"], maxi([7, 11, 15].find(Game.settings["points"]), 0), func(i): Game.settings["points"] = [7, 11, 15][i]; Game.save_settings(), 860.0, 150.0)))
+	rows.add_child(wrap.call(GW.option_row("自动跑位辅助", ["关", "开"], 1 if Game.settings["assist"] else 0, func(i): Game.settings["assist"] = i == 1; Game.save_settings(), 860.0, 150.0)))
+	rows.add_child(wrap.call(GW.option_row("精彩回放", ["关", "开"], 1 if Game.settings["replays"] else 0, func(i): Game.settings["replays"] = i == 1; Game.save_settings(), 860.0, 150.0)))
+	# ---- the one big action of this page: START (bottom right, where the eye ends up), pulsing, focused by default
+	var next := UIKit.button("开始游戏", Vector2(560, 110), UIKit.GREEN, 54)
+	next.name = "Start"
+	next.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	next.position = Vector2(-560.0 - 70.0, -110.0 - 150.0)
 	next.pressed.connect(func(): _show_page("select"))
-	nav.add_child(next)
+	root.add_child(next)
+	var hint := UIKit.label("下一步：选择你的角色", 26, Color.WHITE, 8, Color(0.05, 0.2, 0.34, 0.9))
+	hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hint.position = Vector2(-560.0 - 70.0, -150.0 + 8.0)
+	hint.size = Vector2(560, 40)
+	root.add_child(hint)
+	var pulse := next.create_tween().set_loops()
+	pulse.tween_property(next, "scale", Vector2(1.035, 1.035), 0.7).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(next, "scale", Vector2.ONE, 0.7).set_trans(Tween.TRANS_SINE)
+	var back := UIKit.button("返回", Vector2(280, 76), UIKit.PINK, 36)
+	back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	back.position = Vector2(70, -76.0 - 80.0)
+	back.pressed.connect(func(): _show_page("main"))
+	root.add_child(back)
 	_refresh_mode_cards(cards)
 	return root
 
@@ -795,10 +873,8 @@ func _mode_group() -> ButtonGroup:
 func _refresh_mode_cards(cards: Control) -> void:
 	var modes: Array = cards.get_meta("modes")
 	for i in modes.size():
-		var b := cards.get_child(i) as Button
-		b.set_pressed_no_signal(Game.mode == modes[i][0])
-		if Game.mode == modes[i][0] and _mode_desc != null:
-			_mode_desc.text = String(modes[i][2])
+		var b := cards.get_child(i) as MenuEntry
+		b.mark(Game.mode == modes[i][0])
 	if _vs_row == null:
 		return
 	for c in _vs_row.get_children():
@@ -819,7 +895,7 @@ func _refresh_mode_cards(cards: Control) -> void:
 			right_team = [["电脑", ""], ["电脑", ""]]
 	for s in left_team:
 		_vs_row.add_child(_slot_box(String(s[0]), String(s[1]), UIKit.BLUE))
-	var vs := UIKit.label("VS", 66, Color("2fe0c4"), 12, Color.WHITE)
+	var vs := UIKit.label("VS", 56, Color(0.45, 0.55, 0.6), 0, Color.WHITE)
 	vs.custom_minimum_size = Vector2(150, 110)
 	_vs_row.add_child(vs)
 	for s in right_team:
@@ -1202,57 +1278,104 @@ func _row_ctl(title: String, control: Control, w := 900.0) -> Control:
 	return GW.row_pill(title, control, w, 74.0, 300.0)
 
 
-func _page_title(root: Control, text: String, width := 560.0) -> void:
-	var rb := GW.ribbon(text, width, 98.0, UIKit.TEAL, 56)
-	rb.position = Vector2(70, 40)
-	root.add_child(rb)
+func _page_title(root: Control, text: String, width := 560.0, glyph := "ball") -> void:
+	var h := GW.header(text, glyph, maxf(width, 760.0))
+	h.position = Vector2(70, 34)
+	root.add_child(h)
+
+
+var _set_panel: Control
+var _set_cards: Control
+var _set_cat := 0
 
 
 func _build_settings() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_page_title(root, "设置")
-	var left := VBoxContainer.new()
-	left.position = Vector2(70, 190)
-	left.add_theme_constant_override("separation", 14)
-	root.add_child(left)
-	var right := VBoxContainer.new()
-	right.position = Vector2(1000, 190)
-	right.add_theme_constant_override("separation", 14)
-	root.add_child(right)
-	left.add_child(_row_ctl("音乐音量", GW.slider(float(Game.settings["music"]), func(v): Game.settings["music"] = v; Game.apply_settings(); Sfx.play("ui_hover", -6.0), 520.0), 880.0))
-	left.add_child(_row_ctl("音效音量", GW.slider(float(Game.settings["sfx"]), func(v): Game.settings["sfx"] = v; Game.apply_settings(); Sfx.play("ui_hover", -6.0), 520.0), 880.0))
-	left.add_child(_row_ctl("Language / 语言", _segmented(Loc.LANG_NAMES, maxi(Loc.LANGS.find(String(Game.settings["language"])), 0), func(i):
-		Game.settings["language"] = Loc.LANGS[i]
-		Game.save_settings()
-		Loc.apply(String(Loc.LANGS[i]))
-		Game.goto("menu", {"page": "settings"}), 160, 54, 24), 880.0))
-	left.add_child(_row_ctl("画面质量", _segmented(["低 (手机)", "中", "高"], Game.settings["quality"], func(i): Game.settings["quality"] = i; Game.save_settings(), 150, 54, 24), 880.0))
-	left.add_child(_row_ctl("触屏控制", _segmented(["自动", "开启", "关闭"], ["auto", "on", "off"].find(Game.settings["touch"]), func(i):
-		Game.settings["touch"] = ["auto", "on", "off"][i]
-		Game._detect_touch()
-		Game.save_settings(), 150, 54, 24), 880.0))
-	left.add_child(_row_ctl("落点提示", _segmented(["关闭", "简洁", "标准"], int(Game.settings["landing_hint"]), func(i): Game.settings["landing_hint"] = i; Game.settings["landing_hint_set"] = true; Game.save_settings(), 150, 54, 24), 880.0))
-	for t in [["击球时机提示圈", "timing_guide"], ["镜头震动", "shake"], ["触觉震动（手机 / 手柄）", "haptics"], ["左手模式（触屏按键镜像）", "left_handed"], ["全屏", "fullscreen"]]:
-		var key: String = t[1]
-		right.add_child(GW.row_pill(String(t[0]), UIKit.toggle_pill(bool(Game.settings[key]), func(v):
-			Game.settings[key] = v
-			Game.apply_settings()
-			Game.save_settings()), 780.0, 74.0, 600.0))
-	var nav := HBoxContainer.new()
-	nav.position = Vector2(70, 900)
-	nav.add_theme_constant_override("separation", 22)
-	root.add_child(nav)
-	var back := UIKit.button("返回", Vector2(280, 76), UIKit.GREEN, 36)
+	_page_title(root, "设置", 700.0, "gear")
+	# category list (left), like the reference's Options sidebar
+	_set_cards = Control.new()
+	root.add_child(_set_cards)
+	var cats := [["声音", "调整音乐与音效", "speaker"], ["画面", "画质、全屏、镜头", "eye"], ["操作", "按键、触屏、提示", "keys"], ["语言", "Language / 语言", "globe"]]
+	var y := 190.0
+	for i in cats.size():
+		var en := MenuEntry.new().build(String(cats[i][0]), String(cats[i][1]), String(cats[i][2]), Vector2(560, 100), "pale", "", 2.0, 38)
+		en.position = Vector2(100, y)
+		var ci := i
+		en.chosen.connect(func(): _fill_settings(ci))
+		en.focus_entered.connect(func(): _fill_settings(ci))
+		_set_cards.add_child(en)
+		y += 120.0
+	_set_cards.set_meta("n", cats.size())
+	var cr := MenuEntry.new().build("制作与素材", "", "star", Vector2(560, 84), "pale", "", 2.0, 34)
+	cr.position = Vector2(100, 810)
+	cr.chosen.connect(func(): _show_page("credits"))
+	_set_cards.add_child(cr)
+	# the rows on frosted glass (right)
+	_set_panel = GW.frost(Vector2(1000, 700), 40.0)
+	_set_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_set_panel.position = Vector2(-1000.0 - 60.0, 170)
+	root.add_child(_set_panel)
+	var back := UIKit.button("返回", Vector2(280, 76), UIKit.PINK, 36)
+	back.position = Vector2(70, 920)
 	back.pressed.connect(func(): Game.save_settings(); _show_page("main"))
-	nav.add_child(back)
-	var keys_btn := UIKit.button("按键设置", Vector2(300, 76), UIKit.BLUE, 34)
-	keys_btn.pressed.connect(func(): _show_page("keys"))
-	nav.add_child(keys_btn)
-	var credits_btn := UIKit.button("制作与素材", Vector2(320, 76), UIKit.BLUE, 34)
-	credits_btn.pressed.connect(func(): _show_page("credits"))
-	nav.add_child(credits_btn)
+	root.add_child(back)
+	_fill_settings(0)
 	return root
+
+
+func _fill_settings(cat: int) -> void:
+	_set_cat = cat
+	for i in int(_set_cards.get_meta("n")):
+		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
+	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
+	var rows_n: int = [2, 3, 6, 1][cat]
+	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
+	var old_panel := _set_panel
+	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
+	_set_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_set_panel.position = Vector2(-1000.0 - 60.0, 190)
+	old_panel.get_parent().add_child(_set_panel)
+	old_panel.queue_free()
+	var col := VBoxContainer.new()
+	col.position = Vector2(48, 36)
+	col.size = Vector2(904, ph - 60.0)
+	col.add_theme_constant_override("separation", 16)
+	_set_panel.add_child(col)
+	var onoff := func(title: String, key: String):
+		col.add_child(GW.option_row(title, ["关", "开"], 1 if Game.settings[key] else 0, func(i):
+			Game.settings[key] = i == 1
+			Game.apply_settings()
+			Game.save_settings(), 904.0, 150.0))
+	match cat:
+		0:
+			col.add_child(GW.slider_row("音乐音量", float(Game.settings["music"]), func(v): Game.settings["music"] = v; Game.apply_settings(); Sfx.play("ui_hover", -6.0), 904.0))
+			col.add_child(GW.slider_row("音效音量", float(Game.settings["sfx"]), func(v): Game.settings["sfx"] = v; Game.apply_settings(); Sfx.play("ui_hover", -6.0), 904.0))
+		1:
+			col.add_child(GW.option_row("画面质量", ["低 (手机)", "中", "高"], int(Game.settings["quality"]), func(i): Game.settings["quality"] = i; Game.save_settings(), 904.0, 170.0))
+			onoff.call("全屏", "fullscreen")
+			onoff.call("镜头震动", "shake")
+		2:
+			col.add_child(GW.option_row("触屏控制", ["自动", "开启", "关闭"], maxi(["auto", "on", "off"].find(Game.settings["touch"]), 0), func(i):
+				Game.settings["touch"] = ["auto", "on", "off"][i]
+				Game._detect_touch()
+				Game.save_settings(), 904.0, 150.0))
+			col.add_child(GW.option_row("落点提示", ["关闭", "简洁", "标准"], int(Game.settings["landing_hint"]), func(i): Game.settings["landing_hint"] = i; Game.settings["landing_hint_set"] = true; Game.save_settings(), 904.0, 150.0))
+			onoff.call("击球时机提示圈", "timing_guide")
+			onoff.call("触觉震动（手机 / 手柄）", "haptics")
+			onoff.call("左手模式（触屏按键镜像）", "left_handed")
+			var kb := UIKit.button("按键设置", Vector2(360, 70), UIKit.GREEN, 34)
+			kb.pressed.connect(func(): _show_page("keys"))
+			var wrap := HBoxContainer.new()
+			wrap.alignment = BoxContainer.ALIGNMENT_CENTER
+			wrap.add_child(kb)
+			col.add_child(wrap)
+		3:
+			col.add_child(GW.option_row("Language / 语言", Loc.LANG_NAMES, maxi(Loc.LANGS.find(String(Game.settings["language"])), 0), func(i):
+				Game.settings["language"] = Loc.LANGS[i]
+				Game.save_settings()
+				Loc.apply(String(Loc.LANGS[i]))
+				Game.goto("menu", {"page": "settings"}), 904.0, 220.0))
 
 
 # ---- CREDITS
@@ -1270,7 +1393,7 @@ const CREDITS := [
 func _build_credits() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_page_title(root, "制作与素材", 640.0)
+	_page_title(root, "制作与素材", 640.0, "star")
 	var bd := GW.board(Vector2(1640, 640), Color(0.07, 0.17, 0.3, 0.86), Color(1, 1, 1, 0.85))
 	bd.position = Vector2(140, 200)
 	root.add_child(bd)
@@ -1305,7 +1428,7 @@ func _action_label(act: String) -> String:
 func _build_keys() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_page_title(root, "按键设置 (玩家1 键盘)", 860.0)
+	_page_title(root, "按键设置 (玩家1 键盘)", 860.0, "keys")
 	var sub := UIKit.label("点一下按键，再按想要的新按键；Esc 取消。鼠标：左键击球，右键跳跃（固定）", 28, Color.WHITE, 8, Color(0.05, 0.14, 0.3, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
 	sub.position = Vector2(80, 158)
 	sub.size = Vector2(1500, 44)

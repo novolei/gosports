@@ -171,6 +171,7 @@ func _build() -> void:
 	director.start_match()
 	if director.vs_time > 0.0:
 		cam_rig.start_vs()
+		ball.visible = false                    # no stray ball on the floor in the broadcast shot
 
 
 func _connect_signals() -> void:
@@ -278,6 +279,7 @@ func _on_rally_event(ev: String, data: Dictionary) -> void:
 			Sfx.music_tension(true)
 		"vs_end":
 			cam_rig.intro()
+			ball.visible = true
 		"close_call":
 			var cp: Vector3 = data["pos"]
 			Sfx.play("crowd_oh", -5.0)

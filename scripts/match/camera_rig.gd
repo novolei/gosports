@@ -62,12 +62,32 @@ func intro() -> void:
 
 
 ## side-on shot of the two teams for the VS card (a slow dolly keeps it alive)
+## VS shot: the WHOLE court with the net, filmed from our half at a low diagonal angle (corner of our side line), with a slow dolly
+## towards the net: our pair in the foreground, the opponents across the net in the distance. `--vscam=x0,y0,z0,x1,y1,z1,fx,fy,fz,fov`.
+var _vs := {"a": Vector3(-6.2, 2.7, 11.6), "b": Vector3(-4.6, 2.2, 8.0), "fa": Vector3(0.6, 1.0, -0.2), "fb": Vector3(0.2, 1.1, -1.4), "fov": 44.0, "dur": 3.4}
+
+
+func _vs_pose(t: float) -> Array:
+	var c: Dictionary = _vs.duplicate()
+	if Game.main != null and Game.main.dev.has("vscam"):
+		var p: PackedStringArray = String(Game.main.dev["vscam"]).split(",")
+		c["a"] = Vector3(float(p[0]), float(p[1]), float(p[2]))
+		c["b"] = Vector3(float(p[3]), float(p[4]), float(p[5]))
+		c["fa"] = Vector3(float(p[6]), float(p[7]), float(p[8]))
+		c["fb"] = c["fa"]
+		c["fov"] = float(p[9])
+	var u := clampf(t / float(c["dur"]), 0.0, 1.0)
+	u = u * u * (3.0 - 2.0 * u)
+	return [(c["a"] as Vector3).lerp(c["b"], u), (c["fa"] as Vector3).lerp(c["fb"], u), float(c["fov"]) - 3.0 * u]
+
+
 func start_vs() -> void:
 	_mode = "vs"
 	_mode_t = 0.0
-	_pos = Vector3(8.6, 1.7, 0.0)
-	_focus = Vector3(0.0, 1.0, 0.0)
-	_fov = 27.0
+	var v := _vs_pose(0.0)
+	_pos = v[0]
+	_focus = v[1]
+	_fov = v[2]
 	_apply(0.0)
 
 
@@ -202,9 +222,10 @@ func _physics_process_impl(dt: float) -> void:
 			if _mode_t > 2.2:
 				_mode = "game"
 		"vs":
-			want_pos = Vector3(8.6 - _mode_t * 0.14, 1.7, sin(_mode_t * 0.7) * 0.2)
-			want_focus = Vector3(0.0, 1.0, 0.0)
-			want_fov = 27.0
+			var v := _vs_pose(_mode_t)
+			want_pos = v[0]
+			want_focus = v[1]
+			want_fov = v[2]
 		"replay":
 			if not _replay.is_empty():
 				want_pos = _replay["pos"]
@@ -224,6 +245,9 @@ func _physics_process_impl(dt: float) -> void:
 	if _mode == "replay":
 		k = 1.0 - exp(-10.0 * rt)
 		kf = 1.0 - exp(-14.0 * rt)
+	elif _mode == "vs":
+		k = 1.0 - exp(-18.0 * rt)                     # the pose is already a smooth path: follow it tightly
+		kf = 1.0 - exp(-18.0 * rt)
 	_pos = _pos.lerp(want_pos, k)
 	_focus = _focus.lerp(want_focus, kf)
 	_fov = lerpf(_fov, want_fov, 1.0 - exp(-3.0 * rt))

@@ -100,6 +100,8 @@ func _update_marks(dt: float) -> void:
 				if not l.is_empty():
 					out = not Court.in_court(l["pos"], 0.0)
 		m["a"] = move_toward(float(m["a"]), want, dt * (7.0 if want > 0.0 else 12.0))
+		if Game.main != null and Game.main.dev.has("dbgmark") and want > 0.0 and Engine.get_physics_frames() % 20 == 0:
+			print("[mark] want=%.2f a=%.2f mine=%s pos=%s tleft=%.2f level=%d" % [want, float(m["a"]), mine, str(pos), tleft, level])
 		var node: MeshInstance3D = m["node"]
 		var mat: ShaderMaterial = m["mat"]
 		var a: float = m["a"]
@@ -107,7 +109,7 @@ func _update_marks(dt: float) -> void:
 		if not node.visible:
 			continue
 		node.global_position = Vector3(pos.x, 0.026, pos.z)
-		if mine and not _mark_shot_done and Game.main != null and Game.main.dev.has("markshot") and a > 0.95 				and Vector2(pos.x - h.global_position.x, pos.z - h.global_position.z).length() > 2.2:
+		if mine and not _mark_shot_done and Game.main != null and Game.main.dev.has("markshot") and a > 0.95 and tleft < 0.75 and tleft > 0.3 and Vector2(pos.x - h.global_position.x, pos.z - h.global_position.z).length() > 2.2:
 			_mark_shot_done = true
 			await get_tree().process_frame
 			get_viewport().get_texture().get_image().save_png(str(Game.main.dev["markshot"]))

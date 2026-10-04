@@ -366,7 +366,7 @@ Volleyball · 2v2 · 键鼠 / 手柄 / 触屏	Volleyball · 2v2 · Keyboard / Ga
 开始比赛	Play
 练习场	Practice
 生涯  ·  装扮  ·  成就	Career  ·  Style  ·  Awards
-操作说明	How to Play
+操作说明	Guide
 设置	Settings
 退出	Quit
 F11 全屏	F11 Fullscreen
@@ -494,6 +494,19 @@ ACE 发球	Aces
 开	On
 关	Off
 新秀	Rookie
+开始游戏	Start Game
+下一步：选择你的角色	Next: choose your character
+声音	Sound
+调整音乐与音效	Music and sound effects
+画面	Display
+画质、全屏、镜头	Quality, fullscreen, camera
+操作	Controls
+按键、触屏、提示	Keys, touch, hints
+语言	Language
+单人 · 双人合作 · 双人对决	Solo · Co-op · Versus
+三轮淘汰赛，夺冠拿大量经验	Three rounds, one title
+新手教学 · 回合挑战	Tutorial · Rally Challenge
+等级 · 装扮 · 成就 · 每日任务	Levels · Style · Awards · Daily missions
 未解锁	Locked
 声音与提示	Sound & Hints
 %s!	%s!

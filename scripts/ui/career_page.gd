@@ -302,6 +302,10 @@ func _build_overview() -> void:
 	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	nc.add_child(sep)
 	_lbl(nc, "我的纪录", Vector2(730, 18), Vector2(300, 52), 38)
+	if int(p.flags.get("tournament_best", 0)) >= 3 and UIKit.emblem("trophy") != null:
+		var tro := UIKit.emblem_rect("trophy", 64.0)                 # champion at least once
+		tro.position = Vector2(1090, 10)
+		nc.add_child(tro)
 	var rbest := int(p.flags.get("rally_best", 0))
 	var medal := Profile.medal_for(rbest)
 	var tb := int(p.flags.get("tournament_best", 0))
@@ -387,9 +391,13 @@ func _item_card(kind: String, it: Dictionary, p: Profile) -> Button:
 		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(tick)
 	if not unlocked:
+		if UIKit.emblem("lock") != null:
+			var lk_i := UIKit.emblem_rect("lock", 70.0)
+			lk_i.position = Vector2(71, 10)
+			b.add_child(lk_i)
 		var lk := UIKit.label("Lv.%d" % int(it["level"]), 26, Color.WHITE, 8, Color(0.3, 0.12, 0.0, 0.9))
-		lk.position = Vector2(46, 38)
-		lk.size = Vector2(120, 44)
+		lk.position = Vector2(46, 72)
+		lk.size = Vector2(120, 40)
 		b.add_child(lk)
 	var nm := UIKit.label(String(it["name"]), 27, Color.WHITE if unlocked else T2, 8, Color(0.03, 0.14, 0.26, 0.95))
 	nm.position = Vector2(0, 130)

@@ -32,6 +32,7 @@ var _last_score := [0, 0]
 var _msg_label: Label
 var replay_overlay: ReplayOverlay
 var _vs_card: VsCard = null
+var _pause_btn: Button
 var _flash: ColorRect
 var tracker: _EdgeTracker
 var _mate_icon: Control
@@ -66,7 +67,7 @@ func bind(p_ms: MatchScene) -> void:
 	_build_hype()
 	_build_practice()
 	root_c.add_child(popup_layer)
-	replay_overlay = ReplayOverlay.new().build()
+	replay_overlay = ReplayOverlay.new().build(get_viewport().get_visible_rect().size)
 	root_c.add_child(replay_overlay)
 	_build_pause_button()
 	_build_pause_menu()
@@ -713,9 +714,6 @@ func flash_speed_lines(dur: float, strength := 1.0) -> void:
 		speed_lines.trigger(dur, strength)
 
 
-const HIT_WORDS := {"bump": "垫球", "dig": "垫球", "set": "传球", "spike": "扣球", "serve": "发球", "block": "拦网"}
-
-
 func _update_timing_ring(dt: float) -> void:
 	var h: Athlete = null
 	for a in ms.athletes:
@@ -724,11 +722,11 @@ func _update_timing_ring(dt: float) -> void:
 			break
 	var want := false
 	var near := 0.0                    # touch HIT button pulse: 0 = nothing to hit yet, -> 1 as the ball arrives
-	var hit_text := "击球"
+	var hit_kind := "bump"
 	if h != null and director.phase != MatchDirector.P.POINT and ms.ball.live and h.state != Athlete.S.KNOCKED \
 			and h.state != Athlete.S.STUMBLE and director.can_hit(h):
 		var kind: String = h._choose_kind()
-		hit_text = String(HIT_WORDS.get(kind, "击球"))
+		hit_kind = kind
 		var dist := h.hit_distance(kind)
 		var ip: Vector3 = h.ideal_point(kind)
 		var to := ip - ms.ball.global_position
@@ -747,7 +745,7 @@ func _update_timing_ring(dt: float) -> void:
 					else:
 						want = false
 	if touch != null and is_instance_valid(touch):
-		touch.set_hit_hint(near, hit_text, dt)
+		touch.set_hit_hint(near, hit_kind, dt)
 	timing_ring.alpha = move_toward(timing_ring.alpha, 1.0 if want else 0.0, dt * (9.0 if want else 12.0))
 	if want and timing_ring.alpha > 0.9 and Game.main != null and Game.main.dev.has("ringshot") and not _ring_shot_done and timing_ring.radius < 90.0:
 		_ring_shot_done = true
@@ -816,12 +814,21 @@ class _HypeBar:
 			if in_fever or frac > 0.5:
 				var tip := fill.position + Vector2(fill.size.x - 3.0, fill.size.y * 0.5)
 				draw_circle(tip, 5.0 + 3.0 * pulse, Color(1, 1, 0.85, 0.45 + 0.4 * pulse))
-		# flame
-		var base := Color("ff7a2e") if not in_fever else Color("ffb02e")
-		var f := flame(Vector2(h * 0.5, h * 0.52), r * (1.0 + 0.1 * pulse * (1.0 if in_fever else 0.0)), base, Color("fff0a0"))
-		draw_circle(Vector2(h * 0.5, h * 0.5), r, Color(1, 1, 1, 0.92))
-		draw_colored_polygon(f[0], f[2])
-		draw_colored_polygon(f[1], f[3])
+		# flame emblem (Gemini sticker icon); it swells and flickers during fever time
+		var tex := _flame_tex()
+		var k := 1.0 + (0.12 * pulse if in_fever else 0.03 * sin(_t * 3.0))
+		var fs := h * 1.12 * k
+		var fc := Vector2(h * 0.5, h * 0.5 + (0.0 if not in_fever else -2.0 * pulse))
+		if tex != null:
+			draw_texture_rect(tex, Rect2(fc - Vector2(fs, fs) * 0.5, Vector2(fs, fs)), false)
+		else:
+			draw_circle(fc, r, Color("ff7a2e"))
+
+	static var _ftex: Texture2D
+	static func _flame_tex() -> Texture2D:
+		if _ftex == null and ResourceLoader.exists("res://assets/ui/emb_flame.png"):
+			_ftex = load("res://assets/ui/emb_flame.png")
+		return _ftex
 
 
 var hype_bar: _HypeBar
@@ -1126,6 +1133,7 @@ func _build_pause_button() -> void:
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(func(): ms.toggle_pause())
 	root_c.add_child(b)
+	_pause_btn = b
 
 
 var _pause_main: Control
@@ -1336,7 +1344,7 @@ func _show_vs_card() -> void:
 	var round_name := ""
 	if Game.mode == "tournament":
 		round_name = "锦标赛 · %s" % Game.TOURNAMENT_ROUNDS[int(Game.tournament["round"])]["name"]
-	_vs_card = VsCard.new().build(ms.athletes, ms.cam_rig.cam, round_name)
+	_vs_card = VsCard.new().build(ms.athletes, ms.cam_rig.cam, round_name, get_viewport().get_visible_rect().size)
 	root_c.add_child(_vs_card)
 
 
@@ -1757,7 +1765,7 @@ func _process_impl(dt: float) -> void:
 
 ## during an instant replay only the scoreboard stays: hide hints, markers, rings and touch controls
 func _set_replay_hud(on: bool) -> void:
-	for n in [hint_panel, serve_bubble, rally_lbl, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial]:
+	for n in [hint_panel, serve_bubble, rally_lbl, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial, _pause_btn]:
 		if n != null and is_instance_valid(n):
 			if n == scoreboard_holder and not on and director != null and director.is_practice():
 				continue                                   # the practice modes have their own panels instead
