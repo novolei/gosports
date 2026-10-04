@@ -138,7 +138,7 @@ func can_hit(a: Athlete) -> bool:
 func start_match() -> void:
 	score = [0, 0]
 	serving_team = 1 if is_practice() else 0          # practice: the ball machine serves, the human only receives
-	server_idx = [0, 0]
+	server_idx = [int(Game.main.dev.get("serveridx", 0)) if Game.main != null else 0, 0]       # dev: --serveridx=1 lets the second member of team 0 (the player) serve first
 	_vs_active = _wants_vs()
 	vs_time = CameraRig.VS_DUR + 0.2 if _vs_active else 0.0
 	_set_phase(P.INTRO)
