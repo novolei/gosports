@@ -570,4 +570,11 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 每天 3 个随机任务，连续登录提升经验加成，成就可收集 20 个。	3 random missions every day; log in on consecutive days for an XP bonus; 20 achievements to collect.
 三轮连战（小组赛 → 半决赛 → 决赛），夺冠有大量经验；练习场的回合挑战可拿铜 / 银 / 金牌。	Three rounds (groups → semi-final → final) with big XP for winning; the Practice rally challenge awards bronze / silver / gold.
 小心碰撞	Collisions
+我的角色	My Character
+电脑队友	CPU Partner
+每场随机队友	Random partner each match
+已被%s使用	Already used by %s
+队友	Partner
+点上方头像可以更换角色	Click an avatar to change character
+角色 · 队友 · 随时更换	Characters · Partner · Change any time
 """

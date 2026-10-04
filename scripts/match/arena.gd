@@ -16,7 +16,7 @@ var theme_id := "day"
 ## sky / light / fog presets for the unlockable court themes
 const THEMES := {
 	"day": {"sky_top": Color(0.22, 0.52, 0.92), "sky_hor": Color(0.74, 0.9, 1.0), "gnd_hor": Color(0.72, 0.84, 0.88), "gnd_bot": Color(0.55, 0.68, 0.72),
-			"amb": 1.05, "amb_col": Color(0.82, 0.88, 0.98), "fog": Color(0.78, 0.9, 1.0), "sat": 1.18, "sun_col": Color(1.0, 0.94, 0.84), "sun_e": 1.25,
+			"amb": 1.05, "amb_col": Color(0.82, 0.88, 0.98), "fog": Color(0.78, 0.9, 1.0), "sat": 1.08, "sun_col": Color(1.0, 0.94, 0.84), "sun_e": 1.25,
 			"sun_rot": Vector3(-52, 28, 0), "backdrop": Color(1, 1, 1), "extra_light": false},
 	"sunset": {"sky_top": Color(0.3, 0.33, 0.68), "sky_hor": Color(1.0, 0.64, 0.42), "gnd_hor": Color(0.92, 0.62, 0.5), "gnd_bot": Color(0.6, 0.45, 0.5),
 			"amb": 0.95, "amb_col": Color(1.0, 0.84, 0.78), "fog": Color(1.0, 0.72, 0.55), "sat": 1.3, "sun_col": Color(1.0, 0.7, 0.42), "sun_e": 1.3,
@@ -94,8 +94,12 @@ func _build_environment() -> void:
 	env.adjustment_brightness = 1.0
 	env.fog_enabled = true
 	env.fog_light_color = T["fog"]
-	env.fog_density = 0.0016
-	env.fog_sky_affect = 0.25
+	env.fog_mode = Environment.FOG_MODE_DEPTH             # aerial perspective: things get hazier with distance (stands, skyline)
+	env.fog_depth_begin = 14.0
+	env.fog_depth_end = 62.0
+	env.fog_depth_curve = 1.0
+	env.fog_density = 0.5
+	env.fog_sky_affect = 0.0
 	if OS.has_feature("mobile") or Game.dbg("ambient"):
 		# phones: flat sky-coloured ambient light and no sky reflections (the sky radiance lookup is a per-pixel cost)
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -377,14 +381,15 @@ func _build_stands() -> void:
 	var hw := Court.HALF_W + Court.FREE_ZONE
 	var hd := Court.HALF_D + Court.FREE_ZONE
 	# far end stand (blue) - the main backdrop
-	_kit("Seating_01", "Stadium_blue", Vector3(0, 0, -hd - 7.5), 0.0, 1.0)
-	_kit("Seating_01", "Stadium_blue", Vector3(-23.0, 0, -hd - 7.5), 0.0, 1.0)
-	_kit("Seating_01", "Stadium_blue", Vector3(23.0, 0, -hd - 7.5), 0.0, 1.0)
+	# (the *_soft atlases are the same palettes desaturated and hazed: the far background must not compete with the court)
+	_kit("Seating_01", "Stadium_blue_soft", Vector3(0, 0, -hd - 7.5), 0.0, 1.0)
+	_kit("Seating_01", "Stadium_blue_soft", Vector3(-23.0, 0, -hd - 7.5), 0.0, 1.0)
+	_kit("Seating_01", "Stadium_blue_soft", Vector3(23.0, 0, -hd - 7.5), 0.0, 1.0)
 	# side stands (green)
-	_kit("Seating_02", "Stadium_green", Vector3(-hw - 9.5, 0, -3), 90.0, 1.0)
-	_kit("Seating_02", "Stadium_green", Vector3(hw + 9.5, 0, -3), -90.0, 1.0)
-	_kit("Seating_02", "Stadium_green", Vector3(-hw - 9.5, 0, 12), 90.0, 1.0)
-	_kit("Seating_02", "Stadium_green", Vector3(hw + 9.5, 0, 12), -90.0, 1.0)
+	_kit("Seating_02", "Stadium_green_soft", Vector3(-hw - 9.5, 0, -3), 90.0, 1.0)
+	_kit("Seating_02", "Stadium_green_soft", Vector3(hw + 9.5, 0, -3), -90.0, 1.0)
+	_kit("Seating_02", "Stadium_green_soft", Vector3(-hw - 9.5, 0, 12), 90.0, 1.0)
+	_kit("Seating_02", "Stadium_green_soft", Vector3(hw + 9.5, 0, 12), -90.0, 1.0)
 	# floodlights at the corners
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:

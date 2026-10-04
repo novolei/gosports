@@ -1,5 +1,5 @@
 extends Node
-## Title screen hub: main menu, mode/options, character select, line-up, settings and how-to-play.
+## Title screen hub: main menu, mode/options, my character (loadout), settings and how-to-play.
 
 var stage: Stage
 var ui: CanvasLayer
@@ -7,21 +7,22 @@ var pages: Dictionary = {}
 var page := ""
 var _fade_rect: ColorRect
 
-# select flow
-var _pick_step := 0
-var _pick_order: Array = []       # list of {"who": "p1"/"p2", "label": String}
-var _picks := {}
+# loadout page (my character)
 var _preview_rig: CharacterRig = null
 var _preview_idx := -1
-var _grid_buttons: Array[Button] = []
+var _lo_slot := "p1"
+var _lo_return := "main"
+var _lo_tiles: Array[Button] = []
+var _lo_chips := {}               # slot -> Button
+var _lo_rand: Control
+var _lo_rand_pill: Button
+var _lo_note: Label
+var _lo_note_tw: Tween
 var _sel_name: Label
 var _sel_blurb: Label
 var _sel_perk: Label
+var _sel_state: Label
 var _sel_bars: Array[ProgressBar] = []
-var _sel_header: Label
-var _lineup_box: HBoxContainer
-var _lineup_title: Label
-var _lineup_go: Button
 var _mode_cards: Control
 var _roster: Array[Dictionary] = []
 var _lineup := {"a": [], "b": []}
@@ -45,13 +46,17 @@ func setup(data: Dictionary) -> void:
 	var start: String = data.get("page", "main")
 	if Game.main != null and Game.main.dev.has("page"):
 		start = String(Game.main.dev["page"])
-	if start == "lineup":
-		_picks = {"p1": Game.p1_char, "p2": Game.p2_char}
+	if start == "select":
+		start = "loadout"                     # (old name, still used by dev flags and the results screen)
+	if start == "lineup":                     # dev: --page=lineup [--autostart] builds the teams from the loadout and starts
 		_make_lineup()
+		start = "main"
 	_show_page(start, true)
 	_maybe_welcome()
 	_maybe_daily_greeting()
-	if start == "lineup" and Game.main != null and Game.main.dev.has("autostart"):
+	if Game.main != null and Game.main.dev.has("lotest"):
+		_lo_selftest()
+	if Game.main != null and Game.main.dev.has("autostart") and Game.main.dev.get("page", "") == "lineup":
 		await get_tree().process_frame
 		_start_match()
 
@@ -85,16 +90,14 @@ func _go_back() -> void:
 	match page:
 		"keys", "credits": _show_page("settings")
 		"mode", "settings", "howto", "career", "practice": _show_page("main")
-		"select": _select_back()
-		"lineup": _show_page("select")
+		"loadout": _show_page(_lo_return)
 
 
 # ------------------------------------------------------------------ pages
 func _build_pages() -> void:
 	pages["main"] = _build_main()
 	pages["mode"] = _build_mode()
-	pages["select"] = _build_select()
-	pages["lineup"] = _build_lineup()
+	pages["loadout"] = _build_loadout()
 	pages["settings"] = _build_settings()
 	pages["keys"] = _build_keys()
 	pages["credits"] = _build_credits()
@@ -156,7 +159,7 @@ func _on_page(p: String) -> void:
 		"main":
 			stage.look(Vector3(-1.5, 1.7, 9.5), Vector3(0.5, 1.62, 2.0))
 			stage.add_rig(Roster.by_id(Game.p1_char), Vector3(2.4, 0, 4.8), PI + 0.35, "cheer")
-			stage.add_rig(Roster.by_id("bear"), Vector3(3.9, 0, 4.2), PI + 0.15, "cheer")
+			stage.add_rig(Roster.by_id(Game.partner_char if Game.partner_char != "" else Game.p2_char), Vector3(3.9, 0, 4.2), PI + 0.15, "cheer")
 			stage.add_rig(Roster.by_id("ninja_red"), Vector3(-2.2, 0, -1.8), 0.0, "ready")
 			stage.add_rig(Roster.by_id("snow"), Vector3(-3.4, 0, -2.6), 0.3, "ready")
 			(pages["main"].get_node("Buttons").get_child(0) as Control).grab_focus()
@@ -182,10 +185,8 @@ func _on_page(p: String) -> void:
 				if Game.profile_enabled and not (Game.main != null and Game.main.dev.has("nosave")):
 					Game.profile.save()
 			_career.show_tab(int(Game.main.dev["tab"]) if Game.main != null and Game.main.dev.has("tab") else _career.tab())
-		"select":
-			_start_select()
-		"lineup":
-			_build_lineup_view()
+		"loadout":
+			_lo_enter()
 		"settings":
 			stage.look(Vector3(0.0, 4.0, 13.0), Vector3(0, 0.8, 0))
 		"howto":
@@ -203,6 +204,7 @@ func _bg_dim() -> ColorRect:
 
 # ---- MAIN
 var _news_dot: Control
+var _lo_dot: Control
 var _welcome_shown := false
 var _career: CareerPage
 
@@ -275,14 +277,15 @@ func _build_main() -> Control:
 		["开始比赛", "单人 · 双人合作 · 双人对决", "ball", "1-2", func(): _show_page("mode")],
 		["锦标赛", "三轮淘汰赛，夺冠拿大量经验", "cup", "1", func():
 			Game.mode = "tournament"
-			_show_page("select")],
+			_start_game()],
 		["练习场", "新手教学 · 回合挑战", "target", "1", func(): _show_page("practice")],
+		["我的角色", "角色 · 队友 · 随时更换", "person", "", func(): _open_loadout("p1", "main")],
 		["生涯", "等级 · 装扮 · 成就 · 每日任务", "star", "", func(): _show_page("career")],
 	]
-	var y := 258.0
+	var y := 250.0
 	var first := true
 	for e in entries:
-		var en := MenuEntry.new().build(String(e[0]), String(e[1]), String(e[2]), Vector2(700 if first else 660, 124 if first else 112), "dark", String(e[3]), 3.5, 46 if first else 40)
+		var en := MenuEntry.new().build(String(e[0]), String(e[1]), String(e[2]), Vector2(700 if first else 660, 124 if first else 104), "dark", String(e[3]), 3.5, 46 if first else 40)
 		en.position = Vector2(112.0 - (0.0 if first else 0.0), y)
 		var cb: Callable = e[4]
 		en.chosen.connect(cb)
@@ -290,10 +293,13 @@ func _build_main() -> Control:
 		if String(e[0]) == "生涯":
 			en.add_badge()
 			_news_dot = en._badge
-		y += 142.0 if first else 128.0
+		elif String(e[0]) == "我的角色" and Game.profile != null and not Game.profile.flags.get("loadout_seen", false):
+			en.add_badge()                         # a red dot until the player has opened the loadout once
+			_lo_dot = en._badge
+		y += 136.0 if first else 118.0
 		first = false
 	# small entries
-	var small_y := y + 18.0
+	var small_y := y + 14.0
 	var smalls := [["操作说明", "bulb", func(): _show_page("howto")], ["设置", "gear", func(): _show_page("settings")]]
 	if not OS.has_feature("web") and not OS.has_feature("mobile"):
 		smalls.append(["退出", "door", func(): get_tree().quit()])
@@ -505,7 +511,7 @@ func _build_practice() -> Control:
 		var b := _board_button(Vector2(x, 210), Vector2(640, 600), func():
 			Game.mode = mid
 			Sfx.play("ui_confirm", -3.0)
-			_show_page("select"))
+			_start_game())
 		root.add_child(b)
 		var rb := GW.ribbon(String(d["name"]), 520.0, 104.0, col, 56)
 		rb.position = Vector2(60, -26)
@@ -639,7 +645,7 @@ func _maybe_welcome() -> void:
 	go.pressed.connect(func():
 		overlay.queue_free()
 		Game.mode = "training"
-		_show_page("select"))
+		_start_game())
 	skip.pressed.connect(func(): overlay.queue_free())
 
 
@@ -711,7 +717,8 @@ class _Slot:
 		draw_arc(c + Vector2(0, r * 0.62), r * 0.46, PI + 0.35, TAU - 0.35, 20, g, 4.5, true)
 
 
-func _slot_box(label: String, human_id: String, tint: Color) -> Control:
+## one avatar of the VS row; with a `slot` ("p1" / "p2" / "partner") it is a button that opens the loadout page
+func _slot_box(label: String, human_id: String, tint: Color, slot := "") -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -727,6 +734,34 @@ func _slot_box(label: String, human_id: String, tint: Color) -> Control:
 		s.size = Vector2(110, 110)
 		s.tint = tint
 		holder.add_child(s)
+	if slot != "":
+		var b := Button.new()
+		b.size = Vector2(110, 110)
+		b.focus_mode = Control.FOCUS_ALL
+		b.pivot_offset = b.size * 0.5
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "pressed"]:
+			b.add_theme_stylebox_override(st, empty)
+		var ring := UIKit.style_box(Color(1, 1, 1, 0.0), 55, 5, UIKit.TEAL_DARK)
+		for st in ["hover", "focus", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, ring)
+		b.pressed.connect(func():
+			Sfx.play("ui_click", -3.0)
+			_open_loadout(slot, "mode"))
+		b.mouse_entered.connect(func(): UIKit._bump(b, 1.06))
+		b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
+		b.focus_entered.connect(func(): UIKit._bump(b, 1.06))
+		b.focus_exited.connect(func(): UIKit._bump(b, 1.0))
+		holder.add_child(b)
+		var badge := Panel.new()
+		badge.position = Vector2(76, 74)
+		badge.size = Vector2(34, 34)
+		badge.add_theme_stylebox_override("panel", UIKit.style_box(UIKit.TEAL, 17, 3, Color.WHITE, 4))
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var bl := UIKit.label("⇄", 20, Color.WHITE)
+		bl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		badge.add_child(bl)
+		holder.add_child(badge)
 	v.add_child(UIKit.label(label, 26, UIKit.INK))
 	return v
 
@@ -802,9 +837,9 @@ func _build_mode() -> Control:
 	next.name = "Start"
 	next.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	next.position = Vector2(-560.0 - 70.0, -110.0 - 150.0)
-	next.pressed.connect(func(): _show_page("select"))
+	next.pressed.connect(_start_game)
 	root.add_child(next)
-	var hint := UIKit.label("下一步：选择你的角色", 26, Color.WHITE, 8, Color(0.05, 0.2, 0.34, 0.9))
+	var hint := UIKit.label("点上方头像可以更换角色", 26, Color.WHITE, 8, Color(0.05, 0.2, 0.34, 0.9))
 	hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	hint.position = Vector2(-560.0 - 70.0, -150.0 + 8.0)
 	hint.size = Vector2(560, 40)
@@ -965,84 +1000,160 @@ func _refresh_mode_cards(cards: Control) -> void:
 	var right_team: Array
 	match Game.mode:
 		"coop":
-			left_team = [["玩家1", p1], ["玩家2", p2]]
-			right_team = [["电脑", ""], ["电脑", ""]]
+			left_team = [["玩家1", p1, "p1"], ["玩家2", p2, "p2"]]
+			right_team = [["电脑", "", ""], ["电脑", "", ""]]
 		"versus":
-			left_team = [["玩家1", p1], ["电脑", ""]]
-			right_team = [["玩家2", p2], ["电脑", ""]]
+			left_team = [["玩家1", p1, "p1"], ["电脑", Game.partner_char, "partner"]]
+			right_team = [["玩家2", p2, "p2"], ["电脑", "", ""]]
 		_:
-			left_team = [["你", p1], ["电脑", ""]]
-			right_team = [["电脑", ""], ["电脑", ""]]
+			left_team = [["你", p1, "p1"], ["电脑", Game.partner_char, "partner"]]
+			right_team = [["电脑", "", ""], ["电脑", "", ""]]
 	for s in left_team:
-		_vs_row.add_child(_slot_box(String(s[0]), String(s[1]), UIKit.BLUE))
+		_vs_row.add_child(_slot_box(String(s[0]), String(s[1]), UIKit.BLUE, String(s[2])))
 	var vs := UIKit.label("VS", 56, Color(0.45, 0.55, 0.6), 0, Color.WHITE)
 	vs.custom_minimum_size = Vector2(150, 110)
 	_vs_row.add_child(vs)
 	for s in right_team:
-		_vs_row.add_child(_slot_box(String(s[0]), String(s[1]), UIKit.PINK))
+		_vs_row.add_child(_slot_box(String(s[0]), String(s[1]), UIKit.PINK, String(s[2])))
 
 
-# ---- CHARACTER SELECT
-func _build_select() -> Control:
+# ---- LOADOUT (my character): who you play as. Saved with the profile, changeable at any time, and NOT part of starting a match:
+# "Start" always goes straight to the match with whatever is equipped here (the VS intro then introduces both teams).
+const LO_SLOTS := ["p1", "p2", "partner"]
+
+
+func _lo_title(slot: String) -> String:
+	match slot:
+		"p2": return tr("玩家2")
+		"partner": return tr("电脑队友")
+	return tr("玩家1")
+
+
+func _lo_char(slot: String) -> String:
+	match slot:
+		"p2": return Game.p2_char
+		"partner": return Game.partner_char
+	return Game.p1_char
+
+
+func _lo_set(slot: String, id: String) -> void:
+	match slot:
+		"p2": Game.p2_char = id
+		"partner": Game.partner_char = id
+		_: Game.p1_char = id
+
+
+func _lo_tint(slot: String) -> Color:
+	return UIKit.PINK if slot == "p2" else (UIKit.TEAL if slot == "partner" else UIKit.BLUE)
+
+
+func _build_loadout() -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var rb := GW.ribbon("玩家1  选择角色", 800.0, 98.0, UIKit.TEAL, 52)
-	rb.position = Vector2(60, 28)
-	root.add_child(rb)
-	_sel_header = rb.get_child(0) as Label
-	# character grid on a dark slanted board
-	var board := GW.board(Vector2(1000, 760), Color(0.06, 0.2, 0.32, 0.86), Color(1, 1, 1, 0.9), 0.02)
-	board.position = Vector2(46, 140)
-	root.add_child(board)
-	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(40, 30)
-	scroll.size = Vector2(930, 700)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	board.add_child(scroll)
+	var hd := GW.header(tr("我的角色"), "person", 880.0)
+	hd.position = Vector2(70, 34)
+	root.add_child(hd)
+	var panel := GW.frost(Vector2(1000, 800), 40.0)
+	panel.position = Vector2(60, 146)
+	root.add_child(panel)
+	# the three slots you can dress: you, the second local player, your CPU partner
+	_lo_chips.clear()
+	for i in LO_SLOTS.size():
+		var slot: String = LO_SLOTS[i]
+		var b := Button.new()
+		b.size = Vector2(300, 100)
+		b.position = Vector2(32.0 + float(i) * 318.0, 24)
+		b.focus_mode = Control.FOCUS_ALL
+		b.pivot_offset = b.size * 0.5
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, empty)
+		var bg := GW.pill_bg(b.size, 50.0, MenuEntry.PALE, 0.0)
+		bg.show_behind_parent = true
+		b.add_child(bg)
+		b.set_meta("bg", bg)
+		var holder := Control.new()
+		holder.position = Vector2(12, 10)
+		holder.size = Vector2(80, 80)
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(holder)
+		b.set_meta("holder", holder)
+		var t1 := UIKit.label("", 22, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		t1.position = Vector2(104, 12)
+		t1.size = Vector2(186, 30)
+		t1.clip_text = true
+		b.add_child(t1)
+		var t2 := UIKit.label("", 32, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		t2.position = Vector2(104, 40)
+		t2.size = Vector2(186, 46)
+		t2.clip_text = true
+		b.add_child(t2)
+		b.set_meta("t1", t1)
+		b.set_meta("t2", t2)
+		var sl := slot
+		b.pressed.connect(func(): _lo_choose_slot(sl))
+		b.mouse_entered.connect(func(): UIKit._bump(b, 1.03))
+		b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
+		panel.add_child(b)
+		_lo_chips[slot] = b
+	# the character grid
 	var grid := GridContainer.new()
 	grid.columns = 6
-	grid.add_theme_constant_override("h_separation", 6)
+	grid.position = Vector2(28, 150)
+	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
-	scroll.add_child(grid)
-	_grid_buttons.clear()
+	panel.add_child(grid)
+	_lo_tiles.clear()
 	for i in _roster.size():
 		var e := _roster[i]
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(150, 166)
+		b.custom_minimum_size = Vector2(150, 150)
 		b.focus_mode = Control.FOCUS_ALL
-		b.pivot_offset = Vector2(75, 83)
+		b.pivot_offset = Vector2(75, 75)
 		var empty := StyleBoxEmpty.new()
 		for st in ["normal", "pressed"]:
 			b.add_theme_stylebox_override(st, empty)
-		var ring := UIKit.style_box(Color(1.0, 0.9, 0.35, 0.18), 30, 5, UIKit.YELLOW)
+		var ring := UIKit.style_box(Color(0.1, 0.7, 0.66, 0.12), 30, 4, UIKit.TEAL)
 		for st in ["hover", "focus", "hover_pressed"]:
 			b.add_theme_stylebox_override(st, ring)
-		var av := UIKit.avatar(e["id"], 106, UIKit.BLUE if e["kind"] == "cube" else Color("8e3dff"), 5)
-		av.position = Vector2(22, 8)
+		var av := UIKit.avatar(e["id"], 92, UIKit.BLUE if e["kind"] == "cube" else Color("8e3dff"), 4)
+		av.position = Vector2(29, 8)
 		b.add_child(av)
-		var nm := UIKit.label(e["name"], 25, Color.WHITE, 6, Color(0.02, 0.1, 0.2, 0.9))
-		nm.position = Vector2(0, 118)
-		nm.size = Vector2(150, 40)
+		var nm := UIKit.label(tr(String(e["name"])), 24, UIKit.INK, 0, Color.WHITE)
+		nm.position = Vector2(0, 106)
+		nm.size = Vector2(150, 34)
 		b.add_child(nm)
+		var deco := Control.new()
+		deco.name = "Deco"
+		deco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(deco)
 		var idx := i
-		b.mouse_entered.connect(func(): _preview(idx); UIKit._bump(b, 1.06))
+		b.mouse_entered.connect(func(): _preview(idx); UIKit._bump(b, 1.05))
 		b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
-		b.focus_entered.connect(func(): _preview(idx); Sfx.play("ui_hover", -9.0); UIKit._bump(b, 1.06))
+		b.focus_entered.connect(func(): _preview(idx); Sfx.play("ui_hover", -9.0); UIKit._bump(b, 1.05))
 		b.focus_exited.connect(func(): UIKit._bump(b, 1.0))
-		b.pressed.connect(func(): _confirm_pick(idx))
+		b.pressed.connect(func(): _lo_pick(idx))
 		grid.add_child(b)
-		_grid_buttons.append(b)
-	# info board
-	var info := GW.board(Vector2(860, 270), Color(0.06, 0.2, 0.32, 0.9), Color(1, 1, 1, 0.9), 0.04)
-	info.position = Vector2(1020, 690)
+		_lo_tiles.append(b)
+	_lo_note = UIKit.label("", 28, UIKit.TEAL_DARK)
+	_lo_note.position = Vector2(30, 760)
+	_lo_note.size = Vector2(940, 34)
+	panel.add_child(_lo_note)
+	# the info board of the previewed character (right, under the 3D preview)
+	var info := GW.board(Vector2(860, 280), Color(0.06, 0.2, 0.32, 0.9), Color(1, 1, 1, 0.9), 0.04)
+	info.position = Vector2(1020, 680)
 	root.add_child(info)
 	var iv := VBoxContainer.new()
-	iv.position = Vector2(54, 16)
-	iv.size = Vector2(780, 240)
-	iv.add_theme_constant_override("separation", 6)
+	iv.position = Vector2(54, 10)
+	iv.size = Vector2(780, 250)
+	iv.add_theme_constant_override("separation", 2)
 	info.add_child(iv)
-	_sel_name = UIKit.label("", 50, Color.WHITE, 10, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+	_sel_name = UIKit.label("", 46, Color.WHITE, 10, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
 	iv.add_child(_sel_name)
+	_sel_state = UIKit.label("", 26, Color("7dffb0"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+	_sel_state.position = Vector2(540, 22)
+	_sel_state.size = Vector2(250, 36)
+	info.add_child(_sel_state)
 	_sel_blurb = UIKit.label("", 28, Color(0.72, 0.86, 0.95), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	iv.add_child(_sel_blurb)
 	_sel_perk = UIKit.label("", 26, Color("ffe14a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
@@ -1051,101 +1162,264 @@ func _build_select() -> Control:
 	for t in [["速度", UIKit.BLUE], ["弹跳", UIKit.GREEN], ["力量", UIKit.PINK]]:
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 14)
-		var tl := UIKit.label(t[0], 26, Color.WHITE, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		var tl := UIKit.label(tr(String(t[0])), 26, Color.WHITE, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 		tl.custom_minimum_size = Vector2(90, 0)
 		h.add_child(tl)
 		var pb := ProgressBar.new()
 		pb.min_value = 0.8
 		pb.max_value = 1.2
 		pb.show_percentage = false
-		pb.custom_minimum_size = Vector2(560, 22)
+		pb.custom_minimum_size = Vector2(560, 20)
 		pb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.02, 0.1, 0.18, 0.6), 11, 2, Color(1, 1, 1, 0.5)))
 		pb.add_theme_stylebox_override("fill", UIKit.style_box(t[1], 11))
 		h.add_child(pb)
 		iv.add_child(h)
 		_sel_bars.append(pb)
+	# "random partner every match" switch (only for the CPU-partner slot)
+	_lo_rand = Control.new()
+	_lo_rand.position = Vector2(1360, 40)
+	_lo_rand.size = Vector2(500, 70)
+	_lo_rand.add_child(GW.pill_bg(_lo_rand.size, 35.0, MenuEntry.PALE, 0.0))
+	var rl := UIKit.label(tr("每场随机队友"), 28, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	rl.position = Vector2(30, 0)
+	rl.size = Vector2(320, 70)
+	_lo_rand.add_child(rl)
+	_lo_rand_pill = UIKit.toggle_pill(true, func(v): _lo_set_random(v))
+	_lo_rand_pill.position = Vector2(368, 8)
+	_lo_rand_pill.size = Vector2(120, 54)
+	_lo_rand.add_child(_lo_rand_pill)
+	root.add_child(_lo_rand)
 	# buttons
-	var back := UIKit.button("返回", Vector2(280, 76), UIKit.PINK, 36)
+	var back := UIKit.button(tr("返回"), Vector2(280, 76), UIKit.PINK, 36)
 	back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	back.position = Vector2(60, -110)
-	back.pressed.connect(_select_back)
+	back.position = Vector2(70, -110)
+	back.pressed.connect(func(): _show_page(_lo_return))
 	root.add_child(back)
-	var rnd := UIKit.button("随机", Vector2(280, 76), UIKit.BLUE, 36)
+	var rnd := UIKit.button(tr("随机"), Vector2(280, 76), UIKit.BLUE, 36)
 	rnd.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	rnd.position = Vector2(370, -110)
-	rnd.pressed.connect(func(): _confirm_pick(randi() % _roster.size()))
+	rnd.position = Vector2(380, -110)
+	rnd.pressed.connect(_lo_random)
 	root.add_child(rnd)
 	return root
 
 
-func _start_select() -> void:
-	_picks = {}
-	_pick_order = [{"who": "p1", "label": "玩家1  选择角色"}]
-	match Game.mode:
-		"coop": _pick_order.append({"who": "p2", "label": "玩家2  选择角色（队友）"})
-		"versus": _pick_order.append({"who": "p2", "label": "玩家2  选择角色（对手）"})
-	_pick_step = 0
-	_update_select_header()
-	var start := Roster.index_of(Game.p1_char)
-	_grid_buttons[start].grab_focus()
-	_preview(start)
+## open the loadout page on `slot` ("p1" / "p2" / "partner"); Back returns to `ret`
+func _open_loadout(slot: String, ret: String) -> void:
+	_lo_slot = slot
+	_lo_return = ret
+	_show_page("loadout")
+
+
+## dev: --lotest runs the pick / swap / random rules once and prints the result (use with --nosave)
+func _lo_selftest() -> void:
+	var out := []
+	Game.p1_char = "m"; Game.p2_char = "bear"; Game.partner_char = ""
+	_lo_slot = "p1"; _lo_pick(Roster.index_of("snow"))
+	out.append("p1=snow -> p1=%s p2=%s partner='%s'" % [Game.p1_char, Game.p2_char, Game.partner_char])
+	_lo_pick(Roster.index_of("bear"))                       # taken by p2: swap
+	out.append("p1=bear (swap) -> p1=%s p2=%s" % [Game.p1_char, Game.p2_char])
+	_lo_slot = "partner"; _lo_pick(Roster.index_of("bear"))  # random partner picks a taken one: refused
+	out.append("partner=bear (denied) -> partner='%s'" % Game.partner_char)
+	_lo_pick(Roster.index_of("wang"))
+	out.append("partner=wang -> partner='%s'" % Game.partner_char)
+	for mode in ["solo", "coop", "versus", "tournament", "rally"]:
+		Game.mode = mode
+		_make_lineup()
+		var all: Array = _lineup["a"] + _lineup["b"]
+		var uniq := {}
+		for id in all:
+			uniq[id] = true
+		out.append("%s: A=%s B=%s unique=%s" % [mode, _lineup["a"], _lineup["b"], uniq.size() == all.size()])
+	_lo_set_random(true)
+	out.append("random on -> partner='%s'" % Game.partner_char)
+	_lo_set_random(false)
+	out.append("random off -> partner='%s'" % Game.partner_char)
+	for l in out:
+		print("[lotest] ", l)
+	get_tree().quit()
+
+
+func _lo_enter() -> void:
 	stage.look(Vector3(0.0, 1.9, 9.5), Vector3(1.5, 1.05, 1.4))
+	if _lo_dot != null:
+		_lo_dot.visible = false
+	if Game.profile != null and not Game.profile.flags.get("loadout_seen", false):
+		Game.profile.flags["loadout_seen"] = true
+		if Game.profile_enabled and not (Game.main != null and Game.main.dev.has("nosave")):
+			Game.profile.save()
+	_lo_note.text = ""
+	_lo_refresh()
+	var id := _lo_char(_lo_slot)
+	var idx := Roster.index_of(id) if id != "" else 0
+	_lo_tiles[idx].call_deferred("grab_focus")
+	_preview(idx, "cheer")
 
 
-func _update_select_header() -> void:
-	_sel_header.text = _pick_order[_pick_step]["label"]
+func _lo_choose_slot(slot: String) -> void:
+	_lo_slot = slot
+	Sfx.play("ui_click", -4.0)
+	_lo_refresh()
+	var id := _lo_char(slot)
+	var idx := Roster.index_of(id) if id != "" else 0
+	_lo_tiles[idx].grab_focus()
+	_preview(idx, "cheer", true)
 
 
-func _select_back() -> void:
-	if _pick_step > 0:
-		_pick_step -= 1
-		_update_select_header()
-	elif Game.mode == "tournament":
-		_show_page("main")
-	elif Game.is_practice():
-		_show_page("practice")
-	else:
-		_show_page("mode")
+## tags on the tiles (who wears this character), the highlighted chip, the random switch
+func _lo_refresh() -> void:
+	for slot in LO_SLOTS:
+		var b: Button = _lo_chips[slot]
+		var sel: bool = slot == _lo_slot
+		GW.pill_set(b.get_meta("bg") as ColorRect, b.size, 50.0, MenuEntry.TEAL if sel else MenuEntry.PALE, 0.5 if sel else 0.0)
+		var id := _lo_char(slot)
+		var holder: Control = b.get_meta("holder")
+		for c in holder.get_children():
+			c.queue_free()
+		if id != "":
+			var av := UIKit.avatar(id, 80, _lo_tint(slot), 4)
+			holder.add_child(av)
+		else:
+			var ph := _Slot.new()
+			ph.size = Vector2(80, 80)
+			ph.tint = _lo_tint(slot)
+			holder.add_child(ph)
+		var ink: Color = Color.WHITE if sel else UIKit.INK
+		var t1: Label = b.get_meta("t1")
+		var t2: Label = b.get_meta("t2")
+		t1.text = _lo_title(slot)
+		t1.add_theme_color_override("font_color", Color(1, 1, 1, 0.92) if sel else Color(0.3, 0.45, 0.52))
+		t2.text = tr(String(Roster.by_id(id)["name"])) if id != "" else tr("随机")
+		t2.add_theme_color_override("font_color", ink)
+	for i in _lo_tiles.size():
+		_lo_decorate(_lo_tiles[i], String(_roster[i]["id"]))
+	_lo_rand.visible = _lo_slot == "partner"
+	var on: bool = Game.partner_char == ""
+	_lo_rand_pill.set_pressed_no_signal(on)
+	_lo_rand_pill.text = "开" if on else "关"
+	_update_state_tag(_preview_idx)
 
 
-func _preview(idx: int) -> void:
-	if idx == _preview_idx:
+func _lo_decorate(tile: Button, id: String) -> void:
+	var deco: Control = tile.get_node("Deco")
+	for c in deco.get_children():
+		c.queue_free()
+	var x := 6.0
+	for slot in LO_SLOTS:
+		if _lo_char(slot) != id:
+			continue
+		var col := _lo_tint(slot)
+		var tag := Panel.new()
+		var w := 44.0 if slot != "partner" else 62.0
+		tag.position = Vector2(x, 2)
+		tag.size = Vector2(w, 26)
+		tag.add_theme_stylebox_override("panel", UIKit.style_box(col, 13, 2, Color.WHITE, 2))
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tl := UIKit.label("P1" if slot == "p1" else ("P2" if slot == "p2" else tr("队友")), 17, Color.WHITE)
+		tl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tag.add_child(tl)
+		deco.add_child(tag)
+		x += w + 4.0
+	if _lo_char(_lo_slot) == id:
+		var ck := GW.glyph("check", 36.0, Color("14b08a"))
+		ck.position = Vector2(108, 2)
+		deco.add_child(ck)
+
+
+func _preview(idx: int, clip := "", force := false) -> void:
+	if idx == _preview_idx and not force:
 		return
 	_preview_idx = idx
 	var e := Roster.by_id(_roster[idx]["id"])
 	if _preview_rig and is_instance_valid(_preview_rig):
 		_preview_rig.queue_free()
 		stage.rigs.erase(_preview_rig)
-	_preview_rig = stage.add_rig(e, Vector3(3.2, 0, 1.4), PI + 0.5, ["cheer", "ready", "bump", "set"][randi() % 4])
+	_preview_rig = stage.add_rig(e, Vector3(3.2, 0, 1.4), PI + 0.5, clip if clip != "" else ["cheer", "ready", "bump", "set"][randi() % 4])
 	_preview_rig.scale = Vector3.ONE * float(e["scale"]) * 1.25
-	_sel_name.text = e["name"]
-	_sel_blurb.text = e["blurb"]
+	_sel_name.text = tr(String(e["name"]))
+	_sel_blurb.text = tr(String(e["blurb"]))
 	var pk := Roster.perk_info(String(e.get("perk", "")))
-	_sel_perk.text = "特性「%s」 %s" % [pk["name"], pk["desc"]] if pk["name"] != "" else ""
+	_sel_perk.text = (tr("特性「%s」 %s") % [tr(String(pk["name"])), tr(String(pk["desc"]))]) if pk["name"] != "" else ""
 	var st: Dictionary = e["stats"]
 	_sel_bars[0].value = st["speed"]
 	_sel_bars[1].value = st["jump"]
 	_sel_bars[2].value = st["power"]
+	_update_state_tag(idx)
 
 
-func _confirm_pick(idx: int) -> void:
+func _update_state_tag(idx: int) -> void:
+	if _sel_state == null or idx < 0:
+		return
+	var id := String(_roster[idx]["id"])
+	if _lo_char(_lo_slot) == id:
+		_sel_state.text = tr("使用中")
+		_sel_state.add_theme_color_override("font_color", Color("7dffb0"))
+	else:
+		_sel_state.text = tr("点击装备")
+		_sel_state.add_theme_color_override("font_color", Color(0.72, 0.86, 0.95))
+
+
+func _lo_say(msg: String) -> void:
+	_lo_note.text = msg
+	_lo_note.modulate.a = 1.0
+	if _lo_note_tw != null and _lo_note_tw.is_valid():
+		_lo_note_tw.kill()
+	_lo_note_tw = _lo_note.create_tween()
+	_lo_note_tw.tween_interval(1.6)
+	_lo_note_tw.tween_property(_lo_note, "modulate:a", 0.0, 0.3)
+
+
+## equip tile `idx` for the current slot. A character can only be worn by one slot: if another slot has it, the two swap.
+func _lo_pick(idx: int) -> void:
 	var id: String = _roster[idx]["id"]
-	var who: String = _pick_order[_pick_step]["who"]
-	_picks[who] = id
+	var cur := _lo_char(_lo_slot)
+	if id == cur:
+		Sfx.play("ui_confirm", -8.0)
+		return
+	for s2 in LO_SLOTS:
+		if s2 != _lo_slot and _lo_char(s2) == id:
+			if cur == "":
+				_lo_say(tr("已被%s使用") % _lo_title(s2))
+				Sfx.play("ui_back", -4.0)
+				return
+			_lo_set(s2, cur)
+			break
+	_lo_set(_lo_slot, id)
 	Sfx.play("ui_confirm", -2.0)
-	if who == "p1":
-		Game.p1_char = id
-	else:
-		Game.p2_char = id
-	_pick_step += 1
-	if _pick_step >= _pick_order.size():
-		_make_lineup()
-		if Game.is_practice():
-			_start_match()                # practice has no line-up: the other side is a ball machine
-		else:
-			_show_page("lineup")
-	else:
-		_update_select_header()
+	Game.save_settings()
+	_lo_refresh()
+	_preview(idx, "cheer", true)
+
+
+func _lo_random() -> void:
+	if _lo_slot == "partner":
+		_lo_set_random(true)
+		_lo_refresh()
+		return
+	var pool: Array = []
+	for i in _roster.size():
+		var id: String = _roster[i]["id"]
+		if id != _lo_char(_lo_slot) and not (_lo_char("p1") == id or _lo_char("p2") == id or _lo_char("partner") == id):
+			pool.append(i)
+	if not pool.is_empty():
+		var pick: int = pool[randi() % pool.size()]
+		_lo_pick(pick)
+		_lo_tiles[pick].grab_focus()
+
+
+func _lo_set_random(on: bool) -> void:
+	if on:
+		Game.partner_char = ""
+	elif Game.partner_char == "":
+		# switch to a fixed partner: the one being previewed if it is free, else the first free character
+		var want := String(_roster[maxi(_preview_idx, 0)]["id"])
+		if want == Game.p1_char or want == Game.p2_char:
+			for e in _roster:
+				if e["id"] != Game.p1_char and e["id"] != Game.p2_char:
+					want = String(e["id"])
+					break
+		Game.partner_char = want
+	Game.save_settings()
+	_lo_refresh()
 
 
 func _random_ids(count: int, exclude: Array) -> Array:
@@ -1157,190 +1431,50 @@ func _random_ids(count: int, exclude: Array) -> Array:
 	return pool.slice(0, count)
 
 
+## the saved CPU partner, or a random one when none is set (or it is taken)
+func _pick_partner(exclude: Array) -> String:
+	var pc: String = Game.partner_char
+	if pc != "" and not exclude.has(pc):
+		return pc
+	return String(_random_ids(1, exclude)[0])
+
+
+## teams for the current mode from the saved loadout (the CPU players are random)
 func _make_lineup() -> void:
-	var used: Array = []
+	var p1: String = Game.p1_char
+	var p2: String = Game.p2_char
 	var a: Array = []
 	var b: Array = []
 	match Game.mode:
-		"solo":
-			a = [_picks["p1"]]
-			used.append(_picks["p1"])
-			var r := _random_ids(3, used)
-			a.append(r[0]); b = [r[1], r[2]]
 		"coop":
-			a = [_picks["p1"], _picks["p2"]]
-			used = a.duplicate()
-			b = _random_ids(2, used)
+			a = [p1, p2]
+			b = _random_ids(2, a)
 		"versus":
-			a = [_picks["p1"]]
-			b = [_picks["p2"]]
-			used = [_picks["p1"], _picks["p2"]]
-			var r2 := _random_ids(2, used)
-			a.append(r2[0]); b.append(r2[1])
+			var used: Array = [p1, p2]
+			var mate := _pick_partner(used)
+			used.append(mate)
+			a = [p1, mate]
+			b = [p2, String(_random_ids(1, used)[0])]
 		"tournament":
-			used = Game.tournament_ids() + [_picks["p1"]]
-			a = [_picks["p1"], _random_ids(1, used)[0]]
+			var used_t: Array = Game.tournament_ids() + [p1]
+			var mate_t := _pick_partner(used_t)
+			a = [p1, mate_t]
 			Game.team_a = a.duplicate()
 			b = Game.tournament_opponents(0)
-		_:                                 # rally / training: any partner and opponents (they only feed balls)
-			a = [_picks["p1"]]
-			used.append(_picks["p1"])
-			var r3 := _random_ids(3, used)
-			a.append(r3[0]); b = [r3[1], r3[2]]
+		_:                                 # solo / rally / training: you + a partner against two CPU players
+			var used_s: Array = [p1]
+			var mate_s := _pick_partner(used_s)
+			used_s.append(mate_s)
+			a = [p1, mate_s]
+			b = _random_ids(2, used_s)
 	_lineup["a"] = a
 	_lineup["b"] = b
 
 
-# ---- LINEUP
-func _build_lineup() -> Control:
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var rb := GW.ribbon("队伍阵容", 760.0, 98.0, UIKit.TEAL, 54)
-	rb.position = Vector2(70, 40)
-	root.add_child(rb)
-	_lineup_title = rb.get_child(0) as Label
-	_lineup_box = HBoxContainer.new()
-	_lineup_box.set_anchors_preset(Control.PRESET_CENTER)
-	_lineup_box.position = Vector2(-760, -280)
-	_lineup_box.add_theme_constant_override("separation", 80)
-	root.add_child(_lineup_box)
-	var nav := HBoxContainer.new()
-	nav.add_theme_constant_override("separation", 24)
-	nav.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	nav.position = Vector2(-520, -170)
-	root.add_child(nav)
-	var back := UIKit.button("返回", Vector2(220, 72), UIKit.PINK, 30)
-	back.pressed.connect(func(): _show_page("select"))
-	nav.add_child(back)
-	var shuffle := UIKit.button("随机换队", Vector2(260, 72), UIKit.BLUE, 30)
-	shuffle.pressed.connect(func(): _shuffle_ai())
-	nav.add_child(shuffle)
-	var go := UIKit.button("开始比赛!", Vector2(420, 88), UIKit.GREEN, 44)
-	go.name = "Go"
-	_lineup_go = go
-	go.pressed.connect(_start_match)
-	nav.add_child(go)
-	return root
-
-
-func _shuffle_ai() -> void:
-	var fixed: Array = []
-	match Game.mode:
-		"solo": fixed = [_picks["p1"]]
-		"coop": fixed = [_picks["p1"], _picks["p2"]]
-		"versus": fixed = [_picks["p1"], _picks["p2"]]
-		"tournament": fixed = [_picks["p1"]] + Game.tournament_ids()
-	var r := _random_ids(4, fixed)
-	var a: Array = _lineup["a"]
-	var b: Array = _lineup["b"]
-	match Game.mode:
-		"solo": a[1] = r[0]; b[0] = r[1]; b[1] = r[2]
-		"coop": b[0] = r[0]; b[1] = r[1]
-		"versus": a[1] = r[0]; b[1] = r[1]
-		"tournament":
-			a[1] = r[0]
-			Game.team_a = a.duplicate()
-			_lineup["b"] = Game.tournament_opponents(0)
-	Sfx.play("ui_click")
-	_build_lineup_view()
-
-
-func _cycle_ai(team: String, slot: int, step := 1) -> void:
-	var cur_id: String = _lineup[team][slot]
-	var idx := Roster.index_of(cur_id)
-	var taken: Array = _lineup["a"] + _lineup["b"]
-	if Game.mode == "tournament":
-		taken += Game.tournament_ids()
-	for k in _roster.size():
-		idx = (idx + step + _roster.size()) % _roster.size()
-		var cand: String = _roster[idx]["id"]
-		if not taken.has(cand):
-			_lineup[team][slot] = cand
-			break
-	Sfx.play("ui_click", -4.0)
-	_build_lineup_view()
-
-
-func _is_human_slot(team: String, slot: int) -> bool:
-	match Game.mode:
-		"solo": return team == "a" and slot == 0
-		"coop": return team == "a"
-		"versus": return slot == 0
-		"tournament": return team == "a" and slot == 0
-	return false
-
-
-func _build_lineup_view() -> void:
-	for c in _lineup_box.get_children():
-		c.queue_free()
-	stage.clear_rigs()
-	stage.look(Vector3(0.0, 3.8, 12.5), Vector3(0, 1.0, 0.0))
-	var tour: bool = Game.mode == "tournament"
-	_lineup_title.text = ("锦标赛 · %s" % Game.TOURNAMENT_ROUNDS[0]["name"]) if tour else "队伍阵容"
-	_lineup_go.text = "开始锦标赛!" if tour else "开始比赛!"
-	for t in ["a", "b"]:
-		var col := UIKit.BLUE if t == "a" else UIKit.PINK
-		var holder := Control.new()
-		holder.custom_minimum_size = Vector2(700, 430)
-		_lineup_box.add_child(holder)
-		var card := GW.board(Vector2(700, 410), col.darkened(0.5) * Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.9), 0.025)
-		card.position = Vector2(0, 20)
-		holder.add_child(card)
-		var head := GW.ribbon("A 队" if t == "a" else "B 队", 300.0, 88.0, col, 46)
-		head.position = Vector2(200, -4)
-		holder.add_child(head)
-		for s in 2:
-			var id: String = _lineup[t][s]
-			var e := Roster.by_id(id)
-			var btn := Button.new()
-			btn.position = Vector2(120.0 + 250.0 * float(s), 120)
-			btn.size = Vector2(210, 260)
-			btn.focus_mode = Control.FOCUS_ALL
-			btn.pivot_offset = btn.size * 0.5
-			var empty := StyleBoxEmpty.new()
-			for st in ["normal", "pressed"]:
-				btn.add_theme_stylebox_override(st, empty)
-			var ring := UIKit.style_box(Color(1.0, 0.9, 0.35, 0.16), 34, 5, UIKit.YELLOW)
-			for st in ["hover", "focus", "hover_pressed"]:
-				btn.add_theme_stylebox_override(st, ring)
-			var av := UIKit.avatar(id, 164, col, 6)
-			av.position = Vector2(23, 14)
-			btn.add_child(av)
-			var nm := UIKit.label(e["name"], 32, Color.WHITE, 8, Color(0.02, 0.1, 0.2, 0.9))
-			nm.position = Vector2(0, 186)
-			nm.size = Vector2(210, 44)
-			btn.add_child(nm)
-			var human := _is_human_slot(t, s)
-			var tag_text := ""
-			var tag_col := Color(0.2, 0.3, 0.42)
-			if human:
-				tag_text = "玩家"
-				tag_col = UIKit.TEAL
-			elif tour and t == "b":
-				tag_text = "对手"
-			else:
-				tag_text = "电脑 ⇄"
-				var tt: String = t
-				var ss: int = s
-				btn.pressed.connect(func(): _cycle_ai(tt, ss))
-			var chip := Panel.new()
-			chip.position = Vector2(54, 228)
-			chip.size = Vector2(102, 32)
-			chip.add_theme_stylebox_override("panel", UIKit.style_box(tag_col, 16, 2, Color.WHITE))
-			chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn.add_child(chip)
-			var cl := UIKit.label(tag_text, 20, Color.WHITE)
-			cl.size = chip.size
-			chip.add_child(cl)
-			btn.mouse_entered.connect(func(): UIKit._bump(btn, 1.04))
-			btn.mouse_exited.connect(func(): UIKit._bump(btn, 1.0))
-			holder.add_child(btn)
-			# 3D line-up on court
-			var team_i := 0 if t == "a" else 1
-			var sgn := 1.0 if team_i == 0 else -1.0
-			var px := (-1.9 if s == 0 else 1.9)
-			var py := 4.4 if s == 0 else 3.0
-			stage.add_rig(e, Vector3(px, 0, py * sgn), 0.0 if team_i == 0 else PI, "ready")
+## "Start": straight into the match with the saved loadout
+func _start_game() -> void:
+	_make_lineup()
+	_start_match()
 
 
 func _start_match() -> void:

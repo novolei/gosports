@@ -8,7 +8,7 @@ signal net_contact(pos: Vector3)
 signal crossed_net(to_team: int)
 
 const MODEL := "res://assets/ball/volleyball.fbx"
-const TEX := "res://assets/ball/volleyball_color.png"
+const TEX := "res://assets/ball/volleyball_vivid.png"
 
 var vel := Vector3.ZERO
 var spin := Vector3.ZERO        # rad/s (cosmetic)
@@ -32,6 +32,9 @@ var halo: MeshInstance3D
 var shadow: MeshInstance3D
 var _trail_mat: ParticleProcessMaterial
 var _rot := Basis.IDENTITY
+var outline: MeshInstance3D       # dark rim around the ball: it reads against the white sky, clouds and pale stands
+var _base_s := 1.0                # the ball mesh scale that fits BALL_R
+var _vis := 1.0                   # visual-only enlargement with camera distance (the far court is tiny on phones)
 var _glow := 0.0
 var trail_color := Color(1.0, 0.85, 0.2)
 
@@ -57,18 +60,34 @@ func _build_visual() -> void:
 	var bb := src.mesh.get_aabb()
 	var s := (Court.BALL_R * 2.0) / maxf(bb.size.x, 0.0001)
 	mesh.scale = Vector3.ONE * s
+	_base_s = s
 	m.free()
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = load(TEX)
 	mat.roughness = 0.42
-	mat.metallic_specular = 0.55
+	mat.metallic_specular = 0.3
 	mat.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
 	mat.rim_enabled = true
-	mat.rim = 0.3
+	mat.rim = 0.12
 	mat.rim_tint = 0.5
 	mat.albedo_color = skin_tint
+	# a little self-light so the ball never greys out in shade or at night
+	mat.emission_enabled = true
+	mat.emission_texture = mat.albedo_texture
+	mat.emission = Color.WHITE
+	mat.emission_energy_multiplier = 0.12
 	mesh.material_override = mat
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	# outline: the same mesh a bit bigger, drawn inside-out in a dark navy
+	outline = MeshInstance3D.new()
+	outline.mesh = mesh.mesh
+	var om := StandardMaterial3D.new()
+	om.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	om.cull_mode = BaseMaterial3D.CULL_FRONT
+	om.albedo_color = Color(0.04, 0.09, 0.24)
+	outline.material_override = om
+	outline.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pivot.add_child(outline)
 
 	# soft halo (billboard) - makes the ball readable against busy backgrounds
 	halo = MeshInstance3D.new()
@@ -299,8 +318,18 @@ func _spin_visual(dt: float) -> void:
 	var w := spin
 	if w.length() > 0.001:
 		_rot = Basis(w.normalized(), w.length() * dt) * _rot
-		mesh.basis = _rot.orthonormalized() * Basis.from_scale(mesh.scale)
 	spin *= 0.992
+
+
+## ball, outline, halo and shadow grow a little with the camera distance so the ball keeps a readable size on the far court
+func _apply_visual_scale() -> void:
+	var cam := get_viewport().get_camera_3d()
+	var target := 1.0
+	if cam != null:
+		target = clampf(cam.global_position.distance_to(global_position) / 13.0, 1.0, 1.85)
+	_vis = lerpf(_vis, target, 0.25)
+	mesh.basis = _rot.orthonormalized() * Basis.from_scale(Vector3.ONE * _base_s * _vis)
+	outline.scale = Vector3.ONE * _base_s * _vis * 1.17
 
 
 func _process(dt: float) -> void:
@@ -313,21 +342,22 @@ func _process_impl(dt: float) -> void:
 	# halo + glow follow
 	_glow = move_toward(_glow, 0.0, dt * 1.6)
 	_update_shape(dt)
+	_apply_visual_scale()
 	var hm := halo.material_override as StandardMaterial3D
 	var near_net := clampf(1.0 - absf(global_position.z) / 2.2, 0.0, 1.0)
-	var a := clampf(_glow * 0.45 + near_net * 0.25 * (1.0 if live else 0.0), 0.0, 0.6)
+	var a := clampf(_glow * 0.45 + near_net * 0.25 * (1.0 if live else 0.0) + (0.12 if live else 0.0), 0.0, 0.6)
 	var hc := Color(1, 0.95, 0.75)
 	if ribbon != null and ribbon.active and ribbon.head_color.a > 0.05 and live:
 		# the glow around the ball takes the colour of the streak
 		hc = Color(ribbon.head_color.r, ribbon.head_color.g, ribbon.head_color.b)
 		a = maxf(a, 0.3 * ribbon.head_color.a)
 	hm.albedo_color = Color(hc.r, hc.g, hc.b, a)
-	halo.scale = Vector3.ONE * (1.0 + _glow * 0.35)
+	halo.scale = Vector3.ONE * (1.0 + _glow * 0.35) * _vis
 
 
 func _update_shadow() -> void:
 	var p := global_position
 	shadow.global_position = Vector3(p.x, 0.012, p.z)
 	var k := clampf(1.0 - p.y / 9.0, 0.25, 1.0)
-	shadow.scale = Vector3.ONE * (0.55 + 0.5 * k)
+	shadow.scale = Vector3.ONE * (0.55 + 0.5 * k) * lerpf(1.0, _vis, 0.6)
 	(shadow.material_override as StandardMaterial3D).albedo_color.a = 0.5 * k

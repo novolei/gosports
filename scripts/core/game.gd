@@ -39,6 +39,7 @@ var base_time_scale := 1.0     # dev / test only: speeds the whole simulation up
 var mode := "solo"           # solo | coop | versus
 var p1_char := "m"
 var p2_char := "bear"
+var partner_char := ""                # the CPU partner you play with ("" = a random one every match)
 var team_a: Array = ["m", "bear"]      # near team (x: camera side) ids
 var team_b: Array = ["snow", "wang"]
 var last_result: Dictionary = {}
@@ -255,6 +256,9 @@ func _load_settings() -> void:
 	settings["difficulty"] = clampi(int(settings["difficulty"]), 0, 3)
 	p1_char = cf.get_value("profile", "p1_char", p1_char)
 	p2_char = cf.get_value("profile", "p2_char", p2_char)
+	partner_char = cf.get_value("profile", "partner_char", partner_char)
+	if (partner_char != "" and String(Roster.by_id(partner_char)["id"]) != partner_char) or partner_char == p1_char or partner_char == p2_char:
+		partner_char = ""
 	player_stats["played"] = cf.get_value("profile", "played", 0)
 	player_stats["won"] = cf.get_value("profile", "won", 0)
 	if cf.has_section("keys"):
@@ -264,11 +268,14 @@ func _load_settings() -> void:
 
 
 func save_settings() -> void:
+	if main != null and main.dev.has("nosave"):          # dev runs never touch the saved settings
+		return
 	var cf := ConfigFile.new()
 	for k in settings.keys():
 		cf.set_value("settings", k, settings[k])
 	cf.set_value("profile", "p1_char", p1_char)
 	cf.set_value("profile", "p2_char", p2_char)
+	cf.set_value("profile", "partner_char", partner_char)
 	cf.set_value("profile", "played", player_stats["played"])
 	cf.set_value("profile", "won", player_stats["won"])
 	for act in key_overrides.keys():

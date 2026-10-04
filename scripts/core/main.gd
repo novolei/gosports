@@ -45,8 +45,8 @@ func _ready() -> void:
 		Loc.apply(String(dev["lang"]))
 	var first: String = dev.get("screen", "menu")
 	if not (dev.has("shot") or dev.has("burst") or dev.has("autoplay") or dev.has("humanbot") or dev.has("noloading")):
-		# continue from the boot splash: start covered by its sky colour and let the first screen emerge from it
-		_fade.color = Color(0.62, 0.82, 0.96, 1.0)
+		# continue from the boot splash: start covered by its solid colour (== boot_splash/bg_color) and let the first screen emerge from it
+		_fade.color = Color(0.1137, 0.7294, 0.8039, 1.0)
 		var t0 := create_tween()
 		t0.tween_interval(0.15)
 		t0.tween_property(_fade, "color:a", 0.0, 0.55)

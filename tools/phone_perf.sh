@@ -17,9 +17,7 @@ rm -f "$TMPF"
 "$ADB" -s "$S" shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
 sleep 11
 "$ADB" -s "$S" shell input tap 305 310;  sleep 2.5      # main menu: Play
-"$ADB" -s "$S" shell input tap 2050 875;  sleep 2.5      # mode page: Start Game (bottom right)
-"$ADB" -s "$S" shell input tap 161 253;  sleep 2.5      # character grid: first tile
-"$ADB" -s "$S" shell input tap 1418 954; sleep 30       # line-up: Start match (VS card + intro run first)
+"$ADB" -s "$S" shell input tap 2050 875;  sleep 32      # mode page: Start Game (bottom right) goes straight to the match (VS card + intro run first)
 LINES="$("$ADB" -s "$S" logcat -d 2>&1 | grep -E "\[perf\]" | tail -3)"
 printf '%-34s' "$LABEL"
 echo "$LINES" | awk '{for(i=1;i<=NF;i++){split($i,a,"="); if(a[1]=="fps")f+=a[2]; if(a[1]=="render_gpu")g+=a[2]; if(a[1]=="render_cpu")c+=a[2]; if(a[1]=="draws")d+=a[2]} n++} END{printf "fps=%-3.0f gpu=%-5.1fms render_cpu=%-4.1fms draws=%.0f\n", f/n, g/n, c/n, d/n}'
