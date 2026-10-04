@@ -59,6 +59,31 @@ class Cell:
         return self.im.resize((CW, CH), Image.LANCZOS)
 
 
+def paste_icon(c, path, x, y, w, h, radius=0, border=0, border_col=(255, 255, 255, 255), shadow=True):
+    """paste a PNG (our own Minitanks artwork, art_src/brand/minitanks) scaled to w x h at (x, y), optionally with rounded corners,
+    a border and a soft drop shadow"""
+    ic = Image.open(path).convert("RGBA").resize((c.s(w), c.s(h)), Image.LANCZOS)
+    if radius:
+        m = Image.new("L", ic.size, 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, ic.size[0] - 1, ic.size[1] - 1], radius=c.s(radius), fill=255)
+        a = ic.getchannel("A")
+        from PIL import ImageChops
+        ic.putalpha(ImageChops.multiply(a, m))
+    if shadow:
+        sh = Image.new("RGBA", ic.size, (0, 0, 0, 0))
+        sh.putalpha(ic.getchannel("A").point(lambda v: int(v * 0.35)))
+        c.im.alpha_composite(sh, (c.s(x + 4), c.s(y + 6)))
+    if border:
+        bd = Image.new("RGBA", (c.s(w + border * 2), c.s(h + border * 2)), (0, 0, 0, 0))
+        ImageDraw.Draw(bd).rounded_rectangle([0, 0, bd.size[0] - 1, bd.size[1] - 1], radius=c.s(radius + border), fill=border_col)
+        c.im.alpha_composite(bd, (c.s(x - border), c.s(y - border)))
+    c.im.alpha_composite(ic, (c.s(x), c.s(y)))
+
+
+MT = "art_src/brand/minitanks/"
+URL = "game.if2.ai"
+
+
 def ball(c, cx, cy, r):
     c.circle(cx, cy, r, hexc("ffffff"))
     c.circle(cx, cy, r, None, hexc("20344f"), 4)
@@ -215,14 +240,14 @@ def make():
     c.text((380, 192), "N I N E   T R A V E L", 36, hexc("0b3f7a"))
     cells.append(c.finish())
 
-    # 12 FAIR PLAY
-    c = Cell("f4f7fb")
-    c.rect(0, 0, CW, 14, hexc("2f7cff"))
-    c.rect(0, CH - 14, CW, CH, hexc("2fd0b0"))
-    c.circle(104, 128, 58, hexc("2fd0b0"))
-    c.line([(76, 130), (98, 154), (138, 104)], hexc("ffffff"), 14)
-    c.text((402, 104), "FAIR PLAY", 76, hexc("13305c"))
-    c.text((402, 182), "R E S P E C T   T H E   G A M E", 24, hexc("5a6b8a"))
+    # 12 MINITANKS - hero: the app icon on the game's own electric blue, speed lines, the web address in a capsule
+    c = Cell("0a62d8")
+    for k, (y, w, col) in enumerate([(52, 360, hexc("2f9bff")), (96, 300, hexc("63b8ff")), (204, 420, hexc("2f9bff"))]):
+        c.poly([(CW, y), (CW - w, y + 14), (CW - w, y + 22), (CW, y + 34)], col)
+    paste_icon(c, MT + "app_icon_1024.png", 26, 28, 200, 200, radius=40, border=6)
+    c.text((434, 92), "MINITANKS", 62, hexc("ffffff"), hexc("07338a"), off=5)
+    c.rect(280, 146, 590, 204, hexc("ffd23a"), 29)
+    c.text((435, 175), URL, 40, hexc("123a7a"))
     cells.append(c.finish())
 
     # 13 TEAM UP (diagonals in the two team colours)
@@ -233,20 +258,32 @@ def make():
     c.text((470, 128), "UP!", 100, hexc("ffffff"), hexc("b02a70"), off=5)
     cells.append(c.finish())
 
-    # 14 checker
-    c = Cell("ffffff")
-    for gx in range(0, CW, 64):
-        for gy in range(0, CH, 64):
-            if ((gx // 64) + (gy // 64)) % 2 == 0:
-                c.rect(gx, gy, gx + 64, gy + 64, hexc("20232b"))
-    c.rect(120, 70, 520, 186, hexc("ffd23a"), 40)
-    c.text((320, 128), "SPIRIT!", 84, hexc("20232b"))
+    # 14 MINITANKS - stencil: black / yellow hazard stripes top and bottom, the tank pictogram on a yellow disc
+    c = Cell("ffcf1f")
+    for y0, y1 in ((0, 40), (CH - 40, CH)):
+        c.rect(0, y0, CW, y1, hexc("14161c"))
+        for x in range(-60, CW + 60, 56):
+            c.poly([(x, y1), (x + 28, y1), (x + 28 + (y1 - y0) * 0.9, y0), (x + (y1 - y0) * 0.9, y0)], hexc("ffcf1f"))
+    c.circle(112, 128, 82, hexc("14161c"))
+    c.circle(112, 128, 72, hexc("ffffff"))
+    paste_icon(c, MT + "tank_large.png", 52, 68, 120, 120, shadow=False)
+    c.text((400, 100), "TANK TIME", 74, hexc("14161c"))
+    c.rect(238, 150, 566, 196, hexc("14161c"), 8)
+    c.text((402, 173), "MINITANKS  ·  " + URL, 26, hexc("ffcf1f"))
     cells.append(c.finish())
 
-    # 15 VOLLEYBALL pattern
-    c = Cell("14a89a")
-    for i, y in enumerate([40, 128, 216]):
-        c.text((320 + (i % 2) * 70 - 35, y), "VOLLEYBALL  VOLLEYBALL", 60, hexc("ffffff", 215 if i == 1 else 110))
+    # 15 MINITANKS - retro arcade: dark cabinet blue, scanlines, neon cyan / magenta, a pixel-grid tank badge
+    c = Cell("110b2e")
+    for gy in range(0, CH, 8):
+        c.rect(0, gy, CW, gy + 2, hexc("1d1450"))
+    for gx in range(0, CW, 40):
+        c.rect(gx, 214, gx + 2, CH, hexc("2b1b78"))
+    c.rect(34, 34, 218, 218, hexc("ff3da8"), 20)
+    c.rect(42, 42, 210, 210, hexc("1a1140"), 14)
+    paste_icon(c, MT + "tank_large.png", 56, 56, 140, 140, shadow=False)
+    c.text((438, 92), "MINITANKS", 60, hexc("2ff3ff"), hexc("ff3da8"), off=5)
+    c.text((438, 160), "PRESS START", 32, hexc("ffe14a"))
+    c.text((438, 204), URL, 30, hexc("ffffff"))
     cells.append(c.finish())
     return cells
 

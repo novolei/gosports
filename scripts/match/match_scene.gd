@@ -142,6 +142,11 @@ func _build() -> void:
 			a.brain = AIBrain.new(s)
 			a.skill = s
 
+	if not humans.is_empty() and not Game.is_practice() and not Game.dbg("nobanter"):
+		var banter := MateBanter.new()
+		add_child(banter)
+		banter.build(self, director)
+
 	# --- camera
 	cam_rig = CameraRig.new()
 	add_child(cam_rig)

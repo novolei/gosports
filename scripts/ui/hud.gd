@@ -940,6 +940,8 @@ func _update_timing_ring(dt: float) -> void:
 					var u := clampf((dist - pe) / (1.8 - pe), 0.0, 1.0)
 					timing_ring.radius = timing_ring.target_r + (150.0 - timing_ring.target_r) * pow(u, 0.85)
 					var lv := 2 if dist < pe else (1 if dist < ge else 0)
+					if lv != timing_ring.level and Game.main != null and Game.main.dev.has("ringlog"):
+						print("[ringlog] level %d -> %d  dist=%.2f radius=%.0f kind=%s" % [timing_ring.level, lv, dist, timing_ring.radius, kind])
 					if lv == 2 and timing_ring.level < 2:
 						timing_ring.pop = 1.0
 						Sfx.play("ui_hover", -11.0, 1.7)                      # one soft tick as the perfect window opens

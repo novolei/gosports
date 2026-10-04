@@ -178,6 +178,8 @@ func hit_stop(dur: float) -> void:
 
 
 func point_focus(pos: Vector3, winner_team: int) -> void:
+	if _mode == "free":                  # (dev fixed camera: leave it alone)
+		return
 	_mode = "point"
 	_mode_t = 0.0
 	_point_focus = pos

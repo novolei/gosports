@@ -8,6 +8,7 @@ uniform sampler2D atlas : source_color, filter_linear_mipmap, repeat_disable;
 uniform float period = 7.0;
 uniform float bright = 1.0;
 uniform float cells = 16.0;
+uniform float t_off = 0.0;               // dev: --adoffset=<seconds> jumps the rotation ahead
 uniform vec3 night_tint : source_color = vec3(1.0);
 
 varying flat float v_cell;
@@ -19,20 +20,39 @@ void vertex() {
 }
 
 void fragment() {
-	float t = (TIME + v_phase) / period;
+	float t = (TIME + t_off + v_phase) / period;
 	float step_i = floor(t);
 	float k = fract(t);
 	float cell = mod(v_cell + step_i * 5.0, cells);                 // 5 is coprime with 16: every board cycles through all 16 panels
-	// wipe: the new panel sweeps in from the left during the first 8 % of the cycle, the old one is still there until it passes
-	float wipe = smoothstep(0.0, 0.08, k);
 	float prev = mod(v_cell + (step_i - 1.0) * 5.0, cells);
-	float use_new = step(UV.x, wipe);
+	// every refresh uses one of four transition styles (picked from the step number and the board): wipe right, wipe left,
+	// venetian blinds opening, or a pixel dissolve
+	float style = mod(step_i * 3.0 + v_cell, 4.0);
+	float wipe = smoothstep(0.0, 0.1, k);
+	float use_new;
+	float scan = 0.0;
+	if (style < 0.5) {
+		use_new = step(UV.x, wipe);
+		scan = 1.0 - smoothstep(0.0, 0.015, abs(UV.x - wipe));
+	} else if (style < 1.5) {
+		use_new = step(1.0 - UV.x, wipe);
+		scan = 1.0 - smoothstep(0.0, 0.015, abs((1.0 - UV.x) - wipe));
+	} else if (style < 2.5) {
+		use_new = step(fract(UV.y * 5.0), wipe);                         // each slat of the blinds opens from the top
+	} else {
+		vec2 cellp = floor(UV * vec2(32.0, 10.0));
+		float h = fract(sin(dot(cellp, vec2(12.9898, 78.233))) * 43758.5453);
+		use_new = step(h, wipe);
+	}
+	if (wipe >= 0.999) {
+		use_new = 1.0;
+		scan = 0.0;
+	}
 	float c = mix(prev, cell, use_new);
 	vec2 local = clamp(UV, 0.004, 0.996);
 	vec2 uv = (vec2(mod(c, 4.0), floor(c / 4.0)) + local) / 4.0;
 	vec3 col = texture(atlas, uv).rgb;
-	float edge = wipe >= 0.999 ? 1.0 : smoothstep(0.0, 0.015, abs(UV.x - wipe));
-	col = mix(vec3(1.0), col, edge);                                 // bright scan line while wiping
+	col = mix(col, vec3(1.0), scan);                                 // bright scan line while a wipe sweeps
 	// LED pixel grid hint (very faint, only visible up close)
 	float grid = 0.96 + 0.04 * step(0.5, fract(UV.y * 24.0));
 	ALBEDO = col * grid * bright * night_tint;

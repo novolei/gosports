@@ -5,8 +5,8 @@ extends Node3D
 ## in with an elastic overshoot, then keeps a gentle squash-and-stretch bounce with a tiny wiggle until it shrinks away.
 ## One Label3D + one tween: practically free.
 
-const GAP := 0.5                                   # clear space between the top of the head and the bottom of the "!"
-const H := 0.3                                     # height of the glyph in metres
+const GAP := 0.56                                  # clear space between the top of the head and the bottom of the "!"
+const H := 0.46                                    # height of the glyph in metres
 
 
 static func spawn_over(a: Node3D, head_y: float, hold := 1.4) -> AlertMark:
@@ -17,8 +17,8 @@ static func spawn_over(a: Node3D, head_y: float, hold := 1.4) -> AlertMark:
 	l.text = "!"
 	l.font = Fonts.display_italic()
 	l.font_size = 64
-	l.pixel_size = 0.0058
-	l.outline_size = 12
+	l.pixel_size = 0.0088
+	l.outline_size = 14
 	l.modulate = Color("ffd91e")
 	l.outline_modulate = Color(0.06, 0.05, 0.1)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -36,7 +36,7 @@ static func spawn_over(a: Node3D, head_y: float, hold := 1.4) -> AlertMark:
 	var rounds := maxi(int(hold / 0.5), 1)
 	for i in rounds:
 		tw.tween_property(m, "scale", Vector3(0.88, 1.18, 0.88), 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(m, "position:y", head_y + GAP + 0.07, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(m, "position:y", head_y + GAP + 0.1, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(l, "rotation:z", 0.12 if i % 2 == 0 else -0.12, 0.14)
 		tw.tween_property(m, "scale", Vector3(1.1, 0.9, 1.1), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.parallel().tween_property(m, "position:y", head_y + GAP, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

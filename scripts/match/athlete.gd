@@ -420,6 +420,11 @@ func _tick_getup(dt: float) -> void:
 
 func _tick_idle_locked(dt: float) -> void:
 	vel = vel.move_toward(Vector2.ZERO, 14.0 * dt)
+	if _bonk_t > 0.0:                                  # hit by a thrown sardine while sulking: flinch, then back to sulking
+		_bonk_t -= dt
+		rig.play_if("bonk", 0.06)
+		if _bonk_t <= 0.0 and state == S.SAD:
+			rig.play("sad", 0.25)
 
 
 func _steer(dt: float, max_speed: float) -> void:
@@ -913,6 +918,7 @@ func sad() -> void:
 
 
 func reset_to_ready() -> void:
+	_bonk_t = 0.0
 	state = S.READY
 	vy = 0.0
 	vel = Vector2.ZERO

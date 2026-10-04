@@ -485,6 +485,8 @@ func _build_boards() -> void:
 	sm.shader = load("res://shaders/ad_board.gdshader")
 	sm.set_shader_parameter("atlas", _tex(ENV + "ads.png"))
 	sm.set_shader_parameter("bright", look["bright"])
+	if Game.main != null and Game.main.dev.has("adoffset"):
+		sm.set_shader_parameter("t_off", float(Game.main.dev["adoffset"]))
 	sm.set_shader_parameter("night_tint", Vector3((look["tint"] as Color).r, (look["tint"] as Color).g, (look["tint"] as Color).b))
 	fm.material_override = sm
 	fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

@@ -135,3 +135,60 @@ static func tumble(prop: MeshInstance3D, vel: Vector3, spin: Vector3, rest_y: fl
 	, 0.0, 3.2, 3.2)
 	return tw
 
+
+## a prop flies from `from` to the head of athlete `a` (0.66 s, tumbling), hits it (bonk + the "!" mark + sounds + camera nudge) and
+## then bounces off and tumbles over the floor. Used by the umpire's warnings and by an angry teammate.
+static func launch_at(parent: Node, scene: MatchScene, a: Athlete, id: String, tier: int, from: Vector3) -> void:
+	var prop := make(id, 2.6 if tier <= 1 else 3.2)       # (cartoon-sized so it reads from the broadcast camera)
+	parent.add_child(prop)
+	prop.global_position = from
+	var spin := Vector3(randf_range(2.0, 4.0), randf_range(2.0, 5.0), 0.0) * TAU * (1.0 if randf() < 0.5 else -1.0)
+	var dur := 0.66
+	Sfx.play("whoosh", -6.0, 1.2)
+	var tw := prop.create_tween()
+	tw.tween_method(func(u: float):
+		if not is_instance_valid(a):
+			return
+		var to := a.rig.head_world() + Vector3(0, 0.04, 0)
+		prop.global_position = from.lerp(to, u) + Vector3(0, 0.55 * 4.0 * u * (1.0 - u), 0)
+		prop.rotation = spin * u, 0.0, 1.0, dur)
+	tw.tween_callback(func(): _hit(scene, a, prop, tier, from))
+
+
+static func _hit(scene: MatchScene, a: Athlete, prop: MeshInstance3D, tier: int, from_pos: Vector3) -> void:
+	if not is_instance_valid(a):
+		prop.queue_free()
+		return
+	a.bonk()
+	var head_y: float = a.rig.head_world().y - a.global_position.y + 0.3        # (bone centre -> top of the head)
+	AlertMark.spawn_over(a, head_y, 1.4)
+	Sfx.play("body_bump", -1.0, 0.9)
+	Sfx.play("ui_confirm", -4.0, 1.7)
+	var pid := String(prop.get_meta("id")) if prop.has_meta("id") else ""
+	if pid == "fish" or pid == "slipper":
+		Sfx.play("hit_bump", -3.0, 1.4)                           # the "slap"
+	if scene != null:
+		scene.cam_rig.shake(0.18 if tier <= 1 else 0.3)
+		scene.vfx.hit_burst(prop.global_position, "good", 0.35)
+	if Game.main != null and Game.main.dev.has("log"):
+		print("[ref] prop hit ", a.display_name, " tier ", tier)
+	# it bounces off the head (back towards where it came from, and up), falls and bounces on the floor a few times, then shrinks away
+	var base_scale := prop.scale
+	var dir := (prop.global_position - from_pos).normalized() if from_pos != Vector3.ZERO else Vector3(1, 0, 0)
+	var side := Vector3(-dir.z, 0, dir.x) * randf_range(-0.7, 0.7)
+	var launch := Vector3(-dir.x, 0.0, -dir.z) * randf_range(0.9, 1.6) + side + Vector3(0, randf_range(2.6, 3.4), 0)
+	var spin := Vector3(randf_range(-9.0, 9.0), randf_range(-7.0, 7.0), randf_range(-9.0, 9.0))
+	var bounce := func(k: float):
+		if Game.main != null and Game.main.dev.has("log"):
+			print("[propbounce] strength=%.2f y=%.2f" % [k, prop.global_position.y])
+		Sfx.play("bounce", -13.0 + 7.0 * k, randf_range(1.5, 1.9))
+		var sq := prop.create_tween()
+		sq.tween_property(prop, "scale", base_scale * Vector3(1.0 + 0.18 * k, 1.0 - 0.22 * k, 1.0 + 0.18 * k), 0.04)
+		sq.tween_property(prop, "scale", base_scale, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if scene != null and k > 0.45:
+			scene.vfx.hit_burst(Vector3(prop.global_position.x, 0.05, prop.global_position.z), "good", 0.12)
+	var tw := tumble(prop, launch, spin, 0.055, bounce)
+	tw.tween_interval(1.5)
+	tw.tween_property(prop, "scale", Vector3.ZERO, 0.3)
+	tw.tween_callback(prop.queue_free)
+

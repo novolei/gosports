@@ -7,7 +7,7 @@ extends RefCounted
 
 const LOOPING := ["idle_a", "idle_b", "idle_c", "idle_d", "run_forward", "run_backwards", "run_left", "run_right",
 		"run_strafe_left", "run_strafe_right", "walk_forward", "walk_backwards", "walk_left", "walk_right",
-		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep", "photo_idle", "photo_crouch"]
+		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep", "photo_idle", "photo_crouch", "clap"]
 
 # retargeted Mixamo clips: name -> {file, loop, keep_xz, trim}
 ## Locomotion blend-space clips: direction -> Cubebrush source clip (all 0.79 s cycles, phase aligned).
@@ -280,8 +280,39 @@ static func authored() -> Dictionary:
 	var bonk_b := _m(bonk_a, {"hips": Vector3(0, -0.1, 0.0), "body": Vector3(8, 0, 4), "torso": Vector3(6, 0, 0), "head": Vector3(10, 6, 14)})
 	var bonk_c := _m(bonk_a, {"hips": Vector3(0, -0.09, 0.0), "body": Vector3(6, 0, -4), "torso": Vector3(4, 0, 0), "head": Vector3(6, -6, -12)})
 
+	# --- team banter: applause, a stomping tantrum and an overhand throw (scripts/match/mate_banter.gd)
+	var clap_apart := _m(stand, {
+		"hips": Vector3(0, -0.04, 0.0), "body": Vector3(6, 0, 0), "head": Vector3(-6, 0, 0),
+		"handc_l": Vector3(-0.42, 0.06, 0.5), "handc_r": Vector3(0.42, 0.06, 0.5),
+		"elbow_l": Vector3(-0.9, -0.3, -0.3), "elbow_r": Vector3(0.9, -0.3, -0.3),
+		"foot_l_off": Vector3(-0.06, 0, 0.0), "foot_r_off": Vector3(0.06, 0, 0.0)})
+	var clap_hit := _m(clap_apart, {
+		"hips": Vector3(0, 0.03, 0.0), "head": Vector3(-12, 0, 0), "body": Vector3(2, 0, 0),
+		"handc_l": Vector3(-0.03, 0.08, 0.58), "handc_r": Vector3(0.03, 0.08, 0.58),
+		"foot_l_off": Vector3(-0.06, 0.1, 0.0), "foot_r_off": Vector3(0.06, 0.1, 0.0)})
+	var angry_a := _m(stand, {
+		"hips": Vector3(0, -0.08, 0.0), "body": Vector3(12, 0, -5), "torso": Vector3(8, 0, 0), "head": Vector3(-12, 0, 0),
+		"handc_l": Vector3(-0.28, -0.62, 0.18), "handc_r": Vector3(0.28, -0.62, 0.18),
+		"elbow_l": Vector3(-0.5, -0.8, -0.6), "elbow_r": Vector3(0.5, -0.8, -0.6),
+		"foot_l_off": Vector3(-0.06, 0.3, 0.06), "foot_r_off": Vector3(0.06, 0, 0.0),
+		"knee_l": Vector3(-0.2, 0, 1), "knee_r": Vector3(0.2, 0, 1)})
+	var angry_b := _m(angry_a, {
+		"body": Vector3(12, 0, 5), "foot_l_off": Vector3(-0.06, 0, 0.0), "foot_r_off": Vector3(0.06, 0.3, 0.06)})
+	var th_wind := _m(ready, {
+		"hips": Vector3(0, -0.1, 0.0), "body": Vector3(-4, -16, 0), "torso": Vector3(-6, -26, 0), "head": Vector3(-4, 18, 0),
+		"handc_r": Vector3(0.62, 0.85, -0.5), "elbow_r": Vector3(1.0, 0.6, -0.9),
+		"handc_l": Vector3(-0.3, -0.1, 0.5), "elbow_l": Vector3(-0.8, -0.4, -0.3)})
+	var th_rel := _m(ready, {
+		"hips": Vector3(0, -0.04, 0.06), "body": Vector3(10, 14, 0), "torso": Vector3(10, 24, 0), "head": Vector3(-6, -10, 0),
+		"handc_r": Vector3(0.3, 0.5, 1.0), "elbow_r": Vector3(0.9, 0.2, -0.1), "handc_l": Vector3(-0.3, -0.2, 0.4)})
+	var th_fol := _m(ready, {
+		"body": Vector3(14, 10, 0), "torso": Vector3(14, 18, 0), "handc_r": Vector3(-0.1, -0.1, 0.8), "elbow_r": Vector3(0.7, -0.3, 0.0)})
+
 	return {
 		"ready": {"loop": true, "keys": [[0.0, ready], [0.55, ready_b, "smooth"], [1.1, ready, "smooth"]]},
+		"clap": {"loop": true, "keys": [[0.0, clap_apart], [0.1, clap_hit, "out"], [0.2, clap_apart, "smooth"], [0.3, clap_hit, "out"], [0.4, clap_apart, "smooth"]]},
+		"angry": {"keys": [[0.0, stand], [0.12, angry_a, "out"], [0.26, angry_b], [0.4, angry_a], [0.54, angry_b], [0.68, angry_a], [0.82, angry_b], [1.2, sad_a, "smooth"]]},
+		"throw_fish": {"keys": [[0.0, ready], [0.28, th_wind, "smooth"], [0.42, th_rel, "out"], [0.65, th_fol, "smooth"], [1.1, ready, "smooth"]]},
 		"ref_throw_r": {"keys": [[0.0, rsit], [0.3, r_wind_r, "smooth"], [0.44, r_rel_r, "out"], [0.62, r_fol_r, "smooth"], [1.3, r_fol_r], [1.7, rsit, "smooth"]]},
 		"ref_throw_l": {"keys": [[0.0, rsit], [0.3, r_wind_l, "smooth"], [0.44, r_rel_l, "out"], [0.62, r_fol_l, "smooth"], [1.3, r_fol_l], [1.7, rsit, "smooth"]]},
 		"ref_stern": {"keys": [[0.0, rsit], [0.25, r_stern, "smooth"], [1.6, r_stern], [2.0, rsit, "smooth"]]},

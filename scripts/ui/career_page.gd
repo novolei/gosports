@@ -482,33 +482,83 @@ func _next_unlock(level: int) -> Dictionary:
 
 
 # ------------------------------------------------------------------ collection
+## the collection is a two-level menu: a row of category pills (trail / ball / court / decor / net) and only the selected category's
+## cards below, so the page never becomes a long scroll
+const COL_KINDS := ["trail", "ball", "court", "deco", "net"]
+var _col_kind := 0
+
+
 func _build_collection() -> void:
 	var p: Profile = Game.profile
+	if Game.main != null and Game.main.dev.has("colkind"):
+		_col_kind = clampi(int(Game.main.dev["colkind"]), 0, COL_KINDS.size() - 1)
+	# --- level 2 tabs
+	var x := 4.0
+	for i in COL_KINDS.size():
+		var kind: String = COL_KINDS[i]
+		var cat := Profile.catalog(kind)
+		var got := 0
+		for it in cat:
+			if p.is_unlocked(kind, String(it["id"])):
+				got += 1
+		var w := 262.0 if Loc.is_en() else 232.0
+		var b := _sub_tab(tr(String(KIND_TITLES[kind])), "%d/%d" % [got, cat.size()], Vector2(w, 66), i == _col_kind)
+		b.position = Vector2(x, 0)
+		var ci := i
+		b.pressed.connect(func():
+			Sfx.play("ui_click", -4.0)
+			_col_kind = ci
+			refresh())
+		_body.add_child(b)
+		x += w + 12.0
+	# --- the cards of the selected category
 	var sc := ScrollContainer.new()
-	sc.size = Vector2(1780, 800)
+	sc.position = Vector2(0, 92)
+	sc.size = Vector2(1780, 700)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	sc.follow_focus = true
 	_body.add_child(sc)
 	var holder := Control.new()
 	sc.add_child(holder)
-	var y := 0.0
+	var kind2: String = COL_KINDS[_col_kind]
+	var cat2 := Profile.catalog(kind2)
 	var per_row := 7
-	for kind in ["trail", "ball", "court", "deco", "net"]:
-		var t := UIKit.label(tr(String(KIND_TITLES[kind])), 38, Color.WHITE, 10, Color(0.05, 0.2, 0.45, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
-		t.position = Vector2(6, y)
-		t.size = Vector2(400, 52)
-		holder.add_child(t)
-		var cat := Profile.catalog(kind)
-		var rows := int(ceil(float(cat.size()) / float(per_row)))
-		for i in cat.size():
-			var b := _item_card(kind, cat[i], p)
-			b.position = Vector2(float(i % per_row) * 226.0, y + 58.0 + float(i / per_row) * 220.0)
-			holder.add_child(b)
-		y += 58.0 + float(rows) * 220.0 + 36.0
-	holder.custom_minimum_size = Vector2(1780, y)
-	if Game.main != null and Game.main.dev.has("colscroll"):
-		sc.set_deferred("scroll_vertical", int(Game.main.dev["colscroll"]))
+	var rows := int(ceil(float(cat2.size()) / float(per_row)))
+	for i in cat2.size():
+		var card := _item_card(kind2, cat2[i], p)
+		card.position = Vector2(float(i % per_row) * 226.0 + 6.0, 6.0 + float(i / per_row) * 224.0)
+		holder.add_child(card)
+	holder.custom_minimum_size = Vector2(1780, 12.0 + float(rows) * 224.0)
 	_desc.text = "点击已解锁的装扮即可装备;升级解锁更多。拖尾只在你方击球时显示。"
+
+
+## a capsule tab for the second level: label + a small "unlocked / total" tag
+func _sub_tab(text: String, count: String, size: Vector2, on: bool) -> Button:
+	var b := Button.new()
+	b.size = size
+	b.custom_minimum_size = size
+	b.focus_mode = Control.FOCUS_ALL
+	b.pivot_offset = size * 0.5
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, empty)
+	var bg := GW.pill_bg(size, size.y * 0.5, MenuEntry.TEAL if on else MenuEntry.PALE, 0.8 if on else 0.0)
+	bg.show_behind_parent = true
+	b.add_child(bg)
+	var l := UIKit.label(text, 28, Color.WHITE if on else UIKit.PALE_TXT, 6 if on else 0, Color(0.02, 0.35, 0.36, 0.7))
+	l.position = Vector2(14, 0)
+	l.size = Vector2(size.x - 84.0, size.y)
+	l.clip_text = true
+	b.add_child(l)
+	var tag := UIKit.label(count, 20, Color(1, 1, 1, 0.95) if on else Color(0.3, 0.5, 0.56), 0)
+	tag.position = Vector2(size.x - 74.0, 0)
+	tag.size = Vector2(66, size.y)
+	b.add_child(tag)
+	b.mouse_entered.connect(func(): UIKit._bump(b, 1.04))
+	b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
+	b.focus_entered.connect(func(): UIKit._bump(b, 1.04); Sfx.play("ui_hover", -9.0))
+	b.focus_exited.connect(func(): UIKit._bump(b, 1.0))
+	return b
 
 
 func _item_card(kind: String, it: Dictionary, p: Profile) -> Button:

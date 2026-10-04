@@ -527,6 +527,9 @@ func plan_shot(a: Athlete, kind: String, quality: String, face: Vector2) -> Dict
 		shot = _shot_friendly(a, p0, kind)
 	else:
 		shot = _plan_normal(a, kind, quality, p0, mate, tn, skill_err)
+	if a.is_human and Game.main != null and Game.main.dev.has("aimlog") and not shot.is_empty():
+		var tg: Vector3 = shot.get("target", Vector3.ZERO)
+		print("[aimshot] kind=%s q=%s from_move=%s aim=%s -> target x=%.2f z=%.2f (own side z>0 = %s)" % [kind, quality, str(a.aim_from_move), str(a.aim_point), tg.x, tg.z, str(a.team == 0)])
 	return _finish_shot(a, kind, quality, shot)
 
 
