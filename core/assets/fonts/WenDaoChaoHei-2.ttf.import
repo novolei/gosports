@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://clpq3g42itv3"
-path="res://.godot/imported/latin_body.ttf-0bad6b57f84d981385780fc77604c2a4.fontdata"
+uid="uid://p40ee4qjcioq"
+path="res://.godot/imported/WenDaoChaoHei-2.ttf-13fab38cafe013eadb9207250c39c52e.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/latin_body.ttf"
-dest_files=["res://.godot/imported/latin_body.ttf-0bad6b57f84d981385780fc77604c2a4.fontdata"]
+source_file="res://core/assets/fonts/WenDaoChaoHei-2.ttf"
+dest_files=["res://.godot/imported/WenDaoChaoHei-2.ttf-13fab38cafe013eadb9207250c39c52e.fontdata"]
 
 [params]
 

@@ -2,7 +2,7 @@ class_name Vfx
 extends Node3D
 ## Particles and floor markers: hit sparkles, dust puffs, confetti, landing marker, aim marker.
 
-const STAR := "res://assets/env/star.png"
+const STAR := "res://core/assets/gfx/star.png"
 const SOFT := "res://assets/env/soft_circle.png"
 const RING_SHADER := "res://shaders/ring.gdshader"
 

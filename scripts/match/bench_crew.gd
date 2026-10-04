@@ -61,7 +61,7 @@ func _make_rig(entry: Dictionary) -> CharacterRig:
 
 
 func _build_benches(look: Dictionary, seat_h: float) -> void:
-	var m := CourtDeco.Mesher.new()
+	var m := Mesher.new()
 	var frame := Color(0.82, 0.84, 0.88)
 	var wood := Color(0.72, 0.55, 0.38)
 	for team in 2:

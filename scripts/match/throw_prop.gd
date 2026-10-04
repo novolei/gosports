@@ -19,7 +19,7 @@ const SIZE := {"fish": 0.52}
 
 
 static func make(id: String, scale_k := 1.0) -> MeshInstance3D:
-	var m := CourtDeco.Mesher.new()
+	var m := Mesher.new()
 	match id:
 		"pencil":
 			m.box(Vector3(0, 0, 0), Vector3(0.034, 0.034, 0.24), Color("ffd23a"))

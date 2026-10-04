@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://p40ee4qjcioq"
-path="res://.godot/imported/WenDaoChaoHei-2.ttf-4c43fd7885ce306cc046bbea54a32877.fontdata"
+uid="uid://blpaelekyp7my"
+path="res://.godot/imported/cjk_fallback.ttf-6735fe8cc379ba5a5ab9a6dc6cabbcfd.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/WenDaoChaoHei-2.ttf"
-dest_files=["res://.godot/imported/WenDaoChaoHei-2.ttf-4c43fd7885ce306cc046bbea54a32877.fontdata"]
+source_file="res://core/assets/fonts/cjk_fallback.ttf"
+dest_files=["res://.godot/imported/cjk_fallback.ttf-6735fe8cc379ba5a5ab9a6dc6cabbcfd.fontdata"]
 
 [params]
 

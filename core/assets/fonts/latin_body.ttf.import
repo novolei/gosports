@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://21afuk263xk0"
-path="res://.godot/imported/latin_italic.ttf-60fda8791132103a39f728f878f3086c.fontdata"
+uid="uid://clpq3g42itv3"
+path="res://.godot/imported/latin_body.ttf-08ae7efd3736575af23811ca56fc7b7d.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/latin_italic.ttf"
-dest_files=["res://.godot/imported/latin_italic.ttf-60fda8791132103a39f728f878f3086c.fontdata"]
+source_file="res://core/assets/fonts/latin_body.ttf"
+dest_files=["res://.godot/imported/latin_body.ttf-08ae7efd3736575af23811ca56fc7b7d.fontdata"]
 
 [params]
 

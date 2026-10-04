@@ -5,7 +5,7 @@ extends SceneTree
 func _initialize() -> void:
 	var bad := 0
 	var total := 0
-	for dir in ["res://scripts", "res://tools"]:
+	for dir in ["res://scripts", "res://tools", "res://core"]:        # (core/ = gosports-core, the shared modules)
 		for p in _gd_files(dir):
 			total += 1
 			var s = load(p)

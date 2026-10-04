@@ -23,7 +23,7 @@ from fontTools.varLib import instancer
 import subset_font
 
 SRC = "art_src/fonts"
-DST = "assets/fonts"
+DST = "core/assets/fonts"
 
 
 def subset_to(font: TTFont, dst: str, text: str, keep_variations=False) -> None:

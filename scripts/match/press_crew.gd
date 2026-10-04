@@ -83,7 +83,7 @@ func build(p_scene: MatchScene, p_director: MatchDirector, look: Dictionary, exc
 
 ## low riser strips so the photographers stand above the boards
 func _build_risers(look: Dictionary) -> void:
-	var m := CourtDeco.Mesher.new()
+	var m := Mesher.new()
 	var body: Color = look["plinth"]
 	var cap: Color = look["cap"]
 	var d := CourtDeco.hd() + 2.0
@@ -96,7 +96,7 @@ func _build_risers(look: Dictionary) -> void:
 
 
 func _camera_mesh() -> Mesh:
-	var m := CourtDeco.Mesher.new()
+	var m := Mesher.new()
 	m.box(Vector3(0, 0.0, -0.1), Vector3(0.34, 0.22, 0.2), Color(0.12, 0.13, 0.16))
 	m.box(Vector3(0, 0.1, -0.1), Vector3(0.14, 0.05, 0.1), Color(0.8, 0.8, 0.84))
 	m.box(Vector3(0, -0.01, -0.24), Vector3(0.15, 0.15, 0.16), Color(0.2, 0.21, 0.25))

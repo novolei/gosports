@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-FONT_DIR = ROOT / "assets" / "fonts"
+FONT_DIR = ROOT / "core" / "assets" / "fonts"
 W, H = 1920, 1080
 
 # palette = the game's UI language (scripts/ui/ui_kit.gd)

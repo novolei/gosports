@@ -16,7 +16,7 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-FONT_LATIN = "assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
+FONT_LATIN = "core/assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
 FONT_CJK = "art_src/fonts/build/cjk_display.ttf"    # Noto Sans SC Black (SIL OFL)
 BG_TOP = (46, 232, 200)          # icon gradient: turquoise ...
 BG_BOT = (20, 140, 216)          # ... to a clear blue

@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://blpaelekyp7my"
-path="res://.godot/imported/cjk_fallback.ttf-b0260d8d5ad4a637472fb5d35eecee0b.fontdata"
+uid="uid://bcrq2cvpkg6y2"
+path="res://.godot/imported/latin_display.ttf-07f2ea2b5ac7c0b2136b85f70677d769.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/cjk_fallback.ttf"
-dest_files=["res://.godot/imported/cjk_fallback.ttf-b0260d8d5ad4a637472fb5d35eecee0b.fontdata"]
+source_file="res://core/assets/fonts/latin_display.ttf"
+dest_files=["res://.godot/imported/latin_display.ttf-07f2ea2b5ac7c0b2136b85f70677d769.fontdata"]
 
 [params]
 
