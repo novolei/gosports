@@ -7,7 +7,7 @@ extends RefCounted
 
 const LOOPING := ["idle_a", "idle_b", "idle_c", "idle_d", "run_forward", "run_backwards", "run_left", "run_right",
 		"run_strafe_left", "run_strafe_right", "walk_forward", "walk_backwards", "walk_left", "walk_right",
-		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep"]
+		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep", "photo_idle", "photo_crouch"]
 
 # retargeted Mixamo clips: name -> {file, loop, keep_xz, trim}
 ## Locomotion blend-space clips: direction -> Cubebrush source clip (all 0.79 s cycles, phase aligned).
@@ -244,8 +244,29 @@ static func authored() -> Dictionary:
 	var r_shrug := _m(rsit, {"handc_l": Vector3(-0.6, -0.1, 0.3), "handc_r": Vector3(0.6, -0.1, 0.3), "elbow_l": Vector3(-1, -0.3, -0.1),
 			"elbow_r": Vector3(1, -0.3, -0.1), "head": Vector3(0, 0, 10), "torso": Vector3(-2, 0, 0)})
 
+	# --- the press photographers (scripts/match/press_crew.gd): a camera held at the chest, raised to the eye for a shot
+	var pho_hold := _m(stand, {
+		"hips": Vector3(0, -0.06, 0.0), "body": Vector3(8, 0, 0), "head": Vector3(-6, 0, 0),
+		"handc_l": Vector3(-0.1, -0.22, 0.52), "handc_r": Vector3(0.1, -0.22, 0.52),
+		"elbow_l": Vector3(-0.8, -0.7, -0.3), "elbow_r": Vector3(0.8, -0.7, -0.3),
+		"foot_l_off": Vector3(-0.07, 0, 0.04), "foot_r_off": Vector3(0.07, 0, -0.04),
+		"knee_l": Vector3(-0.15, 0, 1), "knee_r": Vector3(0.15, 0, 1)})
+	var pho_hold_b := _m(pho_hold, {"hips": Vector3(0, -0.066, 0.0), "head": Vector3(-8, 4, 0), "body": Vector3(9, 2, 0)})
+	var pho_up := _m(pho_hold, {
+		"handc_l": Vector3(-0.08, 0.5, 0.5), "handc_r": Vector3(0.08, 0.5, 0.5),
+		"elbow_l": Vector3(-0.95, 0.1, -0.2), "elbow_r": Vector3(0.95, 0.1, -0.2), "head": Vector3(-12, 0, 0), "body": Vector3(6, 0, 0)})
+	var pho_click := _m(pho_up, {"handc_r": Vector3(0.1, 0.46, 0.46), "head": Vector3(-14, 0, 0)})
+	var pho_crouch := _m(pho_hold, {"hips": Vector3(0, -0.22, 0.04), "body": Vector3(16, 0, 0),
+		"foot_l_off": Vector3(-0.1, 0, 0.08), "foot_r_off": Vector3(0.1, 0, -0.06), "knee_l": Vector3(-0.3, 0, 1), "knee_r": Vector3(0.3, 0, 1)})
+	var pho_crouch_up := _m(pho_crouch, {"handc_l": Vector3(-0.08, 0.52, 0.5), "handc_r": Vector3(0.08, 0.52, 0.5),
+		"elbow_l": Vector3(-0.95, 0.1, -0.2), "elbow_r": Vector3(0.95, 0.1, -0.2), "head": Vector3(-16, 0, 0)})
+
 	return {
 		"ready": {"loop": true, "keys": [[0.0, ready], [0.55, ready_b, "smooth"], [1.1, ready, "smooth"]]},
+		"photo_idle": {"loop": true, "keys": [[0.0, pho_hold], [0.9, pho_hold_b, "smooth"], [1.8, pho_hold, "smooth"]]},
+		"photo_shoot": {"keys": [[0.0, pho_hold], [0.16, pho_up, "out"], [0.46, pho_up], [0.52, pho_click], [0.6, pho_up], [0.9, pho_hold, "smooth"]]},
+		"photo_crouch": {"loop": true, "keys": [[0.0, pho_crouch], [1.0, _m(pho_crouch, {"head": Vector3(-8, 5, 0)}), "smooth"], [2.0, pho_crouch, "smooth"]]},
+		"photo_crouch_shoot": {"keys": [[0.0, pho_crouch], [0.16, pho_crouch_up, "out"], [0.46, pho_crouch_up], [0.52, _m(pho_crouch_up, {"handc_r": Vector3(0.1, 0.48, 0.46)})], [0.6, pho_crouch_up], [0.9, pho_crouch, "smooth"]]},
 		"ref_idle": {"loop": true, "keys": [[0.0, rsit], [0.7, rl, "smooth"], [1.5, rsit_b, "smooth"], [2.2, rr, "smooth"], [3.0, rsit, "smooth"], [3.6, rsit_b, "smooth"], [4.2, rsit, "smooth"]]},
 		"ref_whistle": {"keys": [[0.0, rsit], [0.16, r_whistle, "smooth"], [0.8, r_whistle], [1.05, rsit, "smooth"]]},
 		"ref_point_l": {"keys": [[0.0, rsit], [0.18, r_point_l, "out"], [1.2, r_point_l], [1.55, rsit, "smooth"]]},

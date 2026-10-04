@@ -12,6 +12,7 @@ var quality := 2
 var net_node: Node3D
 var _mat_cache := {}
 var theme_id := "day"
+var deco_id := "ads"                      # the equipped court decoration style (Profile.DECOS)
 
 ## sky / light / fog presets for the unlockable court themes
 const THEMES := {
@@ -49,13 +50,19 @@ func build(p_quality := 2) -> void:
 	theme_id = String(Game.profile.equipped_item("court")["id"]) if (Game.profile != null and Game.profile_enabled) else "day"
 	if Game.main != null and Game.main.dev.has("court"):
 		theme_id = String(Game.main.dev["court"])
+	deco_id = String(Game.profile.equipped_item("deco")["id"]) if (Game.profile != null and Game.profile_enabled) else "ads"
+	if Game.main != null and Game.main.dev.has("deco"):
+		deco_id = String(Game.main.dev["deco"])
 	_build_environment()
 	_build_ground()
 	_build_net()
 	if not Game.dbg("nostands"):
 		_build_stands()
 	if not Game.dbg("noboards"):
-		_build_boards()
+		if deco_id == "ads" or deco_id == "press":
+			_build_boards()
+		else:
+			CourtDeco.build(self, deco_id, LOOKS.get(theme_id, LOOKS["day"]))
 	if not Game.dbg("nobackdrop"):
 		_build_backdrop()
 

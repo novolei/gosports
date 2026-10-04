@@ -121,6 +121,7 @@ func _build_ghosts() -> void:
 	_free_ghosts()
 	for a in ms.athletes:
 		var g := CharacterRig.new()
+		g.hero = true
 		add_child(g)
 		g.build(a.rig.entry, false)
 		g.anim.active = false

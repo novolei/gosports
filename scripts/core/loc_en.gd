@@ -577,4 +577,35 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 队友	Partner
 点上方头像可以更换角色	Click an avatar to change character
 角色 · 队友 · 随时更换	Characters · Partner · Change any time
+蓝队得分	Blue team scores
+粉队得分	Pink team scores
+我方得分	Your team scores
+对方得分	Opponents score
+场地装饰	Court Decor
+灯箱广告	LED Ads
+纯色隔板	Plain Boards
+简约绿植	Garden
+教练与队友	Coach & Team
+彩旗	Bunting
+灯笼庆典	Lantern Fest
+霓虹灯带	Neon
+海滩风情	Beach
+樱花小径	Sakura Path
+派对气球	Party Balloons
+热闹的赞助商灯箱，轮流播放	Lively sponsor boards, rotating
+干净的纯色围挡，没有广告	Clean solid boards, no ads
+低矮的树篱和圆球灌木	Low hedges and round topiary
+替补席上的教练和队友为你加油	Coaches and teammates cheer from the bench
+拉满彩旗的运动会气氛	Sports-day bunting everywhere
+一串串红灯笼和金色围挡	Strings of red lanterns and gold boards
+会流动的霓虹灯管，夜场更惊艳	Flowing neon tubes, stunning at night
+遮阳伞、棕榈树和木栅栏	Parasols, palms and a wooden fence
+粉色樱花树，花瓣轻轻飘落	Pink blossom trees with falling petals
+彩色气球拱门和彩带	Balloon clusters and confetti
+装饰	Decor
+角色渲染	Character look
+柔和	Soft
+描边	Outlined
+摄影记者	Press Photographers
+场边的摄影记者，回放时闪光灯此起彼伏	Press photographers on the sidelines; flashes pop during replays
 """

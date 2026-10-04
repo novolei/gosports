@@ -15,6 +15,7 @@ const MAX_LEAN := 0.2                # radians (~11 degrees)
 
 var entry: Dictionary = {}
 var kind := "cube"
+var hero := false                    # athletes / stage / replay ghosts: shader material with ground occlusion + outline
 var info: RigInfo
 var skeleton: Skeleton3D
 var model: Node3D
@@ -289,7 +290,46 @@ func _meshes(n: Node, out: Array) -> void:
 
 
 # ---------------------------------------------------------------- materials
-static func make_material(tex: Texture2D, pixel := false, tint := Color.WHITE, alpha_cut := false) -> StandardMaterial3D:
+static var _hero_shader: Shader
+static var _outline_mat: ShaderMaterial
+
+
+## hero characters need quality >= 1 (the outline is a second pass over every mesh)
+static func hero_enabled() -> bool:
+	var style := _dev_style() if _dev_style() >= 0 else int(Game.settings.get("char_style", 0))
+	return style == 1 and int(Game.settings.get("quality", 1)) >= 1 and not Game.dbg("nohero") and not (Game.main != null and Game.main.dev.has("nohero"))
+
+
+## dev: --charstyle=1 forces the outlined look for a run without touching the saved setting
+static func _dev_style() -> int:
+	return int(Game.main.dev["charstyle"]) if (Game.main != null and Game.main.dev.has("charstyle")) else -1
+
+
+static func _hero_material(tex: Texture2D, pixel: bool, tint: Color, alpha_cut: bool) -> ShaderMaterial:
+	if _hero_shader == null:
+		_hero_shader = load("res://shaders/character.gdshader")
+		var om := ShaderMaterial.new()
+		om.shader = load("res://shaders/character_outline.gdshader")
+		_outline_mat = om
+	var key := "H|%s|%s|%s|%s" % [tex.resource_path if tex else "", pixel, tint.to_html(), alpha_cut]
+	if _mat_cache.has(key):
+		return _mat_cache[key]
+	var m := ShaderMaterial.new()
+	m.shader = _hero_shader
+	m.set_shader_parameter("tex_n", tex)
+	m.set_shader_parameter("tex_l", tex)
+	m.set_shader_parameter("pixel", pixel)
+	m.set_shader_parameter("tint", tint)
+	m.set_shader_parameter("alpha_cut", alpha_cut)
+	if not alpha_cut:                                  # (the ninja face decal is a cut-out: it gets no second pass)
+		m.next_pass = _outline_mat
+	_mat_cache[key] = m
+	return m
+
+
+static func make_material(tex: Texture2D, pixel := false, tint := Color.WHITE, alpha_cut := false, hero_look := false) -> Material:
+	if hero_look and hero_enabled():
+		return _hero_material(tex, pixel, tint, alpha_cut)
 	var key := "%s|%s|%s|%s" % [tex.resource_path if tex else "", pixel, tint.to_html(), alpha_cut]
 	if _mat_cache.has(key):
 		return _mat_cache[key]
@@ -317,7 +357,7 @@ func _apply_materials() -> void:
 	_meshes(model, meshes)
 	var tex: Texture2D = load(entry["tex"])
 	var pixel: bool = kind == "cube"
-	var main_mat := make_material(tex, pixel)
+	var main_mat := make_material(tex, pixel, Color.WHITE, false, hero)
 	for mi in meshes:
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
@@ -326,7 +366,7 @@ func _apply_materials() -> void:
 			m.set_surface_override_material(s, main_mat)
 		# human hair is the second surface of the human models
 		if kind == "cube" and entry.get("hair", "") != "" and m.mesh.get_surface_count() > 1:
-			m.set_surface_override_material(1, make_material(load(entry["hair"]), true))
+			m.set_surface_override_material(1, make_material(load(entry["hair"]), true, Color.WHITE, false, hero))
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
@@ -334,10 +374,10 @@ func _build_ninja_parts() -> void:
 	var head_bone := info.b("head")
 	var rest := info.rest_g[head_bone]
 	var mats := {
-		"skin": make_material(load(entry["skin"]), false),
-		"face": make_material(load(entry["face"]), false, Color.WHITE, true),
-		"gear": make_material(load(entry["gear_tex"]), false) if entry.get("gear_tex", "") != "" else null,
-		"hair": make_material(load(entry["hair_tex"]), false, entry["hair_tint"]) if entry.get("hair", "") != "" else null,
+		"skin": make_material(load(entry["skin"]), false, Color.WHITE, false, hero),
+		"face": make_material(load(entry["face"]), false, Color.WHITE, true, hero),
+		"gear": make_material(load(entry["gear_tex"]), false, Color.WHITE, false, hero) if entry.get("gear_tex", "") != "" else null,
+		"hair": make_material(load(entry["hair_tex"]), false, entry["hair_tint"], false, hero) if entry.get("hair", "") != "" else null,
 	}
 	var parts := [
 		[entry["head"], mats["skin"]],

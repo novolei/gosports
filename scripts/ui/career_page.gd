@@ -5,7 +5,7 @@ extends Control
 
 signal back_pressed
 
-const KIND_TITLES := {"trail": "球拖尾", "ball": "比赛用球", "court": "球场主题"}
+const KIND_TITLES := {"trail": "球拖尾", "ball": "比赛用球", "court": "球场主题", "deco": "场地装饰"}
 const GOLD := Color("ffc928")
 # dark scoreboard palette shared with the results screen
 const T := Color(0.96, 0.98, 1.0)
@@ -27,6 +27,84 @@ class _Swatch:
 	var kind := "trail"
 	var item := {}
 	var locked := false
+
+	## a tiny flat scene of the decoration: sky, floor strip and the style's signature props
+	func _draw_deco(k: float) -> void:
+		var w := size.x
+		var h := size.y
+		var fade := 0.5 if locked else 0.0
+		var pale := Color(0.82, 0.85, 0.92)
+		var id := String(item["id"])
+		var sky := Color(0.72, 0.88, 1.0).lerp(pale, fade)
+		draw_rect(Rect2(0, 0, w, h * 0.55), sky)
+		var floor_y := h * 0.62
+		var floor_col := Color(0.2, 0.7, 0.68).lerp(pale, fade)
+		draw_rect(Rect2(0, floor_y, w, h - floor_y), floor_col)
+		draw_rect(Rect2(0, floor_y - 3, w, 4), Color(1, 1, 1, 0.55 * k))
+		var sw: Color = item["swatch"]
+		sw = sw.lerp(pale, fade)
+		match id:
+			"ads":
+				var cols := [Color("2f7cff"), Color("ff4fa0"), Color("ffd23a"), Color("2fd0a8")]
+				for i in 4:
+					draw_rect(Rect2(8 + float(i) * (w - 16) / 4.0, floor_y - 26, (w - 16) / 4.0 - 3, 24), cols[i].lerp(pale, fade))
+			"plain":
+				draw_rect(Rect2(6, floor_y - 24, w - 12, 22), sw)
+				draw_rect(Rect2(6, floor_y - 26, w - 12, 4), sw.darkened(0.2))
+			"garden":
+				draw_rect(Rect2(6, floor_y - 18, w - 12, 16), Color(0.4, 0.75, 0.42).lerp(pale, fade))
+				for i in 3:
+					draw_circle(Vector2(w * (0.22 + 0.28 * float(i)), floor_y - 30), 13.0, Color(0.3, 0.68, 0.38).lerp(pale, fade))
+					draw_rect(Rect2(w * (0.22 + 0.28 * float(i)) - 3, floor_y - 20, 6, 8), Color(0.5, 0.35, 0.24).lerp(pale, fade))
+			"team":
+				draw_rect(Rect2(6, floor_y - 12, w * 0.4, 10), UIKit.BLUE.lerp(pale, fade))
+				draw_rect(Rect2(w * 0.54, floor_y - 12, w * 0.4, 10), UIKit.PINK.lerp(pale, fade))
+				for i in 3:
+					draw_circle(Vector2(18 + 16.0 * float(i), floor_y - 22), 7.0, Color(0.85, 0.7, 0.55).lerp(pale, fade))
+					draw_circle(Vector2(w * 0.6 + 16.0 * float(i), floor_y - 22), 7.0, Color(0.7, 0.62, 0.55).lerp(pale, fade))
+			"press":
+				draw_rect(Rect2(6, floor_y - 20, w - 12, 18), Color(0.3, 0.75, 0.9).lerp(pale, fade))
+				for i in 3:
+					var px := w * (0.22 + 0.28 * float(i))
+					draw_circle(Vector2(px, floor_y - 36), 8.0, Color(0.85, 0.7, 0.55).lerp(pale, fade))
+					draw_rect(Rect2(px - 9, floor_y - 30, 18, 12), Color(0.35, 0.4, 0.6).lerp(pale, fade))
+					draw_rect(Rect2(px - 7, floor_y - 40, 14, 8), Color(0.15, 0.16, 0.2).lerp(pale, fade))
+				draw_circle(Vector2(w * 0.78, floor_y - 40), 7.0, Color(1, 1, 0.8, 0.9 * k))
+			"bunting":
+				draw_line(Vector2(4, 14), Vector2(w - 4, 14), Color(0.3, 0.3, 0.35, 0.8 * k), 2.0)
+				var pc := [Color("ff4fa0"), Color("ffce30"), Color("2f7cff"), Color("2fd0a8")]
+				for i in 8:
+					var x := 10.0 + float(i) * (w - 20.0) / 7.0
+					var sag := 6.0 * sin(float(i) / 7.0 * PI)
+					draw_colored_polygon(PackedVector2Array([Vector2(x - 6, 14 + sag), Vector2(x + 6, 14 + sag), Vector2(x, 30 + sag)]), pc[i % 4].lerp(pale, fade))
+			"festival":
+				draw_line(Vector2(4, 16), Vector2(w - 4, 16), Color(0.5, 0.1, 0.1, 0.8 * k), 2.0)
+				for i in 4:
+					var x := 14.0 + float(i) * (w - 28.0) / 3.0
+					draw_circle(Vector2(x, 30), 11.0, Color(0.9, 0.18, 0.15).lerp(pale, fade))
+					draw_rect(Rect2(x - 5, 17, 10, 4), Color(1.0, 0.8, 0.25).lerp(pale, fade))
+			"neon":
+				draw_rect(Rect2(0, 0, w, h * 0.55), Color(0.08, 0.1, 0.22).lerp(pale, fade))
+				draw_rect(Rect2(6, floor_y - 22, w - 12, 20), Color(0.05, 0.06, 0.14).lerp(pale, fade))
+				draw_line(Vector2(6, floor_y - 22), Vector2(w - 6, floor_y - 22), Color(1.0, 0.25, 0.7).lerp(pale, fade), 3.0)
+				draw_line(Vector2(6, floor_y - 3), Vector2(w - 6, floor_y - 3), Color(0.2, 0.9, 1.0).lerp(pale, fade), 3.0)
+			"beach":
+				draw_rect(Rect2(0, floor_y, w, h - floor_y), Color(0.96, 0.86, 0.64).lerp(pale, fade))
+				draw_line(Vector2(w * 0.3, floor_y - 6), Vector2(w * 0.3, floor_y - 34), Color(0.9, 0.9, 0.92, k), 2.0)
+				draw_colored_polygon(PackedVector2Array([Vector2(w * 0.3 - 22, floor_y - 30), Vector2(w * 0.3 + 22, floor_y - 30), Vector2(w * 0.3, floor_y - 46)]), Color(0.95, 0.3, 0.3).lerp(pale, fade))
+				draw_line(Vector2(w * 0.72, floor_y - 4), Vector2(w * 0.74, floor_y - 34), Color(0.6, 0.45, 0.3).lerp(pale, fade), 4.0)
+				draw_circle(Vector2(w * 0.74, floor_y - 38), 10.0, Color(0.3, 0.7, 0.4).lerp(pale, fade))
+			"sakura":
+				draw_rect(Rect2(w * 0.5 - 3, floor_y - 30, 6, 28), Color(0.45, 0.32, 0.28).lerp(pale, fade))
+				for o in [Vector2(-14, -34), Vector2(12, -38), Vector2(0, -46), Vector2(-4, -30)]:
+					draw_circle(Vector2(w * 0.5, floor_y) + o, 14.0, Color(1.0, 0.76, 0.86).lerp(pale, fade))
+			"party":
+				for i in 5:
+					var bx := w * (0.2 + 0.15 * float(i))
+					var bcs: Array[Color] = [Color("ff4fa0"), Color("ffce30"), Color("2f7cff"), Color("2fd0a8"), Color("ff8a3a")]
+					var bc: Color = bcs[i]
+					draw_line(Vector2(bx, floor_y - 2), Vector2(bx + 3.0 * float(i % 2), floor_y - 28), Color(1, 1, 1, 0.6 * k), 1.5)
+					draw_circle(Vector2(bx + 3.0 * float(i % 2), floor_y - 36 - 3.0 * float(i % 3)), 10.0, bc.lerp(pale, fade))
 
 	func _trail_col(t: float) -> Color:
 		match String(item["id"]):
@@ -74,6 +152,8 @@ class _Swatch:
 				draw_arc(c + Vector2(r * 1.15, 0), r * 1.15, PI - 0.62, PI + 0.62, 12, seam, 3.0, true)
 				draw_arc(c + Vector2(0, -r * 1.15), r * 1.15, PI * 0.5 - 0.62, PI * 0.5 + 0.62, 12, seam, 3.0, true)
 				draw_circle(c + Vector2(-r * 0.35, -r * 0.4), r * 0.2, Color(1, 1, 1, 0.5 * k))
+			"deco":
+				_draw_deco(k)
 			"court":
 				var th: Dictionary = Arena.THEMES.get(String(item["id"]), Arena.THEMES["day"])
 				var pale := Color(0.82, 0.85, 0.92)
@@ -326,7 +406,7 @@ func _build_overview() -> void:
 
 func _next_unlock(level: int) -> Dictionary:
 	var best := {}
-	for kind in ["trail", "ball", "court"]:
+	for kind in ["trail", "ball", "court", "deco"]:
 		for it in Profile.catalog(kind):
 			if int(it["level"]) > level and (best.is_empty() or int(it["level"]) < int(best["level"])):
 				best = (it as Dictionary).duplicate()
@@ -337,18 +417,30 @@ func _next_unlock(level: int) -> Dictionary:
 # ------------------------------------------------------------------ collection
 func _build_collection() -> void:
 	var p: Profile = Game.profile
+	var sc := ScrollContainer.new()
+	sc.size = Vector2(1780, 800)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.follow_focus = true
+	_body.add_child(sc)
+	var holder := Control.new()
+	sc.add_child(holder)
 	var y := 0.0
-	for kind in ["trail", "ball", "court"]:
-		var t := UIKit.label(KIND_TITLES[kind], 38, Color.WHITE, 10, Color(0.05, 0.2, 0.45, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
+	var per_row := 7
+	for kind in ["trail", "ball", "court", "deco"]:
+		var t := UIKit.label(tr(String(KIND_TITLES[kind])), 38, Color.WHITE, 10, Color(0.05, 0.2, 0.45, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
 		t.position = Vector2(6, y)
 		t.size = Vector2(400, 52)
-		_body.add_child(t)
+		holder.add_child(t)
 		var cat := Profile.catalog(kind)
+		var rows := int(ceil(float(cat.size()) / float(per_row)))
 		for i in cat.size():
 			var b := _item_card(kind, cat[i], p)
-			b.position = Vector2(float(i) * 226.0, y + 58.0)
-			_body.add_child(b)
-		y += 262.0
+			b.position = Vector2(float(i % per_row) * 226.0, y + 58.0 + float(i / per_row) * 220.0)
+			holder.add_child(b)
+		y += 58.0 + float(rows) * 220.0 + 36.0
+	holder.custom_minimum_size = Vector2(1780, y)
+	if Game.main != null and Game.main.dev.has("colscroll"):
+		sc.set_deferred("scroll_vertical", int(Game.main.dev["colscroll"]))
 	_desc.text = "点击已解锁的装扮即可装备;升级解锁更多。拖尾只在你方击球时显示。"
 
 

@@ -123,6 +123,7 @@ func setup(p_team: int, p_slot: int, p_entry: Dictionary, p_ball: Ball, p_direct
 	yaw = 0.0 if team == 0 else PI
 	rotation.y = yaw
 	rig = CharacterRig.new()
+	rig.hero = true
 	add_child(rig)
 	rig.build(entry, true)
 	rig.clip_finished.connect(_on_clip_finished)

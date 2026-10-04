@@ -542,6 +542,31 @@ func _jitter(r: float) -> Vector3:
 	return Vector3(cos(ang) * rad, 0.0, sin(ang) * rad)
 
 
+## execution error of an attacking shot (serve / spike / over-the-net ball): a normal distribution around the aimed spot, so
+## mistimed or rushed hits drift towards (and over) the lines. `sigma` is in metres; depth is a little looser than width, and a
+## hard hit tends to fly long. This is what makes "out" a real way to lose a point.
+func _exec_error(sigma: float, long_bias := 0.0, S := 1.0) -> Vector3:
+	if sigma <= 0.001:
+		return Vector3.ZERO
+	return Vector3(_rng.randfn(0.0, sigma), 0.0, _rng.randfn(0.0, sigma * 1.2) - S * long_bias)
+
+
+## sigma (m) by timing quality, the hitter's skill and the match difficulty (the computer is sloppier on the easy levels)
+func _sigma_for(a: Athlete, quality: String, base_ok: float) -> float:
+	var q := 0.12
+	match quality:
+		"good": q = 0.5
+		"ok": q = 1.0
+	var stretch := clampf(a.vel.length() / 5.0, 0.0, 1.0)                # hitting on the run is harder
+	q += 0.22 * stretch
+	var skill_k := lerpf(1.35, 0.7, clampf(a.skill, 0.0, 1.0))
+	var diff_k := 1.0
+	if not a.is_human:
+		q = maxf(q, 0.3)                                                  # even a perfect computer shot is never laser-precise
+		diff_k = [1.25, 1.0, 0.85, 0.7][clampi(difficulty, 0, 3)]
+	return base_ok * q * skill_k * diff_k
+
+
 ## find the flight time >= t_min that makes the shot clear the net
 func _solve_over_net(p0: Vector3, target: Vector3, t_min: float, t_max := 2.2) -> Vector3:
 	var t := t_min
@@ -552,16 +577,37 @@ func _solve_over_net(p0: Vector3, target: Vector3, t_min: float, t_max := 2.2) -
 	return v
 
 
+var _letgo_key := ""
+var _letgo_val := false
+
+
+## decided once per ball and team (not every frame): do the computer defenders let this out-ball drop?
+func _let_go(t: int) -> bool:
+	var key := "%d:%d" % [rally_len, t]
+	if key != _letgo_key:
+		_letgo_key = key
+		var sk := 0.0
+		var n := 0
+		for a in team_athletes(t):
+			if not a.is_human:
+				sk += a.skill
+				n += 1
+		sk = sk / float(maxi(n, 1))
+		_letgo_val = _rng.randf() < 0.3 + 0.6 * clampf(sk, 0.0, 1.0)
+	return _letgo_val
+
+
 func _smart_target(a: Athlete, deep_bias := 0.5, short_ok := true) -> Vector3:
 	# pick an open spot on the opponents' side: far from both defenders, inside the lines
 	var opp := opponents_of(a.team)
 	var S := Court.team_sign(a.team)
 	var best := Vector3.ZERO
 	var best_score := -1.0
+	var reach := 3.9 + 0.35 * clampf(a.skill, 0.0, 1.0)             # the better players aim closer to the lines
 	for xi in 7:
 		for di in 4:
-			var x := lerpf(-3.9, 3.9, xi / 6.0)
-			var d := lerpf(1.6, 6.3, di / 3.0)
+			var x := lerpf(-reach, reach, xi / 6.0)
+			var d := lerpf(1.6, 6.5, di / 3.0)
 			var p := Vector3(x, 0, -S * d)
 			var m := 99.0
 			for o in opp:
@@ -590,7 +636,7 @@ func _target_for(a: Athlete, deep_bias := 0.5) -> Vector3:
 func _shot_serve(a: Athlete, p0: Vector3, q: String, err: float) -> Dictionary:
 	var S := Court.team_sign(a.team)
 	var tgt := _target_for(a, 0.9)
-	tgt += _jitter(0.9 * err)
+	tgt += _jitter(0.45 * err) + _exec_error(_sigma_for(a, q, 1.0), 0.1 if a.global_position.y > 0.3 else 0.0, S)
 	var airborne := a.global_position.y > 0.3
 	var tmin := 0.95 if q == "perfect" else (1.1 if q == "good" else 1.3)
 	if airborne:
@@ -609,7 +655,7 @@ func _shot_spike(a: Athlete, p0: Vector3, q: String, err: float) -> Dictionary:
 		var ap: Vector3 = a.aim_point
 		tip = absf(ap.z) < 1.9
 	var tgt := _target_for(a, 0.6)
-	tgt += _jitter(0.7 * err)
+	tgt += _jitter(0.35 * err) + _exec_error(_sigma_for(a, q, 1.1), 0.25 if not tip else 0.0, S)
 	var d := Vector2(tgt.x - p0.x, tgt.z - p0.z).length()
 	var speed := 9.5 if q == "ok" else (12.5 if q == "good" else 16.0)
 	speed *= lerpf(0.9, 1.08, clampf(a.skill, 0.0, 1.0)) * a.power_mul
@@ -630,7 +676,7 @@ func _shot_spike(a: Athlete, p0: Vector3, q: String, err: float) -> Dictionary:
 func _shot_over(a: Athlete, p0: Vector3, kind: String, q: String, err: float) -> Dictionary:
 	var S := Court.team_sign(a.team)
 	var tgt := _target_for(a, 0.35)
-	tgt += _jitter(1.4 * err)
+	tgt += _jitter(0.7 * err) + _exec_error(_sigma_for(a, q, 0.9), 0.0, S)
 	var tmin := 1.25 if kind == "set" else 1.15
 	var v := _solve_over_net(p0, Vector3(tgt.x, Court.BALL_R, tgt.z), tmin)
 	return {"vel": v, "power": 0.35, "target": tgt, "label": ""}
@@ -737,6 +783,8 @@ func _do_block(a: Athlete) -> void:
 	touches = [0, 0]
 	rally_len += 1
 	stats["blocks"][a.team] += 1
+	if kill:
+		_last_kind = "block"
 	add_hype(a.team, 0.18 if kill else 0.06)
 	Sfx.play("block", 0.0, 1.0, 0.05)
 	rally_event.emit("block", {"athlete": a, "kill": kill})
@@ -810,7 +858,7 @@ func _end_point(winner: int, reason: String, pos: Vector3) -> void:
 	if winner != serving_team:
 		serving_team = winner
 		server_idx[winner] = 1 - server_idx[winner]
-	_point_info = {"winner": winner, "reason": reason, "pos": pos}
+	_point_info = {"winner": winner, "reason": reason, "pos": pos, "kind": _last_kind if last_team == winner else "", "rally": rally_len}
 	_set_phase(P.POINT)
 	score_changed.emit(score, serving_team)
 	point_scored.emit(winner, reason, pos)
@@ -883,6 +931,12 @@ func _plan_team(t: int) -> Dictionary:
 	if lpos.z * S <= 0.05:
 		plan["mode"] = "cover" if last_team == t else "defend"
 		return plan
+	# a ball that is clearly going out: the computer players call it and let it go (the better the player, the more often)
+	if last_team != t and not Court.in_court(lpos, 0.0):
+		var out_by := maxf(absf(lpos.x) - Court.HALF_W, absf(lpos.z) - Court.HALF_D)
+		if out_by > 0.45 and _let_go(t):
+			plan["mode"] = "defend"
+			return plan
 	var h := hit_height_for(tn)
 	if last_team != t:
 		h = 1.0

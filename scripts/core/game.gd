@@ -19,6 +19,7 @@ var settings := {
 	"touch": "auto",         # auto | on | off
 	"fullscreen": false,
 	"quality": 2,            # 0 low (phones), 1 medium, 2 high
+	"char_style": 0,         # character rendering: 0 classic soft shading (default) / 1 outlined "toon" look (CharacterRig.hero)
 	"left_handed": false,
 	"haptics": true,         # phone / gamepad vibration on hits and bumps
 	"timing_guide": true,    # shrinking ring around the ball that shows the moment to hit

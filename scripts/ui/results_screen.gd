@@ -281,7 +281,7 @@ func _build_reward_column(card: Control) -> void:
 		sw.size = Vector2(40, 40)
 		sw.add_theme_stylebox_override("panel", UIKit.style_box(it.get("swatch", Color.WHITE), 20, 3, Color.WHITE, 3))
 		uc.add_child(sw)
-		var kn := {"trail": "拖尾", "ball": "球", "court": "球场"}
+		var kn := {"trail": "拖尾", "ball": "球", "court": "球场", "deco": "装饰"}
 		_lbl(uc, String(u["name"]), Vector2(0, 50), Vector2(140, 30), 22, T, HORIZONTAL_ALIGNMENT_CENTER)
 		_lbl(uc, "%s · Lv.%d" % [kn.get(String(u["kind"]), ""), int(u["level"])], Vector2(0, 76), Vector2(140, 26), 18, T2, HORIZONTAL_ALIGNMENT_CENTER)
 		uc.modulate.a = 0.0

@@ -23,6 +23,7 @@ var _elapsed := 0.0
 var _stats_log := []
 var replay: ReplaySystem = null
 var _points_since_replay := 2
+var _last_replay_ours := true          # the previous replay was for the player's team (so one against them may follow)
 
 
 func setup(data: Dictionary) -> void:
@@ -93,6 +94,20 @@ func _build() -> void:
 		referee = Referee.new()
 		add_child(referee)
 		referee.build(director, ball, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]))
+	if arena.deco_id == "press" and not Game.dbg("nodeco"):
+		var press := PressCrew.new()
+		add_child(press)
+		var used_p: Array = Game.team_a + Game.team_b
+		if referee != null:
+			used_p.append(referee.entry["id"])
+		press.build(self, director, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]), used_p)
+	if arena.deco_id == "team" and not Game.dbg("nodeco"):
+		var bench := BenchCrew.new()
+		add_child(bench)
+		var used: Array = Game.team_a + Game.team_b
+		if referee != null:
+			used.append(referee.entry["id"])
+		bench.build(director, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]), used)
 	if Game.is_practice():
 		director.mode_rules = Game.mode
 		director.serving_team = 1
@@ -371,16 +386,40 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		Sfx.play("point_lose", -6.0)
 
 
-## which points deserve an instant replay: long rallies, aces, kill blocks and power spikes (at most one per three points)
+## which points deserve an instant replay. The replay is a reward, so it is weighted towards the human side:
+##  * a point the player's team wins: any highlight (ace, spike winner, kill block, power spike, 6+ touch rally) -> replay when at
+##    least 2 points have passed since the last one; and a guarantee: after 5 points without one, any decent rally (3+) gets it
+##  * a point against the player: only the exceptional ones (ace, power spike, 10+ touch rally), never twice in a row and at least
+##    4 points apart
 func _replay_wanted(reason: String) -> bool:
 	if replay == null:
 		return false
 	_points_since_replay += 1
-	var big := director.rally_len >= 8 or reason.begins_with("KILL") or reason == "ACE!" or ball.combo
-	if (big and _points_since_replay >= 3) or (Game.main != null and Game.main.dev.has("replay") and big):
+	var info: Dictionary = director._point_info
+	var winner := int(info.get("winner", 0))
+	var kind := String(info.get("kind", ""))
+	var rally := director.rally_len
+	var humans := {}
+	for a in athletes:
+		if a.is_human:
+			humans[a.team] = true
+	var ours := humans.is_empty() or humans.has(winner) or humans.size() > 1
+	var mistake := reason == "出界" or reason == "触网" or reason == "发球失误"     # points that came from an error are not highlights ...
+	var highlight := (reason == "ACE!" or kind == "spike" or kind == "block" or ball.combo or rally >= 6) if not mistake else rally >= 12   # ... unless it was a marathon
+	var want := false
+	if ours:
+		want = (highlight and _points_since_replay >= 2) or (_points_since_replay >= 5 and rally >= 3 and not mistake)
+	else:
+		var wow := reason == "ACE!" or ball.combo or rally >= 10
+		want = wow and _points_since_replay >= 4 and _last_replay_ours
+	if Game.main != null and Game.main.dev.has("replay") and highlight:
+		want = true
+	if _log_events:
+		print("[replaycheck] winner=%d ours=%s kind=%s rally=%d reason=%s since=%d -> %s" % [winner, ours, kind, rally, reason, _points_since_replay, want])
+	if want:
 		_points_since_replay = 0
-		return true
-	return false
+		_last_replay_ours = ours
+	return want
 
 
 func _run_point_replay() -> void:

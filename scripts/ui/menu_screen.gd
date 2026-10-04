@@ -1534,7 +1534,7 @@ func _build_settings() -> Control:
 	back.position = Vector2(70, 920)
 	back.pressed.connect(func(): Game.save_settings(); _show_page("main"))
 	root.add_child(back)
-	_fill_settings(0)
+	_fill_settings(int(Game.main.dev["setcat"]) if Game.main != null and Game.main.dev.has("setcat") else 0)
 	return root
 
 
@@ -1543,7 +1543,7 @@ func _fill_settings(cat: int) -> void:
 	for i in int(_set_cards.get_meta("n")):
 		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
 	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
-	var rows_n: int = [2, 3, 6, 1][cat]
+	var rows_n: int = [2, 4, 6, 1][cat]
 	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
 	var old_panel := _set_panel
 	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
@@ -1567,6 +1567,7 @@ func _fill_settings(cat: int) -> void:
 			col.add_child(GW.slider_row("音效音量", float(Game.settings["sfx"]), func(v): Game.settings["sfx"] = v; Game.apply_settings(); Sfx.play("ui_hover", -6.0), 904.0))
 		1:
 			col.add_child(GW.option_row("画面质量", ["低 (手机)", "中", "高"], int(Game.settings["quality"]), func(i): Game.settings["quality"] = i; Game.save_settings(), 904.0, 170.0))
+			col.add_child(GW.option_row("角色渲染", ["柔和", "描边"], int(Game.settings["char_style"]), func(i): Game.settings["char_style"] = i; Game.save_settings(), 904.0, 220.0))
 			onoff.call("全屏", "fullscreen")
 			onoff.call("镜头震动", "shake")
 		2:

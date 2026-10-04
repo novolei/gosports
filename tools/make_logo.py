@@ -117,6 +117,18 @@ def compose_mark(size, ball_d, trail_scale=1.0, sparkle=True, center=None):
     return base.resize((size, size), Image.LANCZOS)
 
 
+def round_corners(img, radius_frac):
+    """rounded-square RGBA version of an opaque icon (the corner radius iOS / macOS / Windows 11 use is ~22 % of the side)"""
+    size = img.size[0]
+    k = 4
+    mask = Image.new("L", (size * k, size * k), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size * k - 1, size * k - 1], radius=int(size * k * radius_frac), fill=255)
+    mask = mask.resize((size, size), Image.LANCZOS)
+    out = img.convert("RGBA")
+    out.putalpha(mask)
+    return out
+
+
 def make_icon(size=1024):
     bg = diag_gradient(size).convert("RGBA")
     bg.alpha_composite(radial_glow(size, size * 0.56, size * 0.46, size * 0.62, 0.30))
@@ -219,10 +231,12 @@ def main():
     mono_c = Image.new("RGBA", (432, 432), (0, 0, 0, 0))
     mono_c.alpha_composite(mono, (66, 66))
     save(mono_c, "assets/brand/android_mono.png", optimize=True)
-    # ---- project icon + Windows .ico
+    # ---- project icon (full-bleed square, used by Godot tooling) + the rounded desktop icon (window title bar / taskbar / .exe / .ico)
     save(icon.resize((512, 512), Image.LANCZOS), "icon.png", optimize=True)
-    icon.save("art_src/brand/icon.ico", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
-    print("art_src/brand/icon.ico")
+    rounded = round_corners(icon, 0.2237)
+    save(rounded.resize((512, 512), Image.LANCZOS), "assets/brand/icon_win.png", optimize=True)
+    rounded.save("assets/brand/icon_win.ico", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (24, 24), (16, 16)])
+    print("assets/brand/icon_win.ico")
     # ---- wordmark + splash
     wm = make_wordmark()
     save(wm, "art_src/brand/wordmark.png", optimize=True)

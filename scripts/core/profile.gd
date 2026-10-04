@@ -1,6 +1,6 @@
 class_name Profile
 extends RefCounted
-## Player progression: XP / levels, unlockable cosmetics (ball trails, ball skins, court themes), achievements, daily
+## Player progression: XP / levels, unlockable cosmetics (ball trails, ball skins, court themes, court decorations), achievements, daily
 ## missions with a login streak, lifetime stats. Persisted as JSON in user://profile.json.
 ## Counters are bumped by the match code ("live" ones show a toast at once), `finish_match()` turns a finished match
 ## into an XP breakdown (play / points / perfects ... x win / difficulty / deuce / teamwork / streak bonuses).
@@ -35,6 +35,21 @@ const COURTS := [
 	{"id": "sunset", "name": "黄昏", "level": 4, "desc": "金色的夕阳", "swatch": Color(1.0, 0.62, 0.35)},
 	{"id": "night", "name": "灯光夜场", "level": 7, "desc": "璀璨的夜间比赛", "swatch": Color(0.15, 0.2, 0.45)},
 	{"id": "dawn", "name": "薄雾清晨", "level": 11, "desc": "粉蓝色的清晨", "swatch": Color(0.82, 0.75, 0.95)},
+]
+
+## court decoration styles (Arena / CourtDeco): what stands around the court
+const DECOS := [
+	{"id": "ads", "name": "灯箱广告", "level": 1, "desc": "热闹的赞助商灯箱，轮流播放", "swatch": Color(0.25, 0.7, 0.95)},
+	{"id": "plain", "name": "纯色隔板", "level": 2, "desc": "干净的纯色围挡，没有广告", "swatch": Color(0.3, 0.75, 0.7)},
+	{"id": "garden", "name": "简约绿植", "level": 3, "desc": "低矮的树篱和圆球灌木", "swatch": Color(0.35, 0.72, 0.4)},
+	{"id": "team", "name": "教练与队友", "level": 5, "desc": "替补席上的教练和队友为你加油", "swatch": Color(0.35, 0.55, 1.0)},
+	{"id": "press", "name": "摄影记者", "level": 6, "desc": "场边的摄影记者，回放时闪光灯此起彼伏", "swatch": Color(0.95, 0.95, 1.0)},
+	{"id": "bunting", "name": "彩旗", "level": 7, "desc": "拉满彩旗的运动会气氛", "swatch": Color(1.0, 0.75, 0.25)},
+	{"id": "festival", "name": "灯笼庆典", "level": 9, "desc": "一串串红灯笼和金色围挡", "swatch": Color(0.9, 0.2, 0.2)},
+	{"id": "neon", "name": "霓虹灯带", "level": 11, "desc": "会流动的霓虹灯管，夜场更惊艳", "swatch": Color(0.55, 0.3, 1.0)},
+	{"id": "beach", "name": "海滩风情", "level": 13, "desc": "遮阳伞、棕榈树和木栅栏", "swatch": Color(1.0, 0.8, 0.5)},
+	{"id": "sakura", "name": "樱花小径", "level": 16, "desc": "粉色樱花树，花瓣轻轻飘落", "swatch": Color(1.0, 0.7, 0.82)},
+	{"id": "party", "name": "派对气球", "level": 20, "desc": "彩色气球拱门和彩带", "swatch": Color(1.0, 0.45, 0.65)},
 ]
 
 const TITLES := ["新手", "新手", "球场新星", "球场新星", "校队候补", "校队候补", "校队主力", "校队主力", "区域好手", "区域好手",
@@ -88,7 +103,7 @@ var xp := 0
 var stats := {}                # lifetime numbers shown on the career page
 var counters := {}             # achievement / mission counters
 var achievements := {}         # id -> unix time unlocked
-var equipped := {"trail": "speed", "ball": "classic", "court": "day"}
+var equipped := {"trail": "speed", "ball": "classic", "court": "day", "deco": "ads"}
 var daily := {"day": "", "list": [], "streak": 0, "last_day": ""}
 var flags := {"tutorial_done": false, "welcomed": false, "tournament_best": 0, "rally_best": 0}
 var path := PATH
@@ -142,6 +157,7 @@ static func catalog(kind: String) -> Array:
 		"trail": return TRAILS
 		"ball": return BALLS
 		"court": return COURTS
+		"deco": return DECOS
 	return []
 
 
@@ -174,7 +190,7 @@ func equipped_item(kind: String) -> Dictionary:
 ## everything that becomes available between two levels: [{"kind", "id", "name"}]
 static func unlocks_between(from_level: int, to_level: int) -> Array:
 	var out := []
-	for kind in ["trail", "ball", "court"]:
+	for kind in ["trail", "ball", "court", "deco"]:
 		for e in catalog(kind):
 			if int(e["level"]) > from_level and int(e["level"]) <= to_level:
 				out.append({"kind": kind, "id": e["id"], "name": e["name"], "level": e["level"]})

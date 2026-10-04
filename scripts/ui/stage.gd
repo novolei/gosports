@@ -39,6 +39,7 @@ func look(pos: Vector3, tgt: Vector3, snap := false) -> void:
 
 func add_rig(entry: Dictionary, pos: Vector3, yaw := 0.0, clip := "ready") -> CharacterRig:
 	var r := CharacterRig.new()
+	r.hero = true
 	add_child(r)
 	r.build(entry)
 	r.position = pos

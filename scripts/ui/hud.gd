@@ -82,6 +82,8 @@ func bind(p_ms: MatchScene) -> void:
 	Game.touch_mode_changed.connect(func(_t): _build_touch())
 	_refresh_score(false)
 	_build_mode_tag()
+	if Game.main != null and Game.main.dev.has("cardshot"):       # dev: --cardshot=0|1 plays the point card for that team (score 4-3)
+		_dev_card(int(Game.main.dev["cardshot"]))
 	if Game.profile != null and Game.profile_enabled:
 		Game.profile.achievement_unlocked.connect(_on_achievement)
 		Game.profile.mission_done.connect(_on_mission_done)
@@ -284,8 +286,28 @@ func _refresh_score(animate := true) -> void:
 		_last_score[t] = director.score[t]
 
 
+func _dev_card(team: int) -> void:
+	await get_tree().create_timer(1.0).timeout
+	director.score = [4, 3] if team == 0 else [3, 4]
+	_refresh_score(false)
+	director.score[team] -= 1
+	_refresh_score(false)
+	director.score[team] += 1
+	show_banner("得分!", Color.WHITE, 130, 1.4, UIKit.team_dark(team))
+	await get_tree().create_timer(0.25).timeout
+	show_point_card(team)
+
+
 func _on_score(_s: Array, _serving: int) -> void:
+	if director.phase == MatchDirector.P.POINT or director.phase == MatchDirector.P.OVER:
+		_refresh_score_icons()                    # numbers follow the point card's roll; only the serve marker moves now
+		return
 	_refresh_score()
+
+
+func _refresh_score_icons() -> void:
+	for t in 2:
+		serve_icon[t].visible = director.serving_team == t
 
 
 # ------------------------------------------------------------------ hint / banner / bubbles
@@ -1422,9 +1444,10 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		txt = reason
 	show_banner(txt, Color.WHITE, 130, 1.4, UIKit.team_dark(team))
 	await get_tree().create_timer(0.25).timeout
-	_refresh_score(true)
 	if director.phase != MatchDirector.P.OVER:
-		show_point_card(team)
+		show_point_card(team)                      # (rolls the card AND the scoreboard from the old to the new score)
+	else:
+		_refresh_score(true)
 
 
 func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
@@ -1590,20 +1613,47 @@ func _inout_pill(text: String, sp: Vector2, wpos: Vector3) -> void:
 	tw.tween_callback(box.queue_free)
 
 
-## big centre card after a point: both teams' avatars around the new score
+## big centre card after a point. It opens on the OLD score, lights up the team that won the rally (team-coloured glow, hopping
+## avatars, the other side dims), then the winner's numeral rolls up to the new value like an odometer with a "+1", one ring
+## pulse and a few sparkles; the scoreboard at the top left changes at the same moment.
 func show_point_card(winner: int) -> void:
 	var card := Control.new()
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp := get_viewport().get_visible_rect().size
 	card.position = Vector2(vp.x * 0.5, vp.y * 0.26)
 	root_c.add_child(card)
+	var new_score: int = director.score[winner]
+	var old_score := maxi(new_score - 1, 0)
+	var wcol := UIKit.team_color(winner)
+	var groups: Array[Control] = []
+	var avatars: Array = [[], []]
+	var num_pos: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
+	var old_l: Label = null
+	var new_l: Label = null
+	var glow: Panel = null
 	for t in 2:
 		var ids: Array = Game.team_a if t == 0 else Game.team_b
 		var sgn := -1.0 if t == 0 else 1.0
+		var g := Control.new()
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(g)
+		groups.append(g)
+		var center := Vector2(sgn * 150.0, 0.0)
+		num_pos[t] = center
+		if t == winner:
+			glow = Panel.new()
+			glow.size = Vector2(190, 190)
+			glow.position = center - glow.size * 0.5
+			glow.pivot_offset = glow.size * 0.5
+			glow.add_theme_stylebox_override("panel", UIKit.style_box(Color(wcol.r, wcol.g, wcol.b, 0.30), 95))
+			glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			glow.modulate.a = 0.0
+			g.add_child(glow)
 		for i in 2:
 			var a := UIKit.avatar(ids[i], 92, UIKit.team_color(t), 5)
 			a.position = Vector2(sgn * (330.0 + float(i) * 88.0) - (92.0 if t == 0 else 0.0), -46)
-			card.add_child(a)
+			g.add_child(a)
+			avatars[t].append(a)
 			var nm := Panel.new()
 			nm.position = a.position + Vector2(4, 84)
 			nm.size = Vector2(84, 24)
@@ -1612,27 +1662,144 @@ func show_point_card(winner: int) -> void:
 			var nl := UIKit.label(Roster.by_id(ids[i])["name"], 17, Color.WHITE)
 			nl.set_anchors_preset(Control.PRESET_FULL_RECT)
 			nm.add_child(nl)
-			card.add_child(nm)
-		var sc := UIKit.label(str(director.score[t]), 120, Color.WHITE, 22, UIKit.team_dark(t))
-		sc.position = Vector2(sgn * 150.0 - 70.0, -80)
-		sc.size = Vector2(140, 150)
-		sc.pivot_offset = Vector2(70, 75)
-		card.add_child(sc)
+			g.add_child(nm)
+			avatars[t].append(nm)
+		# the numeral sits in a clipping window so the odometer roll never leaks out
+		var win := Control.new()
+		win.position = center + Vector2(-110, -80)
+		win.size = Vector2(220, 150)
+		win.clip_contents = true
+		win.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		g.add_child(win)
+		var shown := old_score if t == winner else int(director.score[t])
+		var lab := UIKit.label(str(shown), 120, Color.WHITE, 22, UIKit.team_dark(t))
+		lab.size = win.size
+		win.add_child(lab)
 		if t == winner:
-			sc.scale = Vector2(1.5, 1.5)
-			sc.create_tween().tween_property(sc, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			old_l = lab
+			new_l = UIKit.label(str(new_score), 120, Color.WHITE, 22, UIKit.team_dark(t))
+			new_l.size = win.size
+			new_l.position = Vector2(0, 150)
+			win.add_child(new_l)
 	var dash := UIKit.label("-", 100, Color.WHITE, 18, UIKit.INK)
 	dash.position = Vector2(-40, -78)
 	dash.size = Vector2(80, 140)
 	card.add_child(dash)
+	# who scored: a team-coloured caption under the numbers
+	var human_teams := {}
+	for a2 in ms.athletes:
+		if a2.is_human:
+			human_teams[a2.team] = true
+	var cap_text := tr("蓝队得分") if winner == 0 else tr("粉队得分")
+	if human_teams.size() == 1:
+		cap_text = tr("我方得分") if human_teams.has(winner) else tr("对方得分")
+	var cap := Control.new()
+	cap.position = Vector2(num_pos[winner].x - 140.0, -178)         # above the winner's numeral (the big banner owns the space below)
+	cap.size = Vector2(280, 56)
+	cap.pivot_offset = cap.size * 0.5
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cap.add_child(GW.pill_bg(cap.size - Vector2(0, 8), 24.0, wcol))
+	var cl := UIKit.label(cap_text, 28, Color.WHITE, 6, wcol.darkened(0.5))
+	cl.clip_text = true
+	cl.size = cap.size - Vector2(0, 8)
+	cap.add_child(cl)
+	cap.modulate.a = 0.0
+	cap.scale = Vector2(0.7, 0.7)
+	card.add_child(cap)
+	# card in
 	card.modulate.a = 0.0
-	card.scale = Vector2(0.7, 0.7)
+	card.scale = Vector2(0.8, 0.8)
+	card.pivot_offset = Vector2.ZERO
 	var tw := card.create_tween()
 	tw.tween_property(card, "modulate:a", 1.0, 0.15)
-	tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(1.5)
+	tw.parallel().tween_property(card, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.9)
 	tw.tween_property(card, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(card.queue_free)
+	# beat 1 (0.28 s): light up the winner, dim the other side, caption pops
+	var t1 := card.create_tween()
+	t1.tween_interval(0.28)
+	t1.tween_callback(func():
+		var gt := glow.create_tween().set_parallel(true)
+		glow.scale = Vector2(0.6, 0.6)
+		gt.tween_property(glow, "modulate:a", 1.0, 0.2)
+		gt.tween_property(glow, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		groups[1 - winner].create_tween().tween_property(groups[1 - winner], "modulate", Color(1, 1, 1, 0.55), 0.25)
+		var ct := cap.create_tween().set_parallel(true)
+		ct.tween_property(cap, "modulate:a", 1.0, 0.18)
+		ct.tween_property(cap, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		for k in avatars[winner].size():                 # the winners hop (staggered)
+			var n: Control = avatars[winner][k]
+			var y0 := n.position.y
+			var ht := n.create_tween()
+			ht.tween_interval(0.05 * float(k / 2))
+			ht.tween_property(n, "position:y", y0 - 14.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			ht.tween_property(n, "position:y", y0, 0.2).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT))
+	# beat 2 (0.62 s): the roll
+	var t2 := card.create_tween()
+	t2.tween_interval(0.62)
+	t2.tween_callback(func():
+		var rt := old_l.create_tween().set_parallel(true)
+		rt.tween_property(old_l, "position:y", -150.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		rt.tween_property(old_l, "modulate:a", 0.0, 0.3)
+		var nt := new_l.create_tween()
+		nt.tween_property(new_l, "position:y", 0.0, 0.36).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var pt := glow.create_tween()                      # a little punch on the glow disc as the number lands
+		pt.tween_property(glow, "scale", Vector2(1.14, 1.14), 0.1)
+		pt.tween_property(glow, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_refresh_score(true)                               # the scoreboard changes in the same instant
+		Sfx.play("xp_tick", -5.0, 1.2)
+		_point_card_fx(card, num_pos[winner], wcol))
+
+
+## "+1", one ring pulse and a handful of sparkles around the numeral that just changed (kept small on purpose)
+func _point_card_fx(card: Control, at: Vector2, col: Color) -> void:
+	var plus := UIKit.label("+1", 62, Color.WHITE, 12, col.darkened(0.45))
+	plus.size = Vector2(120, 70)
+	plus.pivot_offset = plus.size * 0.5
+	var outward := -1.0 if at.x < 0.0 else 1.0                      # the "+1" rises on the outer shoulder of the numeral
+	plus.position = at + Vector2(outward * 105.0 - 60.0, -125)
+	plus.scale = Vector2(0.4, 0.4)
+	plus.modulate.a = 0.0
+	card.add_child(plus)
+	var pt := plus.create_tween()
+	pt.tween_property(plus, "modulate:a", 1.0, 0.1)
+	pt.parallel().tween_property(plus, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pt.parallel().tween_property(plus, "position:y", plus.position.y - 34.0, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	pt.tween_interval(0.35)
+	pt.tween_property(plus, "modulate:a", 0.0, 0.3)
+	var ring := Panel.new()
+	ring.size = Vector2(150, 150)
+	ring.position = at - ring.size * 0.5
+	ring.pivot_offset = ring.size * 0.5
+	var sb := UIKit.style_box(Color(col.r, col.g, col.b, 0.0), 75, 7, col.lightened(0.25))
+	ring.add_theme_stylebox_override("panel", sb)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(ring)
+	var rt := ring.create_tween().set_parallel(true)
+	rt.tween_property(ring, "scale", Vector2(1.9, 1.9), 0.55).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	rt.tween_property(ring, "modulate:a", 0.0, 0.55)
+	rt.chain().tween_callback(ring.queue_free)
+	var sp := CPUParticles2D.new()
+	sp.position = at
+	sp.amount = 12
+	sp.lifetime = 0.65
+	sp.one_shot = true
+	sp.explosiveness = 1.0
+	sp.emitting = true
+	sp.direction = Vector2(0, -1)
+	sp.spread = 180.0
+	sp.initial_velocity_min = 130.0
+	sp.initial_velocity_max = 250.0
+	sp.damping_min = 140.0
+	sp.damping_max = 200.0
+	sp.scale_amount_min = 5.0
+	sp.scale_amount_max = 9.0
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 1))
+	ramp.set_color(1, Color(col.r, col.g, col.b, 0.0))
+	sp.color_ramp = ramp
+	card.add_child(sp)
 
 
 ## teal capsule in the middle of the screen ("Start", "Game!") - the reference game's cue style
