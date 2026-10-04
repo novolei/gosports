@@ -627,7 +627,6 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 金色网带，星星挂饰	Golden tape with star charms
 彩虹网带和小彩虹拱门	Rainbow tape and mini rainbow arches
 鹰眼回放	Hawk-Eye Review
-中文：字魂趣圆黑（试用版，商用前需向字魂购买授权）；英文：Kanit、Rubik（SIL OFL 1.1，可商用）；后备：Noto Sans SC	Chinese: Zihun Quyuanhei (trial - buy a licence before commercial use); Latin: Kanit and Rubik (SIL OFL 1.1, free for commercial use); fallback: Noto Sans SC
 连击	COMBO
 提示	Hints
 移动方向瞄准（按住方向键击球）	Aim with movement keys (hold a direction when hitting)
@@ -638,4 +637,5 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。也可以击球时按住左摇杆的方向。	Push the right stick to aim: the ball goes where you push it; release = smart placement. You can also just hold the left stick direction when you hit.
 落点、时机、目标区域	Landing, timing, target zone
 按键、触屏、瞄准	Keys, touch, aiming
+中文：文道潮黑；英文：Kanit、Rubik（SIL OFL 1.1）；后备：Noto Sans SC（SIL OFL 1.1）	Chinese: WenDao ChaoHei; Latin: Kanit and Rubik (SIL OFL 1.1); fallback: Noto Sans SC (SIL OFL 1.1)
 """

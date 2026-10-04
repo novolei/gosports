@@ -1,9 +1,8 @@
 class_name Fonts
 extends RefCounted
 ## The game's typefaces:
-##   Chinese   everywhere: assets/fonts/ui_font.ttf = 字魂趣圆黑 (heavy rounded; the user's pick), upright - never slanted.
-##             Noto Sans SC Bold (OFL) behind it for any glyph it lacks.  NOTE: ui_font.ttf is a TRIAL version, commercial use
-##             needs a licence from https://izihun.com/ (see docs section 28).
+##   Chinese   everywhere: assets/fonts/WenDaoChaoHei-2.ttf = 文道潮黑 (heavy, modern; the user's pick, a free font), upright - never
+##             slanted, used UNMODIFIED (not subset). Noto Sans SC Bold (OFL) behind it for any glyph it lacks (none at the moment).
 ##   Latin     body    Rubik 600 (rounded, friendly)                     -> Fonts.body()
 ##             display Kanit ExtraBold, upright (buttons, headers, scores) -> Fonts.display()
 ##             italic  Kanit ExtraBold Italic (in-match flying text, logo) -> Fonts.display_italic()
@@ -56,7 +55,7 @@ static func _cjk_font() -> Font:
 		sf.font_names = PackedStringArray(["Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif"])
 		var fb := _file("cjk_fallback.ttf")
 		fb.fallbacks = [sf]
-		var primary := _file("ui_font.ttf") if ResourceLoader.exists(DIR + "ui_font.ttf") else null
+		var primary := _file("WenDaoChaoHei-2.ttf") if ResourceLoader.exists(DIR + "WenDaoChaoHei-2.ttf") else null
 		if primary != null:
 			primary.fallbacks = [fb]
 			_cjk = primary

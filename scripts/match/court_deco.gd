@@ -101,6 +101,26 @@ class Mesher:
 				if j < rings - 1:
 					tri(v00, v11, v10, k, mid)
 
+	## stretched sphere (radii per axis): cheap rounded bodies (fish, beans). Colour runs from `col` (underside) to `col_top` (top).
+	func ellipsoid(c: Vector3, r: Vector3, col: Color, segs := 8, rings := 4, col_top := Color(0, 0, 0, 0)) -> void:
+		var tc := col if col_top.a == 0.0 else col_top
+		for j in rings:
+			var p0 := PI * float(j) / float(rings)
+			var p1 := PI * float(j + 1) / float(rings)
+			for i in segs:
+				var a0 := TAU * float(i) / float(segs)
+				var a1 := TAU * float(i + 1) / float(segs)
+				var v00 := c + Vector3(sin(p0) * cos(a0) * r.x, cos(p0) * r.y, sin(p0) * sin(a0) * r.z)
+				var v01 := c + Vector3(sin(p0) * cos(a1) * r.x, cos(p0) * r.y, sin(p0) * sin(a1) * r.z)
+				var v10 := c + Vector3(sin(p1) * cos(a0) * r.x, cos(p1) * r.y, sin(p1) * sin(a0) * r.z)
+				var v11 := c + Vector3(sin(p1) * cos(a1) * r.x, cos(p1) * r.y, sin(p1) * sin(a1) * r.z)
+				var mid := (v00 + v11) * 0.5 - c
+				var k := col.lerp(tc, clampf(0.5 + mid.y / maxf(r.y, 0.001) * 0.5, 0.0, 1.0))
+				if j > 0:
+					tri(v00, v01, v11, k, mid)
+				if j < rings - 1:
+					tri(v00, v11, v10, k, mid)
+
 	func commit(mat: Material) -> MeshInstance3D:
 		st.generate_normals()
 		var mi := MeshInstance3D.new()

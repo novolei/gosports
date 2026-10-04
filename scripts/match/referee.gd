@@ -289,10 +289,10 @@ func _launch(a: Athlete, id: String, tier: int, from: Vector3) -> void:
 		var to := a.rig.head_world() + Vector3(0, 0.04, 0)
 		prop.global_position = from.lerp(to, u) + Vector3(0, 0.55 * 4.0 * u * (1.0 - u), 0)
 		prop.rotation = spin * u, 0.0, 1.0, dur)
-	tw.tween_callback(func(): _prop_hit(a, prop, tier))
+	tw.tween_callback(func(): _prop_hit(a, prop, tier, from))
 
 
-func _prop_hit(a: Athlete, prop: MeshInstance3D, tier: int) -> void:
+func _prop_hit(a: Athlete, prop: MeshInstance3D, tier: int, from_pos := Vector3.ZERO) -> void:
 	if not is_instance_valid(a):
 		prop.queue_free()
 		return
@@ -308,13 +308,23 @@ func _prop_hit(a: Athlete, prop: MeshInstance3D, tier: int) -> void:
 		scene.vfx.hit_burst(prop.global_position, "good", 0.35)
 	if Game.main != null and Game.main.dev.has("log"):
 		print("[ref] prop hit ", a.display_name, " tier ", tier)
-	# it bounces off and drops to the floor, then shrinks away
-	var p0 := prop.global_position
-	var away := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(0.2, 0.5))
-	var tw := prop.create_tween()
-	tw.tween_method(func(u: float):
-		prop.global_position = p0.lerp(Vector3(p0.x, 0.05, p0.z) + away, u) + Vector3(0, 0.35 * 4.0 * u * (1.0 - u), 0), 0.0, 1.0, 0.55)
-	tw.tween_interval(1.6)
+	# it bounces off the head (back towards where it came from, and up), falls and bounces on the floor a few times, then shrinks away
+	var base_scale := prop.scale
+	var dir := (prop.global_position - from_pos).normalized() if from_pos != Vector3.ZERO else Vector3(1, 0, 0)
+	var side := Vector3(-dir.z, 0, dir.x) * _rng.randf_range(-0.7, 0.7)
+	var launch := Vector3(-dir.x, 0.0, -dir.z) * _rng.randf_range(0.9, 1.6) + side + Vector3(0, _rng.randf_range(2.6, 3.4), 0)
+	var spin := Vector3(_rng.randf_range(-9.0, 9.0), _rng.randf_range(-7.0, 7.0), _rng.randf_range(-9.0, 9.0))
+	var floor_y := 0.055
+	var bounce := func(k: float):
+		if Game.main != null and Game.main.dev.has("log"):
+			print("[propbounce] strength=%.2f y=%.2f" % [k, prop.global_position.y])
+		Sfx.play("bounce", -13.0 + 7.0 * k, _rng.randf_range(1.5, 1.9))
+		var sq := prop.create_tween()
+		sq.tween_property(prop, "scale", base_scale * Vector3(1.0 + 0.18 * k, 1.0 - 0.22 * k, 1.0 + 0.18 * k), 0.04)
+		sq.tween_property(prop, "scale", base_scale, 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if scene != null and k > 0.45:
+			scene.vfx.hit_burst(Vector3(prop.global_position.x, 0.05, prop.global_position.z), "good", 0.12)
+	var tw := ThrowProp.tumble(prop, launch, spin, floor_y, bounce)
+	tw.tween_interval(1.5)
 	tw.tween_property(prop, "scale", Vector3.ZERO, 0.3)
 	tw.tween_callback(prop.queue_free)
-

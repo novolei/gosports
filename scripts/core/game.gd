@@ -76,6 +76,14 @@ func _ready() -> void:
 	th.default_font = f
 	th.default_font_size = 28
 	get_tree().root.theme = th
+	# A theme on the root window does NOT reach Controls whose parent chain goes through a CanvasLayer (every menu page, the HUD,
+	# the footer prompts ...): they fell back to Godot's built-in Open Sans and a system font for Chinese. The engine's DEFAULT theme
+	# is used by every Control no matter where it sits, so the game fonts go there too (and into the fallback font).
+	var dt := ThemeDB.get_default_theme()
+	dt.default_font = f
+	dt.default_font_size = 28
+	ThemeDB.fallback_font = f
+	ThemeDB.fallback_font_size = 28
 	_detect_touch()
 	if OS.has_feature("mobile"):
 		Engine.max_fps = 60          # battery / thermals; physics interpolation keeps motion smooth

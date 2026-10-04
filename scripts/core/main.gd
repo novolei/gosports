@@ -52,6 +52,8 @@ func _ready() -> void:
 		t0.tween_property(_fade, "color:a", 0.0, 0.55)
 	if dev.has("audit"):
 		_audit_after(int(dev["audit"]))
+	if dev.has("fontscan"):
+		_fontscan_after(int(dev["fontscan"]))
 	_show(first, {})
 	if dev.has("shot"):
 		_capture_and_quit()
@@ -79,6 +81,52 @@ func _audit_after(frames: int) -> void:
 			print("[audit] ", TranslationServer.translate(t).replace("
 ", " | "))
 	print("[audit] done, leftovers=", seen.size())
+	get_tree().quit()
+
+
+## dev: --fontscan=<frames>  lists every text control whose resolved font is NOT one of the game's own (Fonts.body / display /
+## display_italic) or that holds Chinese text without a font that can draw it, then quits
+func _fontscan_after(frames: int) -> void:
+	for i in frames:
+		await get_tree().process_frame
+	var ours: Array = [Fonts.body(), Fonts.display(), Fonts.display_italic()]
+	var cjk := RegEx.new()
+	cjk.compile("[一-鿿]")
+	var bad := 0
+	var total := 0
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var f: Font = null
+		var t := ""
+		var kind := ""
+		if n is Label or n is Button:
+			f = (n as Control).get_theme_font("font")
+			t = String(n.get("text"))
+			kind = n.get_class()
+		elif n is RichTextLabel:
+			f = (n as Control).get_theme_font("normal_font")
+			t = String(n.get("text"))
+			kind = "RichTextLabel"
+		elif n is Label3D:
+			f = (n as Label3D).font
+			t = String(n.get("text"))
+			kind = "Label3D"
+		else:
+			continue
+		if t == "":
+			continue
+		total += 1
+		var tt := TranslationServer.translate(t)
+		var is_ours := ours.has(f)
+		var draws_cjk := f != null and cjk.search(tt) != null and f.has_char(0x4e2d) or (f != null and ours.has(f))
+		if not is_ours or (cjk.search(tt) != null and not draws_cjk):
+			bad += 1
+			print("[fontscan] ", kind, " font=", (f.get_font_name() if f != null else "null"), " (", f, ") text='", tt.substr(0, 30).replace("
+", " "), "' path=", n.get_path())
+	print("[fontscan] done: ", total, " text nodes, ", bad, " not using the game fonts")
 	get_tree().quit()
 
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 """Builds the game's font files from the originals in art_src/fonts/ (download from https://github.com/google/fonts/tree/main/ofl):
 
-  Chinese  (primary)  assets/fonts/ui_font.ttf     字魂趣圆黑 zihunquyuanhei - the user's chosen Chinese face (heavy rounded). TRIAL
-                      version: commercial use needs a licence bought from https://izihun.com/ - not generated here, kept as shipped.
+  Chinese  (primary)  assets/fonts/WenDaoChaoHei-2.ttf  文道潮黑 - the user's chosen Chinese face (a free font, shipped UNMODIFIED, so it
+                      is not generated or subset here; from E:ackup\WenDaoChaoHei.zip).
   Chinese  (fallback) Noto Sans SC Bold (wght 700) -> assets/fonts/cjk_fallback.ttf  (OFL; glyphs the primary font lacks)
   Latin    text       Rubik (variable, weight 600)         -> assets/fonts/latin_body.ttf
   Latin    headlines  Kanit ExtraBold (upright)            -> assets/fonts/latin_display.ttf   (buttons, headers, scores)
   Latin    callouts   Kanit ExtraBold Italic               -> assets/fonts/latin_italic.ttf    (in-match flying text, logo)
   (art only)          Noto Sans SC Black -> art_src/fonts/build/cjk_display.ttf  (baked into the ad boards / logo, licence-clean)
 
-Everything except ui_font.ttf is SIL OFL 1.1 and is subset to the characters the game can show (all of scripts/**/*.gd).
+Everything except WenDaoChaoHei-2.ttf is SIL OFL 1.1 and is subset to the characters the game can show (all of scripts/**/*.gd).
 Re-run after adding Chinese text:   python tools/make_fonts.py
 """
 import os
