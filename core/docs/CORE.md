@@ -45,7 +45,8 @@ G   game       court / table / pitch + ball physics, athlete state machine, rule
 
 ## Versioning and distribution
 
-* This repo is `G:\NewGDP\gosports-core` (a separate git repository). Semantic version in `VERSION`, one git tag per release
+* This repo is `G:\NewGDP\gosports-core` (a separate git repository); the canonical remote is
+  `https://github.com/novolei/gosports-core.git` (private, `main` + the release tags). A local path or the URL both work as the subtree source. Semantic version in `VERSION`, one git tag per release
   (`v0.1.0`), `CHANGELOG.md` lists every change.
 * Each game embeds it at `core/` with **git subtree** (`--squash`): files physically live in the game (Godot needs them under
   `res://`, export scripts copy the tree, many worktrees make submodules painful).
