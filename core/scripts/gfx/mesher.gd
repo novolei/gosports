@@ -2,7 +2,8 @@ class_name Mesher
 extends RefCounted
 ## Procedural low-poly mesh builder (SurfaceTool, vertex colours): boxes, bars, cylinders / cones, spheres, ellipsoids, double-sided
 ## triangles. Every GoSports game builds its props, crowd, decor and throwables with it (a few merged meshes = 1-3 draw calls).
-## Moved out of CourtDeco (volleyball) verbatim; API unchanged: tri / quad / tri2 / quad2 / box / bar / cyl / sphere / ellipsoid / commit.
+## Moved out of CourtDeco (volleyball); API: tri / quad / tri2 / quad2 / uvquad / box / bar / cyl / sphere / ellipsoid / commit.
+## (v0.1.2: faster tri / box and uvquad, taken from the football game's venue builder; output is bit-identical to v0.1.1.)
 
 var st := SurfaceTool.new()
 var tris := 0
@@ -12,10 +13,19 @@ func _init() -> void:
 
 ## triangle that faces `out` (Godot front faces are clockwise)
 func tri(a: Vector3, b: Vector3, c: Vector3, col: Color, out: Vector3) -> void:
-	var flip := (b - a).cross(c - a).dot(out) > 0.0
-	for v in ([a, c, b] if flip else [a, b, c]):
-		st.set_color(col)
-		st.add_vertex(v)
+	var s := st
+	s.set_color(col)
+	s.add_vertex(a)
+	if (b - a).cross(c - a).dot(out) > 0.0:
+		s.set_color(col)
+		s.add_vertex(c)
+		s.set_color(col)
+		s.add_vertex(b)
+	else:
+		s.set_color(col)
+		s.add_vertex(b)
+		s.set_color(col)
+		s.add_vertex(c)
 	tris += 1
 
 func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color, out: Vector3) -> void:
@@ -32,19 +42,34 @@ func quad2(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color) -> void:
 	tri2(a, b, c, col)
 	tri2(a, c, d, col)
 
+## textured quad (a=bottom left, b=bottom right, c=top right, d=top left; UV 0..1), double sided via the material: only for meshes
+## that ONLY use uvquad (SurfaceTool wants the same vertex attributes everywhere)
+func uvquad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color) -> void:
+	for v in [[a, Vector2(0, 1)], [b, Vector2(1, 1)], [c, Vector2(1, 0)], [a, Vector2(0, 1)], [c, Vector2(1, 0)], [d, Vector2(0, 0)]]:
+		st.set_color(col)
+		st.set_uv(v[1])
+		st.add_vertex(v[0])
+	tris += 2
+
+
+## the eight corners are computed once (no per-face arrays: this is the hottest function of every venue build); the faces, winding
+## and float results are bit-identical to the original per-face version (tools/test_mesher.gd compares them)
 func box(c: Vector3, size: Vector3, col: Color, basis := Basis.IDENTITY) -> void:
 	var h := size * 0.5
-	var faces := [
-		[Vector3(1, 0, 0), [Vector3(h.x, -h.y, h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(h.x, h.y, h.z)]],
-		[Vector3(-1, 0, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(-h.x, -h.y, h.z), Vector3(-h.x, h.y, h.z), Vector3(-h.x, h.y, -h.z)]],
-		[Vector3(0, 1, 0), [Vector3(-h.x, h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(h.x, h.y, -h.z), Vector3(-h.x, h.y, -h.z)]],
-		[Vector3(0, -1, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, -h.y, h.z), Vector3(-h.x, -h.y, h.z)]],
-		[Vector3(0, 0, 1), [Vector3(-h.x, -h.y, h.z), Vector3(h.x, -h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z)]],
-		[Vector3(0, 0, -1), [Vector3(h.x, -h.y, -h.z), Vector3(-h.x, -h.y, -h.z), Vector3(-h.x, h.y, -h.z), Vector3(h.x, h.y, -h.z)]],
-	]
-	for f in faces:
-		var q: Array = f[1]
-		quad(c + basis * (q[0] as Vector3), c + basis * (q[1] as Vector3), c + basis * (q[2] as Vector3), c + basis * (q[3] as Vector3), col, basis * (f[0] as Vector3))
+	var ppp := c + basis * Vector3(h.x, h.y, h.z)
+	var ppn := c + basis * Vector3(h.x, h.y, -h.z)
+	var pnp := c + basis * Vector3(h.x, -h.y, h.z)
+	var pnn := c + basis * Vector3(h.x, -h.y, -h.z)
+	var npp := c + basis * Vector3(-h.x, h.y, h.z)
+	var npn := c + basis * Vector3(-h.x, h.y, -h.z)
+	var nnp := c + basis * Vector3(-h.x, -h.y, h.z)
+	var nnn := c + basis * Vector3(-h.x, -h.y, -h.z)
+	quad(pnp, pnn, ppn, ppp, col, basis.x)
+	quad(nnn, nnp, npp, npn, col, -basis.x)
+	quad(npp, ppp, ppn, npn, col, basis.y)
+	quad(nnn, pnn, pnp, nnp, col, -basis.y)
+	quad(nnp, pnp, ppp, npp, col, basis.z)
+	quad(pnn, nnn, npn, ppn, col, -basis.z)
 
 ## thin square bar between two points
 func bar(a: Vector3, b: Vector3, th: float, col: Color) -> void:

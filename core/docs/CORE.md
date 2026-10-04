@@ -65,3 +65,16 @@ G   game       court / table / pitch + ball physics, athlete state machine, rule
 | v0.7 | venue frameworks (crowd, bench crew, press crew, referee animals), `ReplaySystem`, hit VFX | rewritten in both forks |
 
 The order follows how much the siblings diverged: the least-diverged files first.
+
+## Inputs from the sibling games (candidates, collected 2026-10-05)
+
+Nothing here is promoted yet; each item is evaluated when its roadmap step comes up (rule 5: diff against the other forks first).
+
+| from | candidate | goes to |
+|---|---|---|
+| football | `Game._dynamic_resolution` (GPU-aware: only lowers the 3D resolution when the GPU is the bottleneck), phone debug args via `user://dev_args.txt`, `Profile._daily_valid()` (re-roll today's missions when they do not match the current pool), `Loc` extra per-domain tables | v0.2 (Loc), v0.4 (Game / Profile) |
+| football | `tools/phone_perf_fb.sh` (phone probe), `tools/ai_stats.sh` (AI-vs-AI stats), `check_scripts.gd` | v0.6 tools |
+| football | **character / animation pipeline - the football version is the newest of the three; v0.5 starts from it, never from the older volleyball one**: `character_rig`, `rig_info`, `pose_solver`, `soc_gait`, `mixamo_source`, `bake_anims.gd`, `check_ground.gd` (skeleton-proportion classes, ground-height correction, animation LOD, runtime Mixamo retarget, 8-direction gait) | v0.5 |
+| football | venue parts: `scoreboard`, `crowd`, `venue_kit`, `spectator.gdshader` (baked MultiMesh crowd + vertex sway), `hud_widgets` (charge / energy ring, score strip) | v0.7 |
+| table tennis | `build_windows.ps1` / `build_android.ps1`, `test_loc` / `test_keys` / `test_touch`, `BroadcastStinger` transition, the player foot-ring shader, `CameraRig._fit` (auto framing) | v0.6 tools, v0.3 UI, v0.7 |
+| volleyball | `Callout`, `Fonts`, `Mesher`, small VFX (done, v0.1.x); next: `Prof`, `ReplaySystem`, hit VFX, the promo pipeline (`promo/`), the Minitanks-style encrypted build scripts | v0.2, v0.6, v0.7 |
