@@ -197,6 +197,13 @@ func _build() -> void:
 	if Game.main != null and Game.main.dev.has("refcam"):
 		var rc := String(Game.main.dev["refcam"]).split(",")
 		cam_rig.set_free(Vector3(float(rc[0]), float(rc[1]), float(rc[2])), Vector3(float(rc[3]), float(rc[4]), float(rc[5])), float(rc[6]))
+	if Game.main != null and Game.main.dev.has("propshow"):          # dev: --propshow lines every umpire prop up in front of the camera
+		var ids := ["pencil", "eraser", "paper", "plane", "sock", "banana", "duck", "book", "fish", "slipper", "hammer"]
+		for i in ids.size():
+			var pr := ThrowProp.make(ids[i], 3.0)
+			add_child(pr)
+			pr.global_position = Vector3(-4.4 + 0.88 * float(i), 1.1, 5.0)
+			pr.rotation = Vector3(0.5, 0.6 if i % 2 == 0 else -0.6, 0.0)
 	if Game.main != null and Game.main.dev.has("hawkdemo"):          # dev: --hawkdemo=in|out plays the hawk-eye review on a synthetic call
 		_dev_hawk(String(Game.main.dev["hawkdemo"]))
 	if Game.main != null and Game.main.dev.has("callshot"):          # dev: --callshot=in|out|inclose|outclose fires a fake line call after 4 s

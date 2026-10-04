@@ -335,28 +335,32 @@ func _build_hint() -> void:
 	hint_panel.position = Vector2(0, 76)                       # (the match clock sits above it)
 	hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(hint_panel)
-	var hb := HBoxContainer.new()
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	hb.add_theme_constant_override("separation", 14)
-	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hint_panel.add_child(hb)
-	hint_icon = _ActionBubble.new()
-	hint_icon.custom_minimum_size = Vector2(112, 112)
-	hint_icon.visible = false
-	hb.add_child(hint_icon)
 	var vb := VBoxContainer.new()
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_theme_constant_override("separation", 0)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hb.add_child(vb)
+	hint_panel.add_child(vb)
+	# one row: [icon] [下一步:] [扣球]  - all three centred on the same horizontal axis; the explanation goes under the row
 	var line := HBoxContainer.new()
 	line.alignment = BoxContainer.ALIGNMENT_CENTER
-	line.add_theme_constant_override("separation", 10)
+	line.add_theme_constant_override("separation", 12)
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(line)
+	hint_icon = _ActionBubble.new()
+	hint_icon.custom_minimum_size = Vector2(92, 92)
+	hint_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hint_icon.visible = false
+	line.add_child(hint_icon)
 	hint_pre = UIKit.label("", 34, Color("8fe9d2"), 10, Color("17806f"))
+	hint_pre.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(hint_pre)
 	hint_lbl = UIKit.label("", 62, Color("c8fff0"), 14, Color("17806f"))
-	line.add_child(hint_lbl)
+	var lbl_box := MarginContainer.new()                      # (the big glyphs sit ~2.5 px low in their line box: nudge them up so they share the icon's axis)
+	lbl_box.add_theme_constant_override("margin_bottom", 5)
+	lbl_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lbl_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl_box.add_child(hint_lbl)
+	line.add_child(lbl_box)
 	hint_sub = UIKit.label("", 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.9))
 	vb.add_child(hint_sub)
 	hint_panel.modulate.a = 0.0
@@ -1210,13 +1214,14 @@ func _build_tutorial_ui() -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var inset: Dictionary = Game.safe_insets()
 	_co_banner = Control.new()
-	_co_banner.position = Vector2(vp.x * 0.5 - 600.0, 16.0 + float(inset["t"]))
-	_co_banner.size = Vector2(1200, 150)
+	# the coach text sits in the lower part of the screen (above the key prompts), clear of the sky and the action
+	_co_banner.position = Vector2(vp.x * 0.5 - 500.0, vp.y - 262.0 - float(inset["b"]))
+	_co_banner.size = Vector2(1000, 150)
 	_co_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(_co_banner)
 	var panel := Panel.new()
 	panel.position = Vector2(0, 38)
-	panel.size = Vector2(1200, 86)
+	panel.size = Vector2(1000, 86)
 	panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.9), 30, 0, Color.WHITE, 10))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_co_banner.add_child(panel)
@@ -1234,7 +1239,7 @@ func _build_tutorial_ui() -> void:
 	_co_tip_rich.fit_content = false
 	_co_tip_rich.scroll_active = false
 	_co_tip_rich.position = Vector2(34, 54)
-	_co_tip_rich.size = Vector2(1130, 62)
+	_co_tip_rich.size = Vector2(940, 62)
 	_co_tip_rich.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_co_tip_rich.add_theme_font_size_override("normal_font_size", 32)
 	_co_tip_rich.add_theme_color_override("default_color", Color(0.18, 0.22, 0.3))
@@ -1242,7 +1247,8 @@ func _build_tutorial_ui() -> void:
 	# step card (right side)
 	_pr_panel = Panel.new()
 	_pr_panel.size = Vector2(340, 190)
-	_pr_panel.position = Vector2(vp.x - 340.0 - 36.0 - float(inset["r"]), 360.0)
+	# step card: right side, a little below the middle (on phones higher, clear of the jump / dive buttons)
+	_pr_panel.position = Vector2(vp.x - 340.0 - 36.0 - float(inset["r"]), vp.y * (0.34 if Game.is_touch else 0.5))
 	_pr_panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.93, 0.95, 0.96, 0.95), 30, 0, Color.WHITE, 10))
 	_pr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(_pr_panel)

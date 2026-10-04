@@ -297,10 +297,12 @@ func _prop_hit(a: Athlete, prop: MeshInstance3D, tier: int) -> void:
 		prop.queue_free()
 		return
 	a.bonk()
-	var head_y: float = a.rig.head_world().y - a.global_position.y
-	AlertMark.spawn_over(a, head_y, 1.35)
+	var head_y: float = a.rig.head_world().y - a.global_position.y + 0.3        # (bone centre -> top of the head)
+	AlertMark.spawn_over(a, head_y, 1.4)
 	Sfx.play("body_bump", -1.0, 0.9)
 	Sfx.play("ui_confirm", -4.0, 1.7)
+	if prop.has_meta("id") and (String(prop.get_meta("id")) == "fish" or String(prop.get_meta("id")) == "slipper"):
+		Sfx.play("hit_bump", -3.0, 1.4)                           # the "slap"
 	if scene != null:
 		scene.cam_rig.shake(0.18 if tier <= 1 else 0.3)
 		scene.vfx.hit_burst(prop.global_position, "good", 0.35)
