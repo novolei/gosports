@@ -10,11 +10,14 @@ var _mouse_t := 99.0
 var _last_mouse := Vector2(-1, -1)
 var _manual_t := 0.0
 var aim_marker = null           # current aim point shown to the player (Vector3 or null)
+var aim_source := ""             # "key" / "mouse" / "touch" / "move" (where the current aim point comes from)
+var _move_v := Vector2.ZERO     # the movement input of this frame (steers the ball when no other aim is active)
 
 
 func think(a: Athlete, dt: float) -> void:
 	var p := "p%d_" % index
 	var v := Input.get_vector(p + "left", p + "right", p + "up", p + "down", 0.18)
+	_move_v = v
 	var d: Node = a.director
 	if Game.main != null and Game.main.dev.has("dbghuman") and d.phase == MatchDirector.P.RALLY:
 		var pl: Dictionary = d.plans[a.team]
@@ -46,7 +49,11 @@ func _update_aim(a: Athlete, dt: float) -> void:
 	var S := Court.team_sign(a.team)
 	a.aim_explicit = false
 	aim_marker = null
+	aim_source = ""
 	var ap = null
+	if Game.main != null and Game.main.dev.has("aimdemo"):                 # dev: --aimdemo=x,y holds that direction (e.g. 0.7,-0.7)
+		var pr := String(Game.main.dev["aimdemo"]).split(",")
+		_move_v = Vector2(float(pr[0]), float(pr[1]))
 	# 1) explicit aim stick / keys (absolute lane + depth)
 	var p := "p%d_" % index
 	var st := Vector2(Input.get_axis(p + "aim_left", p + "aim_right"), Input.get_axis(p + "aim_up", p + "aim_down"))
@@ -54,6 +61,7 @@ func _update_aim(a: Athlete, dt: float) -> void:
 		var deep := -st.y * S                     # +1 = towards the far end line
 		ap = Vector3(clampf(st.x * 4.2, -4.2, 4.2), 0.0, -S * lerpf(1.8, 6.4, (deep + 1.0) * 0.5))
 		a.aim_explicit = true
+		aim_source = "key"
 	# 2) mouse
 	elif camera != null and index == 1 and not Game.is_touch:
 		var mp := a.get_viewport().get_mouse_position()
@@ -66,14 +74,39 @@ func _update_aim(a: Athlete, dt: float) -> void:
 			var pt = _ray_to_floor(mp)
 			if pt != null and (pt as Vector3).z * S < 0.0:
 				ap = pt
+				aim_source = "mouse"
 	# 3) touch marker
 	if ap == null and touch_aim != null:
 		ap = touch_aim
+		aim_source = "touch"
+	# 4) the direction held while hitting (WASD / left stick / touch stick): left-right = which side, forward = deep, back = short.
+	#    Never turns a bump / set into a dump over the net (that needs an explicit aim: aim_explicit stays false).
+	if ap == null and Game.settings.get("aim_by_move", true) and _move_v.length() > 0.5:
+		var dir := _move_v.normalized()
+		var deep2 := -dir.y * S
+		ap = Vector3(clampf(dir.x * 3.5, -3.5, 3.5), 0.0, -S * lerpf(2.4, 5.7, (deep2 + 1.0) * 0.5))
+		aim_source = "move"
+	a.aim_from_move = aim_source == "move"
 	if ap != null:
 		a.aim_point = ap
 		aim_marker = ap
 	else:
 		a.aim_point = null
+
+
+## is this athlete about to hit (holding the ball for the serve, or the ball is closing in on the contact point)? The aim zone
+## is only shown then: no floating target while the player is just running around.
+func hit_imminent(a: Athlete) -> bool:
+	if a.state == Athlete.S.SERVE_HOLD or a.state == Athlete.S.SERVE_TOSS:
+		return true
+	var d: MatchDirector = a.director
+	if a.ball == null or not a.ball.live or not d.can_hit(a):
+		return false
+	var kind := a._choose_kind()
+	var dist := a.hit_distance(kind)
+	var to := a.ideal_point(kind) - a.ball.global_position
+	var closing := a.ball.vel.dot(to.normalized()) if to.length() > 0.001 else 0.0
+	return dist < 3.2 and closing > 1.0 and dist / maxf(closing, 0.1) < 1.4
 
 
 func clear_touch_aim() -> void:

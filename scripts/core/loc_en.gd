@@ -505,7 +505,6 @@ ACE 发球	Aces
 画面	Display
 画质、全屏、镜头	Quality, fullscreen, camera
 操作	Controls
-按键、触屏、提示	Keys, touch, hints
 语言	Language
 单人 · 双人合作 · 双人对决	Solo · Co-op · Versus
 三轮淘汰赛，夺冠拿大量经验	Three rounds, one title
@@ -536,7 +535,6 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 发球：第一次按下抛球，第二次击球。球很高时直接按击球键，角色会自动起跳去扣球。	Serve: press once to toss, again to hit. For a very high ball just press Hit and the character jumps for the spike by itself.
 手柄（1 号手柄 = 玩家1，2 号手柄 = 玩家2）	Gamepad (pad 1 = Player 1, pad 2 = Player 2)
 十字键	D-pad
-推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。	Push the right stick to aim: the ball goes where you push it; release = smart placement.
 地面上的发光圈是你的击球范围：球进入圈内并变亮时按击球键就是 PERFECT。	The glowing ring on the floor is your hit range: press Hit while the ball is inside it and glowing for a PERFECT.
 左半屏任意位置按住并拖动（浮动摇杆）	Press and drag anywhere on the left half (floating stick)
 右下角的大按钮；它会随情境变成垫 / 传 / 扣 / 发	The big button at the bottom right; it becomes Bump / Set / Spike / Serve as needed
@@ -607,7 +605,6 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 描边	Outlined
 摄影记者	Press Crew
 场边的摄影记者，回放时闪光灯此起彼伏	Press photographers on the sidelines; flashes pop during replays
-Kanit、Rubik、Noto Sans SC（均为 SIL Open Font License 1.1，可商用）	Kanit, Rubik, Noto Sans SC (all SIL Open Font License 1.1, free for commercial use)
 时机有点早!	A little early!
 时机有点晚!	A little late!
 发球超时	Serve timeout
@@ -630,4 +627,15 @@ Kanit、Rubik、Noto Sans SC（均为 SIL Open Font License 1.1，可商用）	K
 金色网带，星星挂饰	Golden tape with star charms
 彩虹网带和小彩虹拱门	Rainbow tape and mini rainbow arches
 鹰眼回放	Hawk-Eye Review
+中文：字魂趣圆黑（试用版，商用前需向字魂购买授权）；英文：Kanit、Rubik（SIL OFL 1.1，可商用）；后备：Noto Sans SC	Chinese: Zihun Quyuanhei (trial - buy a licence before commercial use); Latin: Kanit and Rubik (SIL OFL 1.1, free for commercial use); fallback: Noto Sans SC
+连击	COMBO
+提示	Hints
+移动方向瞄准（按住方向键击球）	Aim with movement keys (hold a direction when hitting)
+目标区域提示（绿 / 橙 / 红）	Target zone (green / orange / red)
+击球精度环	Accuracy ring (shrinks with good timing)
+选择球的落点与时机提示	Landing and timing hints
+瞄准：击球的瞬间按住方向键 —— 左 / 右决定落在哪一侧，向前打得深，向后打得短。地面上的圆圈是落点区域：绿色安全，橙色靠近边线，红色会出界。	Aiming: hold a direction at the moment you hit. Left / right picks the side, forward goes deep, back goes short. The circle on the floor is the landing zone: green is safe, orange is near a line, red is out.
+推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。也可以击球时按住左摇杆的方向。	Push the right stick to aim: the ball goes where you push it; release = smart placement. You can also just hold the left stick direction when you hit.
+落点、时机、目标区域	Landing, timing, target zone
+按键、触屏、瞄准	Keys, touch, aiming
 """

@@ -233,6 +233,7 @@ func _keyboard() -> void:
 	low.add_child(_head_label("击球键会看情况变化"))
 	low.add_child(ch)
 	_note(low, "发球：第一次按下抛球，第二次击球。球很高时直接按击球键，角色会自动起跳去扣球。")
+	_note(low, "瞄准：击球的瞬间按住方向键 —— 左 / 右决定落在哪一侧，向前打得深，向后打得短。地面上的圆圈是落点区域：绿色安全，橙色靠近边线，红色会出界。")
 
 
 func _head_label(text: String) -> Control:
@@ -251,7 +252,7 @@ func _gamepad() -> void:
 	_row(v, "瞄准", ["右摇杆"], 150.0)
 	_row(v, "暂停键", ["Start"], 150.0)
 	var low := _col(_body, Vector2(0, 462), 912, 14)
-	_note(low, "推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。")
+	_note(low, "推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。也可以击球时按住左摇杆的方向。")
 	_note(low, "地面上的发光圈是你的击球范围：球进入圈内并变亮时按击球键就是 PERFECT。")
 
 

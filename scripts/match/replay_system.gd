@@ -107,6 +107,7 @@ func start(hold := 0.7) -> void:
 
 
 func _enter() -> void:
+	ms.director.clock_hold += 1
 	for a in ms.athletes:
 		a.visible = false
 	_build_ghosts()
@@ -234,6 +235,7 @@ func _leave() -> void:
 	if not playing:
 		return
 	playing = false
+	ms.director.clock_hold = maxi(ms.director.clock_hold - 1, 0)
 	var ov := _overlay
 	if ov != null:
 		await ov.cover()

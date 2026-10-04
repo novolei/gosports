@@ -255,11 +255,13 @@ func _build_main() -> Control:
 	l1.position = Vector2(0, 0)
 	l1.size = Vector2(190, 140)
 	l1.rotation = deg_to_rad(-4.0)
+	l1.add_theme_font_override("font", Fonts.display_italic())          # the logo keeps the slanted sports face
 	logo.add_child(l1)
 	var l2 := UIKit.label("Sports", 120, Color("1b86d9"), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	l2.position = Vector2(176, 0)
 	l2.size = Vector2(470, 140)
 	l2.rotation = deg_to_rad(-4.0)
+	l2.add_theme_font_override("font", Fonts.display_italic())
 	logo.add_child(l2)
 	var strap := UIKit.label("VOLLEYBALL" if Loc.is_en() else "排球  ·  VOLLEYBALL", 34, Color("1d6a70"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	strap.position = Vector2(24, 150)
@@ -1510,7 +1512,7 @@ func _build_settings() -> Control:
 	# category list (left), like the reference's Options sidebar
 	_set_cards = Control.new()
 	root.add_child(_set_cards)
-	var cats := [["声音", "调整音乐与音效", "speaker"], ["画面", "画质、全屏、镜头", "eye"], ["操作", "按键、触屏、提示", "keys"], ["语言", "Language / 语言", "globe"]]
+	var cats := [["声音", "调整音乐与音效", "speaker"], ["画面", "画质、全屏、镜头", "eye"], ["操作", "按键、触屏、瞄准", "keys"], ["提示", "落点、时机、目标区域", "bulb"], ["语言", "Language / 语言", "globe"]]
 	var y := 190.0
 	for i in cats.size():
 		var en := MenuEntry.new().build(String(cats[i][0]), String(cats[i][1]), String(cats[i][2]), Vector2(560, 100), "pale", "", 2.0, 38)
@@ -1543,7 +1545,7 @@ func _fill_settings(cat: int) -> void:
 	for i in int(_set_cards.get_meta("n")):
 		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
 	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
-	var rows_n: int = [2, 4, 6, 1][cat]
+	var rows_n: int = [2, 4, 4, 4, 1][cat]
 	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
 	var old_panel := _set_panel
 	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
@@ -1575,8 +1577,7 @@ func _fill_settings(cat: int) -> void:
 				Game.settings["touch"] = ["auto", "on", "off"][i]
 				Game._detect_touch()
 				Game.save_settings(), 904.0, 150.0))
-			col.add_child(GW.option_row("落点提示", ["关闭", "简洁", "标准"], int(Game.settings["landing_hint"]), func(i): Game.settings["landing_hint"] = i; Game.settings["landing_hint_set"] = true; Game.save_settings(), 904.0, 150.0))
-			onoff.call("击球时机提示圈", "timing_guide")
+			onoff.call("移动方向瞄准（按住方向键击球）", "aim_by_move")
 			onoff.call("触觉震动（手机 / 手柄）", "haptics")
 			onoff.call("左手模式（触屏按键镜像）", "left_handed")
 			var kb := UIKit.button("按键设置", Vector2(360, 70), UIKit.GREEN, 34)
@@ -1586,6 +1587,11 @@ func _fill_settings(cat: int) -> void:
 			wrap.add_child(kb)
 			col.add_child(wrap)
 		3:
+			col.add_child(GW.option_row("落点提示", ["关闭", "简洁", "标准"], int(Game.settings["landing_hint"]), func(i): Game.settings["landing_hint"] = i; Game.settings["landing_hint_set"] = true; Game.save_settings(), 904.0, 150.0))
+			onoff.call("击球时机提示圈", "timing_guide")
+			onoff.call("目标区域提示（绿 / 橙 / 红）", "aim_zone")
+			onoff.call("击球精度环", "aim_scatter")
+		4:
 			col.add_child(GW.option_row("Language / 语言", Loc.LANG_NAMES, maxi(Loc.LANGS.find(String(Game.settings["language"])), 0), func(i):
 				Game.settings["language"] = Loc.LANGS[i]
 				Game.save_settings()
@@ -1600,7 +1606,7 @@ const CREDITS := [
 	["球场 / 体育场", "「低面体育场套件」(4182) 及开发者提供的球模型"],
 	["音效 / 音乐", "全部为程序合成（tools/gen_audio.py）"],
 	["图标", "程序绘制，部分动作图标由 Gemini 生成后抠图"],
-	["界面字体", "Kanit、Rubik、Noto Sans SC（均为 SIL Open Font License 1.1，可商用）"],
+	["界面字体", "中文：字魂趣圆黑（试用版，商用前需向字魂购买授权）；英文：Kanit、Rubik（SIL OFL 1.1，可商用）；后备：Noto Sans SC"],
 	["灵感", "界面节奏与操作提示的参考来自「任天堂 Switch Sports」排球的公开演示；所有素材均为原创实现，不使用任何官方资源"],
 ]
 

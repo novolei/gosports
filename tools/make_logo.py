@@ -17,7 +17,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONT_LATIN = "assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
-FONT_CJK = "assets/fonts/cjk_display.ttf"          # Noto Sans SC Black (SIL OFL)
+FONT_CJK = "art_src/fonts/build/cjk_display.ttf"    # Noto Sans SC Black (SIL OFL)
 BG_TOP = (46, 232, 200)          # icon gradient: turquoise ...
 BG_BOT = (20, 140, 216)          # ... to a clear blue
 SPLASH_BG = (29, 186, 205)       # the solid colour behind the splash (== project.godot boot_splash/bg_color)

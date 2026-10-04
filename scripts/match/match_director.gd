@@ -53,6 +53,8 @@ var max_deficit := [0, 0]           # the biggest deficit each team came back fr
 var _last_kind := ""
 var _serve_timer := 0.0
 var _intro_timer := 0.0
+var match_time := 0.0                      # seconds of actual play (not the intro, replays or the hawk-eye review)
+var clock_hold := 0                       # > 0: the clock is stopped (set by the replay / hawk-eye)
 var vs_time := 0.0                       # > 0: the "VS" card shot comes before the usual intro camera sweep
 var _vs_active := false
 var _rng := RandomNumberGenerator.new()
@@ -185,6 +187,8 @@ func _physics_process_impl(dt: float) -> void:
 	if athletes.is_empty():
 		return
 	phase_time += dt
+	if clock_hold == 0 and (phase == P.SERVE_PREP or phase == P.SERVING or phase == P.RALLY or phase == P.POINT):
+		match_time += dt / maxf(Engine.time_scale, 0.05)
 	_update_hype(dt)
 	match phase:
 		P.INTRO:
@@ -467,6 +471,42 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 	# the other team's AI gets a short reaction delay from the brains themselves
 
 
+## will the hit this athlete is about to make send the ball over the net? (serve / spike / third touch / an explicit dump)
+func hit_goes_over(a: Athlete, kind: String) -> bool:
+	if kind == "serve" or kind == "spike":
+		return true
+	if touch_no(a.team) >= 3:
+		return true
+	return a.aim_explicit and kind != "dig" and _aim_is_forward(a)
+
+
+## {"target": Vector3, "radius": m, "level": 0 safe / 1 close to a line / 2 out} for the aim zone the player sees. The radius is the
+## scatter of the shot with the CURRENT timing (small = precise), so it shrinks as the ball reaches the sweet spot.
+func aim_preview(a: Athlete) -> Dictionary:
+	var ap = a.aim_point
+	if ap == null:
+		return {}
+	var kind := a._choose_kind()
+	if not hit_goes_over(a, kind):
+		return {}
+	var q := "good"
+	if kind != "serve" and ball.live:
+		q = a._quality_of(a.hit_distance(kind))
+	var base := 1.0 if kind == "serve" else (1.1 if kind == "spike" else 0.9)
+	var sigma := _sigma_for(a, q, base)
+	var radius := clampf(1.7 * sigma + 0.14, 0.22, 2.4)
+	var t: Vector3 = _target_for(a, 0.5)
+	t = Vector3(t.x, 0.0, t.z)
+	var edge := minf(Court.HALF_W - absf(t.x), Court.HALF_D - absf(t.z))
+	var margin := edge - radius * 0.6
+	var level := 0
+	if margin < 0.0:
+		level = 2
+	elif margin < 0.45:
+		level = 1
+	return {"target": t, "radius": radius, "level": level, "quality": q}
+
+
 func _has_human() -> bool:
 	for h in athletes:
 		if h.is_human:
@@ -747,6 +787,9 @@ func _shot_set(a: Athlete, mate: Athlete, p0: Vector3, q: String, err: float) ->
 		# aim marker on our own half: pick the attack lane
 		ax = clampf(ap.x, -3.4, 3.4)
 		quick = absf(ap.z) < 2.2 and ap.z * S > 0.0
+	if a.aim_from_move:                                  # (the held movement direction must not choose the attack lane)
+		ax = clampf(mate.global_position.x, -3.2, 3.2)
+		quick = false
 	var tgt := Vector3(ax, 2.7, S * 1.35)
 	var t := 1.25
 	# the spiker already left the ground: "quick" attack - low, fast set right to where they are flying

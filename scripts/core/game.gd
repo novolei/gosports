@@ -23,6 +23,9 @@ var settings := {
 	"left_handed": false,
 	"haptics": true,         # phone / gamepad vibration on hits and bumps
 	"timing_guide": true,    # shrinking ring around the ball that shows the moment to hit
+	"aim_by_move": true,     # hold a direction (WASD / left stick) while hitting to steer the ball (see HumanBrain._update_aim)
+	"aim_zone": true,        # colour the target spot green / orange / red by how safe it is (HumanBrain + Vfx.show_aim)
+	"aim_scatter": true,     # ring around the target = where the ball can land with the current timing (small = precise)
 	"language": "auto",       # auto / zh / en (see Loc)
 	"landing_hint": 1,       # where-to-stand marker: 0 off / 1 minimal / 2 standard (see Vfx._update_marks)
 	"landing_hint_set": false, # the player chose a level (otherwise newcomers get the full marker for a few matches)

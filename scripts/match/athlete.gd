@@ -61,6 +61,7 @@ var power_mul := 1.0
 # commands (written by the brain every frame)
 var cmd_move := Vector2.ZERO        # world x / world z, length <= 1
 var aim_point = null                # Vector3 (world target on the court) or null = "smart" aim
+var aim_from_move := false         # the aim point is just the held movement direction (steers serves / spikes / over-the-net balls only)
 var aim_explicit := false           # aim came from an explicit stick/key (allows dumping the ball over on touch 1/2)
 var _walk_target = null
 var _walk_t := 0.0
@@ -617,7 +618,7 @@ func _choose_kind() -> String:
 
 ## horizontal direction we will face when hitting: aim stick > ball-to-net default
 func _hit_face_dir(kind: String) -> Vector2:
-	if aim_point != null:
+	if aim_point != null and (not aim_from_move or kind == "serve" or kind == "spike"):
 		var a := Vector2((aim_point as Vector3).x - global_position.x, (aim_point as Vector3).z - global_position.z)
 		if a.length() > 0.5:
 			return a.normalized()

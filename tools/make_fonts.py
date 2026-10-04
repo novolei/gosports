@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-"""Builds the game's font files (all SIL Open Font License 1.1 - free for commercial use) from the originals in art_src/fonts/:
+"""Builds the game's font files from the originals in art_src/fonts/ (download from https://github.com/google/fonts/tree/main/ofl):
 
-  Latin   display  Kanit ExtraBold Italic        -> assets/fonts/latin_display.ttf   (scores, banners, headlines: sporty italic)
-  Latin   body     Rubik (variable, rounded)     -> assets/fonts/latin_body.ttf
-  Chinese display  Noto Sans SC Black (wght 900) -> assets/fonts/cjk_display.ttf     (drawn slanted in code: FontVariation skew)
-  Chinese body     Noto Sans SC Bold (wght 700)  -> assets/fonts/cjk_body.ttf
+  Chinese  (primary)  assets/fonts/ui_font.ttf     字魂趣圆黑 zihunquyuanhei - the user's chosen Chinese face (heavy rounded). TRIAL
+                      version: commercial use needs a licence bought from https://izihun.com/ - not generated here, kept as shipped.
+  Chinese  (fallback) Noto Sans SC Bold (wght 700) -> assets/fonts/cjk_fallback.ttf  (OFL; glyphs the primary font lacks)
+  Latin    text       Rubik (variable, weight 600)         -> assets/fonts/latin_body.ttf
+  Latin    headlines  Kanit ExtraBold (upright)            -> assets/fonts/latin_display.ttf   (buttons, headers, scores)
+  Latin    callouts   Kanit ExtraBold Italic               -> assets/fonts/latin_italic.ttf    (in-match flying text, logo)
+  (art only)          Noto Sans SC Black -> art_src/fonts/build/cjk_display.ttf  (baked into the ad boards / logo, licence-clean)
 
-Every file is subset to the characters the game can show (everything in scripts/**/*.gd), which keeps the CJK fonts at a few
-hundred KB instead of 10+ MB. Re-run after adding Chinese text:   python tools/make_fonts.py
-Originals (download from https://github.com/google/fonts/tree/main/ofl): art_src/fonts/NotoSansSC[wght].ttf,
-Kanit-ExtraBoldItalic.ttf, Rubik[wght].ttf (+ their OFL.txt).
+Everything except ui_font.ttf is SIL OFL 1.1 and is subset to the characters the game can show (all of scripts/**/*.gd).
+Re-run after adding Chinese text:   python tools/make_fonts.py
 """
 import os
 import sys
@@ -42,12 +43,14 @@ def subset_to(font: TTFont, dst: str, text: str, keep_variations=False) -> None:
 def main() -> None:
     text = subset_font.used_chars()
     os.makedirs(DST, exist_ok=True)
+    os.makedirs(os.path.join(SRC, "build"), exist_ok=True)
     noto = os.path.join(SRC, "NotoSansSC-VF.ttf")
-    for wght, out in ((900, "cjk_display.ttf"), (700, "cjk_body.ttf")):
-        f = TTFont(noto)
-        f = instancer.instantiateVariableFont(f, {"wght": wght})
-        subset_to(f, os.path.join(DST, out), text)
-    subset_to(TTFont(os.path.join(SRC, "Kanit-ExtraBoldItalic.ttf")), os.path.join(DST, "latin_display.ttf"), text)
+    f = instancer.instantiateVariableFont(TTFont(noto), {"wght": 700})
+    subset_to(f, os.path.join(DST, "cjk_fallback.ttf"), text)
+    f = instancer.instantiateVariableFont(TTFont(noto), {"wght": 900})
+    subset_to(f, os.path.join(SRC, "build", "cjk_display.ttf"), text)
+    subset_to(TTFont(os.path.join(SRC, "Kanit-ExtraBold.ttf")), os.path.join(DST, "latin_display.ttf"), text)
+    subset_to(TTFont(os.path.join(SRC, "Kanit-ExtraBoldItalic.ttf")), os.path.join(DST, "latin_italic.ttf"), text)
     subset_to(TTFont(os.path.join(SRC, "Rubik-VF.ttf")), os.path.join(DST, "latin_body.ttf"), text)
 
 

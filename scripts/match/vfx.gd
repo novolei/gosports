@@ -10,6 +10,9 @@ var ball: Ball
 var landing: MeshInstance3D
 var landing_mat: ShaderMaterial
 var aim: MeshInstance3D
+var _aim_r := 0.45
+var _aim_pos := Vector3.ZERO
+var _aim_col := Color(1.0, 0.82, 0.2)
 var aim_mat: ShaderMaterial
 var _star_tex: Texture2D
 var _soft_tex: Texture2D
@@ -32,11 +35,15 @@ func _ready() -> void:
 	landing_mat.set_shader_parameter("fill_alpha", 0.2)
 	landing.visible = false
 	add_child(landing)
-	aim = _make_ring(Color(1.0, 0.82, 0.2, 1.0), 0.0, grad)
-	aim_mat = aim.material_override
-	aim_mat.set_shader_parameter("inner", 0.3)
-	aim_mat.set_shader_parameter("rainbow", 0.0)
-	aim_mat.set_shader_parameter("fill_alpha", 0.28)
+	aim = MeshInstance3D.new()                       # the aim zone (see shaders/aim_zone.gdshader)
+	var aq := QuadMesh.new()
+	aq.size = Vector2(1, 1)
+	aim.mesh = aq
+	aim_mat = ShaderMaterial.new()
+	aim_mat.shader = load("res://shaders/aim_zone.gdshader")
+	aim.material_override = aim_mat
+	aim.rotation_degrees.x = -90
+	aim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	aim.visible = false
 	add_child(aim)
 
@@ -138,15 +145,51 @@ func _mark(h: Athlete) -> Dictionary:
 	return _marks[h]
 
 
-func show_aim(p) -> void:
-	if p == null:
+const AIM_COLS := [Color(0.3, 1.0, 0.55), Color(1.0, 0.72, 0.2), Color(1.0, 0.32, 0.38)]
+
+
+## the aim zone: a soft disc (the scatter of the shot) around a small bright dot (the target). `info` comes from
+## MatchDirector.aim_preview(); {} / null = just the plain yellow ring (older callers). Colour: green = safe, orange = close to a
+## line (or the scatter reaches it), red = out. Both parts glide to their new values.
+func show_aim(p, info = null) -> void:
+	if p == null and (info == null or info.is_empty()):
 		aim.visible = false
 		return
+	var zone_on: bool = Game.settings.get("aim_zone", true)
+	var scatter_on: bool = Game.settings.get("aim_scatter", true)
+	var pos: Vector3 = p if p != null else info["target"]
+	var radius := 0.45
+	var col := Color(1.0, 0.82, 0.2)
+	var fill := 0.34
+	if info != null and not info.is_empty():
+		pos = info["target"]
+		if scatter_on:
+			radius = float(info["radius"])
+		if zone_on:
+			col = AIM_COLS[int(info["level"])]
+			fill = 0.36
+		else:
+			fill = 0.0
+	var dt := get_process_delta_time()
+	var k := 1.0 - exp(-16.0 * dt)
+	if not aim.visible:
+		_aim_pos = pos
+		_aim_r = radius
+		_aim_col = col
+	_aim_pos = _aim_pos.lerp(pos, k)
+	_aim_r = lerpf(_aim_r, radius, k)
+	_aim_col = _aim_col.lerp(col, 1.0 - exp(-12.0 * dt))
 	aim.visible = true
-	var pp: Vector3 = p
-	aim.global_position = Vector3(pp.x, 0.03, pp.z)
-	var s := 0.8 + 0.06 * sin(Time.get_ticks_msec() * 0.01)
-	aim.scale = Vector3(s, s, 1)
+	aim.global_position = Vector3(_aim_pos.x, 0.034, _aim_pos.z)
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.009)
+	var world_r := maxf(_aim_r, 0.2)
+	aim.scale = Vector3(world_r * 2.0 / 0.93, world_r * 2.0 / 0.93, 1.0)            # (the disc edge is at 0.93 of the quad radius)
+	var qr := world_r / 0.93                                                         # world radius of "1.0" in shader units
+	aim_mat.set_shader_parameter("zone_col", Color(_aim_col.r, _aim_col.g, _aim_col.b, 1.0))
+	aim_mat.set_shader_parameter("fill", fill)
+	aim_mat.set_shader_parameter("rim_w", clampf(0.13 / qr, 0.04, 0.5))
+	aim_mat.set_shader_parameter("dot_r", clampf(0.22 / qr, 0.08, 0.8))
+	aim_mat.set_shader_parameter("pulse", pulse)
 
 
 # ------------------------------------------------------------------ bursts

@@ -7,7 +7,7 @@ CW, CH = 640, 256
 COLS, ROWS = 4, 4
 SS = 2                                   # supersampling for smooth edges
 FONT_LATIN = "assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
-FONT_CJK = "assets/fonts/cjk_display.ttf"          # Noto Sans SC Black (SIL OFL)
+FONT_CJK = "art_src/fonts/build/cjk_display.ttf"    # Noto Sans SC Black (SIL OFL)
 
 
 def font(size, text=""):

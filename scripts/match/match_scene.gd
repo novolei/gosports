@@ -24,10 +24,12 @@ var _stats_log := []
 var replay: ReplaySystem = null
 var hawk: HawkEye = null
 var _points_since_replay := 2
+var _pause_test_done := false
 var _last_replay_ours := true          # the previous replay was for the player's team (so one against them may follow)
 
 
 func setup(data: Dictionary) -> void:
+	process_mode = Node.PROCESS_MODE_PAUSABLE          # Main is PROCESS_MODE_ALWAYS (fades, loading card): the match itself must really freeze on pause
 	_data = data
 	autoplay = Game.main != null and Game.main.dev.has("autoplay")
 	_log_events = Game.main != null and Game.main.dev.has("log")
@@ -518,13 +520,35 @@ func _physics_process_impl(dt: float) -> void:
 		_run_demo(String(Game.main.dev["demo"]))
 	if Game.main != null and Game.main.dev.has("pauseshot") and _elapsed > 9.0 and not paused:
 		toggle_pause()
+	if Game.main != null and Game.main.dev.has("pausetest") and _elapsed > 6.0 and not paused and not _pause_test_done:
+		_pause_test_done = true
+		_run_pause_test()
 	if _quit_after > 0.0 and _elapsed >= _quit_after:
 		print("QUIT_AFTER score=", director.score, " stats=", director.stats, " phase=", director.phase)
 		get_tree().quit()
-	# aim marker for the first human
-	if humans.size() > 0:
-		vfx.show_aim(humans[0].aim_marker)
-	else:
+	# aim zone for the first human: only while a hit is imminent (or for an explicit aim), never while just running about
+	if humans.size() > 0 and not paused:
+		var hb: HumanBrain = humans[0]
+		var ha: Athlete = null
+		for a in athletes:
+			if a.brain == hb:
+				ha = a
+		if _log_events and Engine.get_physics_frames() % 60 == 0:
+			print("[aimdbg] marker=%s src=%s imminent=%s phase=%d ha=%s" % [str(hb.aim_marker), hb.aim_source, str(ha != null and hb.hit_imminent(ha)), director.phase, str(ha != null)])
+		var show := hb.aim_marker != null and ha != null and (hb.aim_source == "key" or hb.aim_source == "touch" or hb.hit_imminent(ha))
+		if show and director.phase != MatchDirector.P.POINT and director.phase != MatchDirector.P.OVER:
+			var info := director.aim_preview(ha)
+			if _log_events and Engine.get_physics_frames() % 60 == 0:
+				print("[aimdbg] info=", info)
+			if info.is_empty() and (hb.aim_source == "key" or hb.aim_source == "touch"):
+				vfx.show_aim(hb.aim_marker)                      # plain marker for the explicit aim on a first / second touch
+			elif info.is_empty():
+				vfx.show_aim(null)
+			else:
+				vfx.show_aim(hb.aim_marker, info)
+		else:
+			vfx.show_aim(null)
+	elif humans.is_empty():
 		vfx.show_aim(null)
 
 
@@ -548,6 +572,26 @@ func _notification(what: int) -> void:
 		if Game.main != null and (Game.main.dev.has("autoplay") or Game.main.dev.has("shot") or Game.main.dev.has("burst")):
 			return
 		toggle_pause()
+
+
+## dev: --pausetest pauses for 2 real seconds and prints what moved (it must be nothing)
+func _run_pause_test() -> void:
+	var snap := func() -> Dictionary:
+		var d := {"ball": ball.global_position, "t": director.match_time, "anim": athletes[0].rig.anim.current_animation_position, "elapsed": _elapsed}
+		if crowd != null and not crowd._rigs.is_empty():
+			d["crowd"] = crowd._rigs[0].anim.current_animation_position
+		d["pos"] = athletes[2].global_position
+		return d
+	var before: Dictionary = snap.call()
+	toggle_pause()
+	await get_tree().create_timer(2.0, true, false, true).timeout
+	var after: Dictionary = snap.call()
+	var moved := []
+	for k in before.keys():
+		if before[k] != after[k]:
+			moved.append("%s: %s -> %s" % [k, str(before[k]), str(after[k])])
+	print("[pausetest] changed during 2 s of pause: ", moved if not moved.is_empty() else "nothing")
+	get_tree().quit()
 
 
 func toggle_pause() -> void:

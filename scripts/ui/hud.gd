@@ -21,7 +21,14 @@ var serve_bubble: Control
 var serve_pill: Panel
 var hint_icon: _ActionBubble
 var _match_point_team := -1
-var rally_lbl: Label
+var _combo_root: Control                    # top-right combo counter (rally length + Nice chain), tilted, elastic
+var _combo_num: Callout
+var _combo_word: Callout
+var _combo_chain: Callout
+var _combo_n := 0
+var _clock: Control
+var _clock_lbl: Label
+var _clock_last := -1
 var pause_root: Control
 var touch: TouchControls
 var tutorial: Control
@@ -82,6 +89,8 @@ func bind(p_ms: MatchScene) -> void:
 	Game.touch_mode_changed.connect(func(_t): _build_touch())
 	_refresh_score(false)
 	_build_mode_tag()
+	if Game.main != null and Game.main.dev.has("combodemo"):         # dev: --combodemo counts the combo badge up (4..14) and adds a Nice chain
+		_dev_combo()
 	if Game.main != null and Game.main.dev.has("cardshot"):       # dev: --cardshot=0|1 plays the point card for that team (score 4-3)
 		_dev_card(int(Game.main.dev["cardshot"]))
 	if Game.profile != null and Game.profile_enabled:
@@ -286,6 +295,15 @@ func _refresh_score(animate := true) -> void:
 		_last_score[t] = director.score[t]
 
 
+func _dev_combo() -> void:
+	await get_tree().create_timer(1.5).timeout
+	for n in range(4, 15):
+		_set_combo(n)
+		if n == 8:
+			_set_chain(3)
+		await get_tree().create_timer(0.45).timeout
+
+
 func _dev_card(team: int) -> void:
 	await get_tree().create_timer(1.0).timeout
 	director.score = [4, 3] if team == 0 else [3, 4]
@@ -294,7 +312,7 @@ func _dev_card(team: int) -> void:
 	_refresh_score(false)
 	director.score[team] += 1
 	await get_tree().create_timer(0.25).timeout
-	show_point_card(team, "得分!")
+	show_point_card(team, String(Game.main.dev.get("cardreason", "得分!")))
 
 
 func _on_score(_s: Array, _serving: int) -> void:
@@ -314,7 +332,7 @@ func _build_hint() -> void:
 	hint_panel = PanelContainer.new()
 	hint_panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.0), 40, 0, Color.WHITE, 0, 0))
 	hint_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	hint_panel.position = Vector2(0, 22)
+	hint_panel.position = Vector2(0, 76)                       # (the match clock sits above it)
 	hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(hint_panel)
 	var hb := HBoxContainer.new()
@@ -342,12 +360,15 @@ func _build_hint() -> void:
 	hint_sub = UIKit.label("", 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.9))
 	vb.add_child(hint_sub)
 	hint_panel.modulate.a = 0.0
-	rally_lbl = UIKit.label("", 40, UIKit.YELLOW, 10, UIKit.INK)
-	rally_lbl.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	rally_lbl.position = Vector2(-100, 130)
-	rally_lbl.size = Vector2(200, 60)
-	rally_lbl.modulate.a = 0.0
-	root_c.add_child(rally_lbl)
+	var vp := get_viewport().get_visible_rect().size
+	var inset: Dictionary = Game.safe_insets()
+	_combo_root = Control.new()
+	_combo_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_combo_root.position = Vector2(vp.x - 250.0 - float(inset["r"]), 215.0 + float(inset["t"]))
+	_combo_root.rotation = deg_to_rad(-8.0)
+	_combo_root.modulate.a = 0.0
+	root_c.add_child(_combo_root)
+	_build_clock(vp, inset)
 
 
 ## The callout lane: every ambient "flying text" (Ready / Fever / Nice / combo / power spike / timing hints ...) lives in a calm strip
@@ -386,6 +407,121 @@ func show_banner(text: String, color := Color.WHITE, size := 150, dur := 1.1, ou
 	if color.get_luminance() > 0.93:                                   # plain white text: a cool grey-blue lower half
 		bottom = Color(0.74, 0.86, 1.0)
 	say("main", text, fs, top, bottom, outline, dur, size >= 120 and color != Color.WHITE)
+
+
+# ------------------------------------------------------------------ match clock (top centre)
+func _build_clock(vp: Vector2, inset: Dictionary) -> void:
+	_clock = Control.new()
+	_clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock.position = Vector2(vp.x * 0.5 - 78.0, 14.0 + float(inset["t"]))
+	_clock.size = Vector2(156, 46)
+	var bg := Panel.new()
+	bg.size = _clock.size
+	bg.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.05, 0.14, 0.26, 0.62), 23, 2, Color(1, 1, 1, 0.55), 4))
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock.add_child(bg)
+	var dot := Panel.new()                                  # a small ball-coloured dot: the clock is running
+	dot.position = Vector2(16, 17)
+	dot.size = Vector2(12, 12)
+	dot.add_theme_stylebox_override("panel", UIKit.style_box(Color("ffd24a"), 6))
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock.add_child(dot)
+	_clock_lbl = UIKit.label("00:00", 34, Color.WHITE, 6, Color(0.02, 0.1, 0.22, 0.9))
+	_clock_lbl.position = Vector2(30, -1)
+	_clock_lbl.size = Vector2(120, 46)
+	_clock.add_child(_clock_lbl)
+	root_c.add_child(_clock)
+
+
+func _update_clock() -> void:
+	if _clock == null or director == null:
+		return
+	var t := int(director.match_time)
+	if t != _clock_last:
+		_clock_last = t
+		_clock_lbl.text = "%02d:%02d" % [t / 60, t % 60]
+
+
+# ------------------------------------------------------------------ combo counter (top right, tilted, elastic)
+const COMBO_TIERS := [
+	[4, Color("fff6b0"), Color("ffc02e"), Color("b5470f")],
+	[7, Color("ffe6c0"), Color("ff8a3a"), Color("a8380c")],
+	[11, Color("ffdcee"), Color("ff5aa5"), Color("a8135f")],
+	[16, Color("eee2ff"), Color("a56bff"), Color("4a1fa8")],
+]
+
+
+func _combo_colors(n: int) -> Array:
+	var best: Array = COMBO_TIERS[0]
+	for t in COMBO_TIERS:
+		if n >= int(t[0]):
+			best = t
+	return best
+
+
+func _set_combo(n: int) -> void:
+	if n < 4:
+		if _combo_n >= 4:
+			_hide_combo()
+		_combo_n = n
+		return
+	var tier := _combo_colors(n)
+	var milestone := n == 4 or n == 8 or n == 12 or n == 16 or n == 20 or n == 25
+	if _combo_num != null and is_instance_valid(_combo_num):
+		_combo_num.queue_free()
+	_combo_num = Callout.make(str(n), 104 if n < 10 else 92, tier[1], tier[2], tier[3])
+	_combo_num.position = Vector2(0, 0)
+	_combo_root.add_child(_combo_num)
+	if _combo_word == null or not is_instance_valid(_combo_word):
+		_combo_word = Callout.make(tr("连击"), 44, Color.WHITE, Color("ffe9b0"), Color(0.35, 0.15, 0.05))
+		_combo_word.position = Vector2(0, 112)
+		_combo_root.add_child(_combo_word)
+	_combo_num.pop(1.7 if milestone else 1.45, milestone)
+	_combo_word.pop(1.3)
+	# the whole badge swings: a quick tilt kick that settles at -8 degrees
+	var rt := _combo_root.create_tween()
+	rt.set_ignore_time_scale(true)
+	_combo_root.rotation = deg_to_rad(-15.0)
+	rt.tween_property(_combo_root, "rotation", deg_to_rad(-8.0), 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	_show_combo_root()
+	_combo_n = n
+
+
+func _set_chain(n: int) -> void:
+	if _combo_chain != null and is_instance_valid(_combo_chain):
+		_combo_chain.queue_free()
+	_combo_chain = Callout.make("Nice ×%d" % n, 46, Color("fff0f8"), Color("ff8ac8"), Color("b81e68"))
+	_combo_chain.position = Vector2(0, 170)
+	_combo_root.add_child(_combo_chain)
+	_combo_chain.pop(1.5, n >= 3)
+	_show_combo_root()
+
+
+func _show_combo_root() -> void:
+	_combo_root.modulate.a = 1.0
+	if _combo_fade != null:
+		_combo_fade.kill()
+		_combo_fade = null
+
+
+var _combo_fade: Tween
+
+
+func _hide_combo() -> void:
+	_combo_n = 0
+	if _combo_root == null or _combo_root.modulate.a <= 0.01:
+		return
+	_combo_fade = _combo_root.create_tween()
+	_combo_fade.set_ignore_time_scale(true)
+	_combo_fade.tween_interval(0.5)
+	_combo_fade.tween_property(_combo_root, "modulate:a", 0.0, 0.3)
+	_combo_fade.tween_callback(func():
+		for c in [_combo_num, _combo_word, _combo_chain]:
+			if c != null and is_instance_valid(c):
+				c.queue_free()
+		_combo_num = null
+		_combo_word = null
+		_combo_chain = null)
 
 
 func _build_serve_bubble() -> void:
@@ -694,20 +830,45 @@ class _SpeedLines:
 ## shrinking ring around the ball: the moment it reaches the small inner ring is the moment to hit
 class _TimingRing:
 	extends Control
+	## "Hit NOW" guide around the ball: a FIXED target ring and a ring that shrinks onto it. The shrink is driven by the distance to
+	## the ideal contact point, so the moment the moving ring lands on the target IS the perfect window (white = early, yellow =
+	## good window, green = perfect window + a flash). Same shapes and colours every time, so the timing becomes muscle memory.
 	var centre := Vector2.ZERO
-	var radius := 120.0
-	var good := false
+	var radius := 150.0
+	var target_r := 42.0
+	var level := 0
 	var alpha := 0.0
+	var pop := 0.0
 
 	func _draw() -> void:
 		if alpha <= 0.01:
 			return
-		var w := 9.0 if good else 5.0
-		var col := Color(0.45, 1.0, 0.62, alpha) if good else Color(1, 1, 1, 0.85 * alpha)
-		if good:
-			draw_arc(centre, radius, 0.0, TAU, 64, Color(0.45, 1.0, 0.62, 0.28 * alpha), 20.0, true)
-		draw_arc(centre, radius, 0.0, TAU, 64, col, w, true)
-		draw_arc(centre, 34.0, 0.0, TAU, 48, Color(0.55, 0.92, 1.0, 0.85 * alpha), 3.0, true)
+		var a := alpha
+		var perfect := level == 2
+		var tcol := Color(0.55, 1.0, 0.7, a) if perfect else Color(1, 1, 1, 0.92 * a)
+		# the target ring (fixed): soft glow + crisp line + four small notches
+		draw_arc(centre, target_r, 0.0, TAU, 56, Color(tcol.r, tcol.g, tcol.b, 0.2 * a), 16.0, true)
+		draw_arc(centre, target_r, 0.0, TAU, 56, tcol, 5.0, true)
+		for i in 4:
+			var ang := PI * 0.5 * float(i) + PI * 0.25
+			var d := Vector2(cos(ang), sin(ang))
+			draw_line(centre + d * (target_r + 4.0), centre + d * (target_r + 14.0), tcol, 4.0, true)
+		if perfect:
+			draw_circle(centre, target_r - 3.0, Color(0.45, 1.0, 0.62, 0.2 * a))
+		# the shrinking ring
+		var col := Color(1, 1, 1, 0.9 * a)
+		var w := 6.0
+		if level == 1:
+			col = Color(1.0, 0.9, 0.3, a)
+			w = 9.0
+		elif perfect:
+			col = Color(0.45, 1.0, 0.62, a)
+			w = 12.0
+		draw_arc(centre, radius, 0.0, TAU, 72, Color(col.r, col.g, col.b, 0.22 * a), w + 12.0, true)
+		draw_arc(centre, radius, 0.0, TAU, 72, col, w, true)
+		# the flash when the perfect window opens
+		if pop > 0.01:
+			draw_arc(centre, target_r + 46.0 * (1.0 - pop), 0.0, TAU, 56, Color(1, 1, 1, 0.8 * pop * a), 8.0, true)
 
 
 var _ring_shot_done := false
@@ -756,8 +917,7 @@ func _update_timing_ring(dt: float) -> void:
 	var want := false
 	var near := 0.0                    # touch HIT button pulse: 0 = nothing to hit yet, -> 1 as the ball arrives
 	var hit_kind := "bump"
-	if h != null and director.phase != MatchDirector.P.POINT and ms.ball.live and h.state != Athlete.S.KNOCKED \
-			and h.state != Athlete.S.STUMBLE and director.can_hit(h):
+	if h != null and director.phase != MatchDirector.P.POINT and ms.ball.live and h.state != Athlete.S.KNOCKED 			and h.state != Athlete.S.STUMBLE and director.can_hit(h):
 		var kind: String = h._choose_kind()
 		hit_kind = kind
 		var dist := h.hit_distance(kind)
@@ -768,10 +928,18 @@ func _update_timing_ring(dt: float) -> void:
 			var eta := dist / closing
 			if eta < 1.2:
 				near = 1.0 - clampf(eta / 0.75, 0.0, 1.0)
-				if Game.settings.get("timing_guide", true):
+				if Game.settings.get("timing_guide", true) and dist < 2.4:
 					want = true
-					timing_ring.radius = 34.0 + 96.0 * clampf(eta / 0.75, 0.0, 1.0)
-					timing_ring.good = dist < 0.55
+					var w := h.timing_window_scale()
+					var pe := 0.36 * w                                       # the perfect window (see Athlete._quality_of)
+					var ge := 0.66 * w
+					var u := clampf((dist - pe) / (1.8 - pe), 0.0, 1.0)
+					timing_ring.radius = timing_ring.target_r + (150.0 - timing_ring.target_r) * pow(u, 0.85)
+					var lv := 2 if dist < pe else (1 if dist < ge else 0)
+					if lv == 2 and timing_ring.level < 2:
+						timing_ring.pop = 1.0
+						Sfx.play("ui_hover", -11.0, 1.7)                      # one soft tick as the perfect window opens
+					timing_ring.level = lv
 					var cam := ms.cam_rig.cam
 					if not cam.is_position_behind(ms.ball.global_position):
 						timing_ring.centre = cam.unproject_position(ms.ball.global_position)
@@ -780,6 +948,9 @@ func _update_timing_ring(dt: float) -> void:
 	if touch != null and is_instance_valid(touch):
 		touch.set_hit_hint(near, hit_kind, dt)
 	timing_ring.alpha = move_toward(timing_ring.alpha, 1.0 if want else 0.0, dt * (9.0 if want else 12.0))
+	timing_ring.pop = maxf(timing_ring.pop - dt * 4.0, 0.0)
+	if not want and timing_ring.alpha < 0.05:
+		timing_ring.level = 0
 	if want and timing_ring.alpha > 0.9 and Game.main != null and Game.main.dev.has("ringshot") and not _ring_shot_done and timing_ring.radius < 90.0:
 		_ring_shot_done = true
 		await get_tree().process_frame
@@ -1358,7 +1529,7 @@ func _on_phase(p: int) -> void:
 				Sfx.play("countdown")
 		MatchDirector.P.SERVE_PREP:
 			if director.score[0] + director.score[1] == 0 and director.phase_time < 0.2:
-				show_pill("开始!", 0.9)
+				say("main", "GO!", 118, Color("eaffef"), Color("3ddc84"), Color("0a6a3a"), 0.95, true)
 				Sfx.play("go")
 				Sfx.play("whistle_long", -6.0)
 			_refresh_score(false)
@@ -1439,20 +1610,11 @@ func _on_rally_event(ev: String, data: Dictionary) -> void:
 	if ev == "match_point":
 		_match_point_team = int(data["team"])
 	elif ev == "hit":
-		var n := director.rally_len
-		if n >= 4:
-			rally_lbl.text = "连击 %d" % n
-			rally_lbl.modulate.a = 1.0
-			rally_lbl.pivot_offset = rally_lbl.size * 0.5
-			rally_lbl.scale = Vector2(1.25, 1.25)
-			var tw := rally_lbl.create_tween()
-			tw.tween_property(rally_lbl, "scale", Vector2.ONE, 0.2)
-		else:
-			rally_lbl.modulate.a = 0.0
+		_set_combo(director.rally_len)
 
 
 func _on_point(team: int, reason: String, pos: Vector3) -> void:
-	rally_lbl.modulate.a = 0.0
+	_hide_combo()
 	var col := UIKit.team_color(team)
 	var human_team := -1
 	for a in ms.athletes:
@@ -1478,8 +1640,8 @@ func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 		return
 	match kind:
 		"perfect":
-			if text.begins_with("Nice") and text.contains("×"):              # chained perfect touches: the pink power-up colour
-				say("sub", text, 60, Color("fff0f8"), Color("ff8ac8"), Color("b81e68"), 0.55, true)
+			if text.begins_with("Nice") and text.contains("×"):              # chained perfect touches: a pink line under the combo counter
+				_set_chain(int(text.get_slice("×", 1)))
 			elif text.begins_with("Nice"):
 				say("sub", text, 56, Color("eafff8"), Color("6fe8c8"), Color("11705f"), 0.5)
 			else:
@@ -1559,7 +1721,7 @@ func show_point_card(winner: int, reason := "得分!") -> void:
 	var card := Control.new()
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp := get_viewport().get_visible_rect().size
-	card.position = Vector2(vp.x * 0.5, vp.y * 0.32)
+	card.position = Vector2(vp.x * 0.5, vp.y * 0.38)
 	root_c.add_child(card)
 	var new_score: int = director.score[winner]
 	var old_score := maxi(new_score - 1, 0)
@@ -1633,7 +1795,7 @@ func show_point_card(winner: int, reason := "得分!") -> void:
 	if human_teams.size() == 1:
 		cap_text = tr("我方得分") if human_teams.has(winner) else tr("对方得分")
 	var cap := Control.new()
-	cap.position = Vector2(num_pos[winner].x - 140.0, -146)         # above the winner's numeral
+	cap.position = Vector2(num_pos[winner].x - 140.0, -148)         # above the winner's numeral (the headline is a full line higher)
 	cap.size = Vector2(280, 56)
 	cap.pivot_offset = cap.size * 0.5
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1648,7 +1810,7 @@ func show_point_card(winner: int, reason := "得分!") -> void:
 	# the headline (what happened): ACE! / 得分! / 出界 / 触网 ... in the lane style, above the team tag
 	var hc := _reason_colors(reason, wcol)
 	var head := Callout.make(reason, 84, hc[0], hc[1], hc[2])
-	head.position = Vector2(0, -232)
+	head.position = Vector2(0, -282)
 	card.add_child(head)
 	head.scale = Vector2(1.5, 1.5)
 	head.modulate.a = 0.0
@@ -1920,6 +2082,7 @@ func _process(_dt: float) -> void:
 func _process_impl(dt: float) -> void:
 	if director == null or replay_mode or _vs_hold:
 		return
+	_update_clock()
 	_update_serve_bubble()
 	_update_markers()
 	_update_tracker(dt)
@@ -1931,7 +2094,7 @@ func _process_impl(dt: float) -> void:
 
 ## during an instant replay only the scoreboard stays: hide hints, markers, rings and touch controls
 func _set_replay_hud(on: bool) -> void:
-	for n in [hint_panel, serve_bubble, rally_lbl, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial, _pause_btn]:
+	for n in [hint_panel, serve_bubble, _combo_root, _clock, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial, _pause_btn]:
 		if n != null and is_instance_valid(n):
 			if n == scoreboard_holder and not on and director != null and director.is_practice():
 				continue                                   # the practice modes have their own panels instead

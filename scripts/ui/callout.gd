@@ -24,7 +24,7 @@ static func make(text: String, font_size: int, top: Color, bottom: Color, outlin
 		var l := Label.new()
 		l.text = text
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		l.add_theme_font_override("font", Fonts.display())
+		l.add_theme_font_override("font", Fonts.display_italic())
 		l.add_theme_font_size_override("font_size", font_size)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -76,6 +76,18 @@ func play(hold := 1.0, from_scale := 1.55, rise := 26.0, sparkle := false) -> vo
 	tw.chain().tween_property(self, "modulate:a", 0.0, 0.28)
 	tw.parallel().tween_property(self, "position:y", y0 - rise, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(queue_free)
+	if sparkle:
+		_sparkles()
+
+
+## persistent elastic pop (combo counters): scales from `from_scale` with an elastic overshoot, one sheen sweep, optional sparkles
+func pop(from_scale := 1.6, sparkle := false) -> void:
+	scale = Vector2(from_scale, from_scale)
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.set_parallel(true)
+	tw.tween_property(self, "scale", Vector2.ONE, 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	tw.tween_method(func(v: float): fill_mat.set_shader_parameter("sheen", v), -0.25, 1.25, 0.5)
 	if sparkle:
 		_sparkles()
 

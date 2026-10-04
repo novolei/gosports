@@ -54,6 +54,7 @@ func play(p_ms: MatchScene, info: Dictionary) -> void:
 		return
 	await ov.cover()
 	# --- enter: hide the match, build the close-up set
+	ms.director.clock_hold += 1
 	for a in ms.athletes:
 		a.visible = false
 	ms.ball.visible = false
@@ -102,6 +103,7 @@ func play(p_ms: MatchScene, info: Dictionary) -> void:
 	hud.replay_mode = false
 	ms.cam_rig.end_replay()
 	ov.reveal()
+	ms.director.clock_hold = maxi(ms.director.clock_hold - 1, 0)
 	playing = false
 
 
