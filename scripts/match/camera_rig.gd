@@ -65,9 +65,9 @@ func intro() -> void:
 func start_vs() -> void:
 	_mode = "vs"
 	_mode_t = 0.0
-	_pos = Vector3(10.0, 3.1, 0.0)
-	_focus = Vector3(0.0, 0.95, 0.0)
-	_fov = 33.0
+	_pos = Vector3(8.6, 1.7, 0.0)
+	_focus = Vector3(0.0, 1.0, 0.0)
+	_fov = 27.0
 	_apply(0.0)
 
 
@@ -202,9 +202,9 @@ func _physics_process_impl(dt: float) -> void:
 			if _mode_t > 2.2:
 				_mode = "game"
 		"vs":
-			want_pos = Vector3(10.0 - _mode_t * 0.2, 3.1, sin(_mode_t * 0.7) * 0.3)
-			want_focus = Vector3(0.0, 0.95, 0.0)
-			want_fov = 33.0
+			want_pos = Vector3(8.6 - _mode_t * 0.14, 1.7, sin(_mode_t * 0.7) * 0.2)
+			want_focus = Vector3(0.0, 1.0, 0.0)
+			want_fov = 27.0
 		"replay":
 			if not _replay.is_empty():
 				want_pos = _replay["pos"]

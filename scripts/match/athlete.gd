@@ -77,6 +77,7 @@ var _getup_t := 0.0
 var _step_t := 0.0
 var _land_t := 0.0
 var _step_dust_t := 0.0
+var _since_zone := 9.0           # seconds since the ball was last inside the hit zone (late-press forgiveness)
 var _block_pose := false
 var _pending_serve_jump := false
 var _pending_serve_jump_t := 0.0
@@ -648,6 +649,10 @@ func _try_hit() -> void:
 			return
 		# not in range: keep the press buffered if the ball is still coming closer
 		var approaching := _ball_approaching(kind)
+		if not approaching and is_human and _since_zone < 0.1 and d < zone * 1.5:
+			_hit_buf = 0.0                  # coyote time: the ball slipped out of reach a blink ago - still counts (as a plain "ok")
+			_perform_hit(kind, "ok", zone * 0.98)
+			return
 		if not approaching:
 			_hit_buf = 0.0
 			_whiff(kind)
@@ -933,6 +938,7 @@ func _update_ring(dt: float) -> void:
 			var dd := hit_distance(kind)
 			ok = dd < KINDS[kind]["zone"]
 			in_perfect_zone = dd < 0.4
+		_since_zone = 0.0 if ok else _since_zone + dt
 		ring_mat.set_shader_parameter("pulse", 0.9 if in_perfect_zone else (0.25 if ok else 0.0))
 		ring_mat.set_shader_parameter("intensity", 1.0 if ok else 0.8)
 		var s := 1.0 + (0.04 * sin(Time.get_ticks_msec() * 0.008))

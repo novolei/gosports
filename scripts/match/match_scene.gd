@@ -101,6 +101,7 @@ func _build() -> void:
 			"solo", "rally", "training", "tournament": human_slots = {0: 1}
 			"coop": human_slots = {0: 1, 1: 2}
 			"versus": human_slots = {0: 1, 2: 2}
+	vfx.director = director
 	for i in 4:
 		var a := athletes[i]
 		if human_slots.has(i):
@@ -110,6 +111,7 @@ func _build() -> void:
 			a.set_human(hb.index)
 			a.skill = 0.7
 			humans.append(hb)
+			vfx.humans.append(a)
 		else:
 			var s: float = opp_skill if a.team == 1 else mate_skill
 			if autoplay:
@@ -234,6 +236,20 @@ func _hit_feel(a: Athlete, kind: String, q: String, power: float) -> void:
 
 
 var _fever_demo := false
+var _demo_done := false
+
+
+## dev: --demo=matchpoint|pill|win|title shows one HUD cue and saves --demoshot=<png> a moment later
+func _run_demo(kind: String) -> void:
+	match kind:
+		"matchpoint": hud.show_match_banner("赛点", 0)
+		"pill": hud.show_pill("比赛结束!", 2.0)
+		"win": hud.show_win_banner(0)
+		"title": hud.show_title_tag(3.0)
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	if Game.main.dev.has("demoshot"):
+		get_viewport().get_texture().get_image().save_png(str(Game.main.dev["demoshot"]))
+		get_tree().quit()
 var coach: TrainingCoach = null
 var _hit_shot_counts := {}
 
@@ -403,6 +419,11 @@ func _physics_process_impl(dt: float) -> void:
 	if Game.main != null and Game.main.dev.has("fever") and _elapsed > 7.0 and not _fever_demo:
 		_fever_demo = true
 		director.add_hype(0, 1.0)            # dev: jump straight into fever time
+	if Game.main != null and Game.main.dev.has("demo") and _elapsed > 7.0 and not _demo_done:
+		_demo_done = true
+		_run_demo(String(Game.main.dev["demo"]))
+	if Game.main != null and Game.main.dev.has("pauseshot") and _elapsed > 9.0 and not paused:
+		toggle_pause()
 	if _quit_after > 0.0 and _elapsed >= _quit_after:
 		print("QUIT_AFTER score=", director.score, " stats=", director.stats, " phase=", director.phase)
 		get_tree().quit()

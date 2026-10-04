@@ -7,6 +7,13 @@ signal back_pressed
 
 const KIND_TITLES := {"trail": "球拖尾", "ball": "比赛用球", "court": "球场主题"}
 const GOLD := Color("ffc928")
+# dark scoreboard palette shared with the results screen
+const T := Color(0.96, 0.98, 1.0)
+const T2 := Color(0.62, 0.78, 0.88)
+const ACC := Color("ffe14a")
+const GOOD := Color("7dffb0")
+const BOARD := Color(0.06, 0.2, 0.32, 0.9)
+const TRACK := Color(0.02, 0.1, 0.18, 0.55)
 
 var _tab := 0
 var _body: Control
@@ -108,17 +115,14 @@ class _Dot:
 
 
 # ------------------------------------------------------------------ layout helpers
-func _card(pos: Vector2, sz: Vector2, parent: Control = null, col := Color(1, 1, 1, 0.93), border := Color.WHITE, bw := 0) -> Panel:
-	var p := Panel.new()
-	p.position = pos
-	p.size = sz
-	p.add_theme_stylebox_override("panel", UIKit.style_box(col, 36, bw, border, 12))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	(parent if parent != null else _body).add_child(p)
-	return p
+func _card(pos: Vector2, sz: Vector2, parent: Control = null, col := BOARD, border := Color.WHITE, bw := 0) -> Control:
+	var c := GW.board(sz, col, Color(1, 1, 1, 0.9) if bw == 0 else border, 0.02)
+	c.position = pos
+	(parent if parent != null else _body).add_child(c)
+	return c
 
 
-func _lbl(parent: Control, text: String, pos: Vector2, sz: Vector2, fsize := 28, col := UIKit.INK, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+func _lbl(parent: Control, text: String, pos: Vector2, sz: Vector2, fsize := 28, col := T, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var l := UIKit.label(text, fsize, col, 0, Color.WHITE, align)
 	l.position = pos
 	l.size = sz
@@ -135,7 +139,7 @@ func _bar(parent: Control, pos: Vector2, sz: Vector2, ratio: float, col: Color) 
 	pb.value = clampf(ratio, 0.0, 1.0)
 	pb.show_percentage = false
 	pb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.85, 0.88, 0.95), int(sz.y / 2.0)))
+	pb.add_theme_stylebox_override("background", UIKit.style_box(TRACK, int(sz.y / 2.0), 2, Color(1, 1, 1, 0.5)))
 	pb.add_theme_stylebox_override("fill", UIKit.style_box(col, int(sz.y / 2.0)))
 	parent.add_child(pb)
 	return pb
@@ -151,9 +155,8 @@ func _fmt_time(sec: float) -> String:
 # ------------------------------------------------------------------ build
 func build() -> CareerPage:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	var title := UIKit.label("生涯", 64, Color.WHITE, 14, Color(0.05, 0.2, 0.45, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
+	var title := GW.ribbon("生涯", 340.0, 98.0, UIKit.TEAL, 60)
 	title.position = Vector2(70, 26)
-	title.size = Vector2(360, 90)
 	add_child(title)
 	var group := ButtonGroup.new()
 	var names := ["概览", "收藏", "成就"]
@@ -162,18 +165,20 @@ func build() -> CareerPage:
 		b.toggle_mode = true
 		b.button_group = group
 		b.text = names[i]
-		b.size = Vector2(196, 64)
-		b.position = Vector2(470.0 + 210.0 * float(i), 38)
+		var tab_w := 250.0 if Loc.is_en() else 196.0
+		b.size = Vector2(tab_w, 64)
+		b.position = Vector2(470.0 + (tab_w + 14.0) * float(i), 38)
 		b.add_theme_font_size_override("font_size", 30)
-		for n in ["font_color", "font_hover_color", "font_focus_color"]:
-			b.add_theme_color_override(n, UIKit.INK)
+		for n in ["font_color", "font_focus_color"]:
+			b.add_theme_color_override(n, UIKit.PALE_TXT)
+		b.add_theme_color_override("font_hover_color", UIKit.TEAL_DARK)
 		b.add_theme_color_override("font_pressed_color", Color.WHITE)
 		b.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
-		b.add_theme_stylebox_override("normal", UIKit.style_box(Color(1, 1, 1, 0.9), 32, 0, Color.WHITE, 6))
-		b.add_theme_stylebox_override("hover", UIKit.style_box(Color(0.93, 0.97, 1.0), 32, 0, Color.WHITE, 8))
-		b.add_theme_stylebox_override("pressed", UIKit.style_box(UIKit.BLUE, 32, 0, Color.WHITE, 4))
-		b.add_theme_stylebox_override("hover_pressed", UIKit.style_box(UIKit.BLUE.lightened(0.1), 32, 0, Color.WHITE, 6))
-		b.add_theme_stylebox_override("focus", UIKit.style_box(Color(1, 1, 1, 0.0), 32, 4, UIKit.YELLOW, 0))
+		b.add_theme_stylebox_override("normal", UIKit.style_box(UIKit.PALE, 32, 3, Color(1, 1, 1, 0.9), 6))
+		b.add_theme_stylebox_override("hover", UIKit.style_box(Color(0.88, 0.95, 0.96), 32, 3, Color.WHITE, 8))
+		b.add_theme_stylebox_override("pressed", UIKit.style_box(UIKit.TEAL, 32, 3, Color.WHITE, 4))
+		b.add_theme_stylebox_override("hover_pressed", UIKit.style_box(UIKit.TEAL.lightened(0.06), 32, 3, Color.WHITE, 6))
+		b.add_theme_stylebox_override("focus", UIKit.style_box(Color(1, 1, 1, 0.0), 32, 4, UIKit.CHEVRON, 0))
 		var idx := i
 		b.pressed.connect(func():
 			Sfx.play("ui_click", -4.0)
@@ -229,11 +234,11 @@ func _build_overview() -> void:
 	av.position = Vector2(34, 30)
 	card.add_child(av)
 	_lbl(card, String(e["name"]), Vector2(210, 30), Vector2(320, 56), 44)
-	_lbl(card, String(info["title"]), Vector2(210, 86), Vector2(320, 44), 30, Color("e0782a"))
+	_lbl(card, String(info["title"]), Vector2(210, 86), Vector2(320, 44), 30, ACC)
 	_lbl(card, "Lv.%d" % int(info["level"]), Vector2(210, 126), Vector2(320, 60), 50, UIKit.BLUE)
 	_bar(card, Vector2(34, 208), Vector2(492, 26), float(info["ratio"]), UIKit.GREEN)
 	var xp_text := "经验 %d / %d" % [int(info["into"]), int(info["need"])] if int(info["level"]) < Profile.MAX_LEVEL else "已满级!"
-	_lbl(card, xp_text, Vector2(34, 238), Vector2(492, 32), 22, Color(0.35, 0.4, 0.55), HORIZONTAL_ALIGNMENT_RIGHT)
+	_lbl(card, xp_text, Vector2(34, 238), Vector2(492, 32), 22, T2, HORIZONTAL_ALIGNMENT_RIGHT)
 	var st: Dictionary = p.stats
 	var matches := int(st.get("matches", 0))
 	var wins := int(st.get("wins", 0))
@@ -248,13 +253,13 @@ func _build_overview() -> void:
 	for i in rows.size():
 		var cx := 34.0 + float(i % 2) * 262.0
 		var cy := 292.0 + float(i / 2) * 82.0
-		_lbl(card, rows[i][0], Vector2(cx, cy), Vector2(250, 28), 22, Color(0.4, 0.45, 0.6))
+		_lbl(card, rows[i][0], Vector2(cx, cy), Vector2(250, 28), 22, T2)
 		_lbl(card, rows[i][1], Vector2(cx, cy + 26.0), Vector2(250, 44), 34)
 	# --- daily missions
 	var mc := _card(Vector2(590, 0), Vector2(1190, 424))
 	_lbl(mc, "今日任务", Vector2(36, 18), Vector2(300, 56), 42)
 	var done := p.missions_done()
-	_lbl(mc, "%d / %d 完成" % [done, p.daily["list"].size()], Vector2(860, 24), Vector2(294, 44), 30, UIKit.GREEN_DARK, HORIZONTAL_ALIGNMENT_RIGHT)
+	_lbl(mc, "%d / %d 完成" % [done, p.daily["list"].size()], Vector2(860, 24), Vector2(294, 44), 30, GOOD, HORIZONTAL_ALIGNMENT_RIGHT)
 	for i in p.daily["list"].size():
 		var m: Dictionary = p.daily["list"][i]
 		var y := 96.0 + float(i) * 82.0
@@ -264,20 +269,20 @@ func _build_overview() -> void:
 		dot.on = bool(m["done"])
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mc.add_child(dot)
-		var tl := _lbl(mc, String(m["text"]), Vector2(100, y + 6), Vector2(640, 56), 32, Color(0.5, 0.55, 0.68) if m["done"] else UIKit.INK)
+		var tl := _lbl(mc, String(m["text"]), Vector2(100, y + 6), Vector2(640, 56), 32, T2 if m["done"] else T)
 		tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		var prog := mini(int(m["progress"]), int(m["goal"]))
 		_bar(mc, Vector2(760, y + 22), Vector2(230, 22), float(prog) / float(m["goal"]), UIKit.GREEN if m["done"] else UIKit.BLUE)
-		_lbl(mc, "%d/%d" % [prog, int(m["goal"])], Vector2(1000, y + 12), Vector2(90, 40), 26, Color(0.35, 0.4, 0.55))
-		_lbl(mc, "+%d XP" % int(m["xp"]), Vector2(1070, y + 12), Vector2(100, 40), 26, Color("e0782a"), HORIZONTAL_ALIGNMENT_RIGHT)
+		_lbl(mc, "%d/%d" % [prog, int(m["goal"])], Vector2(1000, y + 12), Vector2(90, 40), 26, T2)
+		_lbl(mc, "+%d XP" % int(m["xp"]), Vector2(1070, y + 12), Vector2(100, 40), 26, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
 	var streak := int(p.daily["streak"])
-	_lbl(mc, "连续登录 %d 天  ·  全部经验 ×%.2f  (连续 5 天达到上限 ×1.25)" % [streak, p.streak_bonus()], Vector2(36, 354), Vector2(1120, 44), 26, Color("c4501a"))
+	_lbl(mc, "连续登录 %d 天  ·  全部经验 ×%.2f  (连续 5 天达到上限 ×1.25)" % [streak, p.streak_bonus()], Vector2(36, 354), Vector2(1120, 44), 26, ACC)
 	# --- next unlock + records
 	var nc := _card(Vector2(590, 448), Vector2(1190, 352))
 	_lbl(nc, "下一个解锁", Vector2(36, 18), Vector2(400, 52), 38)
 	var nxt := _next_unlock(p.level())
 	if nxt.is_empty():
-		_lbl(nc, "所有装扮都已解锁!", Vector2(36, 120), Vector2(520, 56), 32, Color(0.35, 0.4, 0.55))
+		_lbl(nc, "所有装扮都已解锁!", Vector2(36, 120), Vector2(520, 56), 32, T2)
 	else:
 		var sw := _Swatch.new()
 		sw.kind = String(nxt["kind"])
@@ -287,11 +292,11 @@ func _build_overview() -> void:
 		sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		nc.add_child(sw)
 		_lbl(nc, "%s · %s" % [KIND_TITLES[nxt["kind"]], nxt["name"]], Vector2(256, 100), Vector2(380, 44), 32)
-		_lbl(nc, String(nxt["desc"]), Vector2(256, 146), Vector2(380, 36), 24, Color(0.4, 0.45, 0.6))
+		_lbl(nc, String(nxt["desc"]), Vector2(256, 146), Vector2(380, 36), 24, T2)
 		var need := maxi(Profile.xp_for_level(int(nxt["level"])) - p.xp, 0)
-		_lbl(nc, "Lv.%d 解锁  ·  还差 %d 经验" % [int(nxt["level"]), need], Vector2(256, 186), Vector2(420, 40), 26, Color("e0782a"))
+		_lbl(nc, "Lv.%d 解锁  ·  还差 %d 经验" % [int(nxt["level"]), need], Vector2(256, 186), Vector2(420, 40), 26, ACC)
 	var sep := ColorRect.new()
-	sep.color = Color(0.8, 0.84, 0.92)
+	sep.color = Color(1, 1, 1, 0.25)
 	sep.position = Vector2(690, 30)
 	sep.size = Vector2(3, 290)
 	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -307,7 +312,7 @@ func _build_overview() -> void:
 		["成就", "%d / %d" % [p.achievements.size(), Profile.ACHIEVEMENTS.size()]],
 	]
 	for i in rec.size():
-		_lbl(nc, rec[i][0], Vector2(730, 90.0 + float(i) * 56.0), Vector2(200, 48), 26, Color(0.4, 0.45, 0.6))
+		_lbl(nc, rec[i][0], Vector2(730, 90.0 + float(i) * 56.0), Vector2(200, 48), 26, T2)
 		_lbl(nc, rec[i][1], Vector2(930, 90.0 + float(i) * 56.0), Vector2(230, 48), 28)
 	var go := UIKit.button("装扮收藏", Vector2(300, 64), UIKit.BLUE, 30)
 	go.position = Vector2(36, 262)
@@ -347,44 +352,60 @@ func _item_card(kind: String, it: Dictionary, p: Profile) -> Button:
 	var unlocked := p.is_unlocked(kind, String(it["id"]))
 	var on: bool = String(p.equipped.get(kind, "")) == String(it["id"]) and unlocked
 	var b := Button.new()
-	b.size = Vector2(212, 196)
+	b.size = Vector2(212, 200)
 	b.focus_mode = Control.FOCUS_ALL
-	var base := Color(1, 1, 1, 0.93) if unlocked else Color(0.82, 0.85, 0.92, 0.9)
-	b.add_theme_stylebox_override("normal", UIKit.style_box(base, 30, 6 if on else 0, Color("4fd16b"), 8))
-	b.add_theme_stylebox_override("hover", UIKit.style_box(Color(1.0, 0.98, 0.88) if unlocked else base, 30, 5, UIKit.YELLOW, 10))
-	b.add_theme_stylebox_override("pressed", UIKit.style_box(Color(0.9, 0.96, 0.9), 30, 6, Color("4fd16b"), 4))
-	b.add_theme_stylebox_override("focus", UIKit.style_box(Color(1.0, 0.98, 0.88) if unlocked else base, 30, 5, UIKit.YELLOW, 10))
-	var holder: Control = b
-	if kind == "court":
-		var clip := Panel.new()
-		clip.position = Vector2(18, 14)
-		clip.size = Vector2(176, 100)
-		clip.add_theme_stylebox_override("panel", UIKit.style_box(Color.WHITE, 18))
-		clip.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
-		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(clip)
-		holder = clip
+	b.pivot_offset = b.size * 0.5
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+		b.add_theme_stylebox_override(st, empty)
+	# capsule "sticker": fat white rim, hard shadow, the preview inside
+	var rim := Panel.new()
+	rim.position = Vector2(12, 6)
+	rim.size = Vector2(188, 118)
+	rim.add_theme_stylebox_override("panel", UIKit.style_box(Color("4fd16b") if on else Color.WHITE, 59, 0, Color.WHITE, 10))
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(rim)
+	var clip := Panel.new()
+	clip.position = Vector2(18, 12)
+	clip.size = Vector2(176, 106)
+	clip.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.82, 0.9, 0.94), 53))
+	clip.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(clip)
 	var sw := _Swatch.new()
 	sw.kind = kind
 	sw.item = it
 	sw.locked = not unlocked
-	sw.position = Vector2(0, 0) if kind == "court" else Vector2(18, 14)
-	sw.size = Vector2(176, 100)
+	sw.size = Vector2(176, 106)
 	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(sw)
-	var nm := UIKit.label(String(it["name"]), 28, UIKit.INK if unlocked else Color(0.45, 0.5, 0.62))
-	nm.position = Vector2(0, 118)
-	nm.size = Vector2(212, 38)
+	clip.add_child(sw)
+	if on:
+		var tick := _Dot.new()
+		tick.on = true
+		tick.size = Vector2(46, 46)
+		tick.position = Vector2(158, -4)
+		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(tick)
+	if not unlocked:
+		var lk := UIKit.label("Lv.%d" % int(it["level"]), 26, Color.WHITE, 8, Color(0.3, 0.12, 0.0, 0.9))
+		lk.position = Vector2(46, 38)
+		lk.size = Vector2(120, 44)
+		b.add_child(lk)
+	var nm := UIKit.label(String(it["name"]), 27, Color.WHITE if unlocked else T2, 8, Color(0.03, 0.14, 0.26, 0.95))
+	nm.position = Vector2(0, 130)
+	nm.size = Vector2(212, 40)
 	b.add_child(nm)
-	var sub_text := "使用中" if on else ("点击装备" if unlocked else "Lv.%d 解锁" % int(it["level"]))
-	var sub := UIKit.label(sub_text, 22, Color("25963a") if on else (Color(0.45, 0.5, 0.62) if unlocked else Color("c4501a")))
-	sub.position = Vector2(0, 154)
-	sub.size = Vector2(212, 32)
+	var sub_text := "使用中" if on else ("点击装备" if unlocked else "未解锁")
+	var sub := UIKit.label(sub_text, 22, GOOD if on else (ACC if not unlocked else Color(0.9, 0.96, 1.0)), 6, Color(0.03, 0.14, 0.26, 0.9))
+	sub.position = Vector2(0, 166)
+	sub.size = Vector2(212, 30)
 	b.add_child(sub)
 	var info_text := "%s — %s" % [it["name"], it["desc"]]
 	var lock_text := "%s — 达到 Lv.%d 解锁（还差 %d 经验）" % [it["name"], int(it["level"]), maxi(Profile.xp_for_level(int(it["level"])) - p.xp, 0)]
-	b.mouse_entered.connect(func(): _desc.text = info_text if unlocked else lock_text)
-	b.focus_entered.connect(func(): _desc.text = info_text if unlocked else lock_text)
+	b.mouse_entered.connect(func(): _desc.text = info_text if unlocked else lock_text; UIKit._bump(b, 1.05))
+	b.focus_entered.connect(func(): _desc.text = info_text if unlocked else lock_text; UIKit._bump(b, 1.05))
+	b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
+	b.focus_exited.connect(func(): UIKit._bump(b, 1.0))
 	b.pressed.connect(func():
 		if unlocked:
 			if p.equip(kind, String(it["id"])):
@@ -419,10 +440,10 @@ func _build_achievements() -> void:
 		var cell := Control.new()
 		cell.custom_minimum_size = Vector2(432, 140)
 		grid.add_child(cell)
-		var card := _card(Vector2.ZERO, Vector2(432, 140), cell, Color(1, 0.98, 0.88, 0.95) if got else Color(1, 1, 1, 0.9), GOLD, 5 if got else 0)
-		_lbl(card, String(a["name"]), Vector2(22, 8), Vector2(300, 44), 30, UIKit.INK)
-		_lbl(card, "+%d XP" % int(a["xp"]), Vector2(318, 8), Vector2(100, 44), 24, Color("e0782a"), HORIZONTAL_ALIGNMENT_RIGHT)
-		var dl := _lbl(card, String(a["desc"]), Vector2(22, 52), Vector2(390, 52), 22, Color(0.38, 0.43, 0.58))
+		var card := _card(Vector2.ZERO, Vector2(432, 140), cell, Color(0.2, 0.17, 0.05, 0.92) if got else BOARD, GOLD, 5 if got else 0)
+		_lbl(card, String(a["name"]), Vector2(22, 8), Vector2(300, 44), 30, T)
+		_lbl(card, "+%d XP" % int(a["xp"]), Vector2(318, 8), Vector2(100, 44), 24, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
+		var dl := _lbl(card, String(a["desc"]), Vector2(22, 52), Vector2(390, 52), 22, T2)
 		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		dl.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		var cur := mini(p.counter(String(a["key"])), int(a["goal"]))
@@ -435,5 +456,5 @@ func _build_achievements() -> void:
 			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			card.add_child(dot)
 		else:
-			_lbl(card, "%d/%d" % [cur, int(a["goal"])], Vector2(318, 96), Vector2(96, 40), 24, Color(0.35, 0.4, 0.55), HORIZONTAL_ALIGNMENT_RIGHT)
+			_lbl(card, "%d/%d" % [cur, int(a["goal"])], Vector2(318, 96), Vector2(96, 40), 24, T2, HORIZONTAL_ALIGNMENT_RIGHT)
 	_desc.text = "已解锁 %d / %d" % [done_n, list.size()]

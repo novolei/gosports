@@ -158,7 +158,7 @@ func _vs_pose() -> void:
 	for a in athletes:
 		var s := Court.team_sign(a.team)
 		var near: bool = a.slot == 0
-		var p := Vector3(0.6 if near else -0.6, 0.0, s * (1.9 if near else 4.3))
+		var p := Vector3(0.8 if near else -0.4, 0.0, s * (1.15 if near else 2.55))
 		a.teleport(p)
 		a.yaw = -1.0 if a.team == 0 else -2.09
 		a.rotation.y = a.yaw

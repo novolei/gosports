@@ -22,6 +22,9 @@ var settings := {
 	"left_handed": false,
 	"haptics": true,         # phone / gamepad vibration on hits and bumps
 	"timing_guide": true,    # shrinking ring around the ball that shows the moment to hit
+	"language": "auto",       # auto / zh / en (see Loc)
+	"landing_hint": 1,       # where-to-stand marker: 0 off / 1 minimal / 2 standard (see Vfx._update_marks)
+	"landing_hint_set": false, # the player chose a level (otherwise newcomers get the full marker for a few matches)
 	"replays": true,         # instant replay after the big points and at the end of a match
 	"render_scale": 0.0,     # 3D resolution scale; 0 = automatic (phones render below native resolution)
 	"shadow_size": 0,        # directional shadow map; 0 = automatic
@@ -47,6 +50,7 @@ var profile_enabled := true          # off for dev autoplay so test runs never t
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_settings()
+	Loc.apply(String(settings["language"]))
 	var ppath := Profile.PATH
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--profile="):
@@ -73,13 +77,21 @@ func _ready() -> void:
 	apply_settings()
 
 
+## Fonts: assets/fonts/ui_font.ttf is the Chinese UI font (trial version, see docs section 22 for licensed alternatives).
+## Optional: drop a Latin font at assets/fonts/ui_font_en.ttf (e.g. Fredoka, OFL) and it takes over every Latin glyph, with the
+## Chinese font behind it as a fallback - no code change needed.
 func _make_font() -> Font:
 	var path := "res://assets/fonts/ui_font.ttf"
+	var en_path := "res://assets/fonts/ui_font_en.ttf"
 	if ResourceLoader.exists(path):
 		var ff: FontFile = load(path)
 		var sf := SystemFont.new()
 		sf.font_names = PackedStringArray(["Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif"])
 		ff.fallbacks = [sf]
+		if ResourceLoader.exists(en_path):
+			var en: FontFile = load(en_path)
+			en.fallbacks = [ff]
+			return en
 		return ff
 	var s := SystemFont.new()
 	s.font_names = PackedStringArray(["Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif"])
@@ -178,6 +190,56 @@ func _input(event: InputEvent) -> void:
 
 
 # ---------------------------------------------------------------- settings
+## P1 keyboard actions the player can remap (settings -> key bindings)
+const REBINDABLE := [["left", "左移"], ["right", "右移"], ["up", "上移"], ["down", "下移"], ["hit", "击球"], ["jump", "跳跃 / 拦网"], ["dive", "扑救"]]
+const DEFAULT_KEYS := {"p1_left": KEY_A, "p1_right": KEY_D, "p1_up": KEY_W, "p1_down": KEY_S, "p1_hit": KEY_J, "p1_jump": KEY_K, "p1_dive": KEY_L}
+var key_overrides := {}                  # action -> physical keycode (only what differs from the default)
+
+
+func key_of(act: String) -> int:
+	for e in InputMap.action_get_events(act):
+		if e is InputEventKey:
+			return int((e as InputEventKey).physical_keycode)
+	return 0
+
+
+func key_name(act: String) -> String:
+	var k := key_of(act)
+	return OS.get_keycode_string(k as Key) if k != 0 else "-"
+
+
+func _apply_key(act: String, code: int) -> void:
+	for e in InputMap.action_get_events(act):
+		if e is InputEventKey:
+			InputMap.action_erase_event(act, e)
+	_key(act, code as Key)
+
+
+## bind a key to an action; if another action already uses it the two swap keys. Returns the swapped action ("" = none)
+func set_key(act: String, code: int) -> String:
+	var swapped := ""
+	for other in DEFAULT_KEYS.keys():
+		if other != act and key_of(other) == code:
+			var mine := key_of(act)
+			_apply_key(other, mine)
+			key_overrides[other] = mine
+			swapped = other
+	_apply_key(act, code)
+	key_overrides[act] = code
+	save_settings()
+	return swapped
+
+
+func reset_keys() -> void:
+	key_overrides.clear()
+	for act in DEFAULT_KEYS.keys():
+		_apply_key(act, int(DEFAULT_KEYS[act]))
+	# the defaults of jump / dive also had a second key
+	_key("p1_jump", KEY_SPACE)
+	_key("p1_dive", KEY_SHIFT)
+	save_settings()
+
+
 func _load_settings() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(SAVE_PATH) != OK:
@@ -195,6 +257,10 @@ func _load_settings() -> void:
 	p2_char = cf.get_value("profile", "p2_char", p2_char)
 	player_stats["played"] = cf.get_value("profile", "played", 0)
 	player_stats["won"] = cf.get_value("profile", "won", 0)
+	if cf.has_section("keys"):
+		for act in cf.get_section_keys("keys"):
+			if DEFAULT_KEYS.has(act):
+				key_overrides[act] = int(cf.get_value("keys", act))
 
 
 func save_settings() -> void:
@@ -205,6 +271,8 @@ func save_settings() -> void:
 	cf.set_value("profile", "p2_char", p2_char)
 	cf.set_value("profile", "played", player_stats["played"])
 	cf.set_value("profile", "won", player_stats["won"])
+	for act in key_overrides.keys():
+		cf.set_value("keys", act, key_overrides[act])
 	cf.save(SAVE_PATH)
 
 
@@ -440,6 +508,8 @@ func _setup_inputs() -> void:
 		_pad_btn(pre + "jump", JOY_BUTTON_LEFT_SHOULDER, dev)
 		_pad_btn(pre + "dive", JOY_BUTTON_X, dev)
 		_pad_axis(pre + "dive", JOY_AXIS_TRIGGER_LEFT, 1.0, dev)
+	for act in key_overrides.keys():
+		_apply_key(act, int(key_overrides[act]))
 	_add_action("pause")
 	_key("pause", KEY_ESCAPE); _key("pause", KEY_P)
 	_pad_btn("pause", JOY_BUTTON_START, -1)

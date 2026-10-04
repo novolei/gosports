@@ -14,6 +14,10 @@ var aim_mat: ShaderMaterial
 var _star_tex: Texture2D
 var _soft_tex: Texture2D
 var show_landing := true
+var director: MatchDirector = null
+var humans: Array = []                  # human athletes: each gets their own "where to stand" marker
+var _mark_shot_done := false
+var _marks := {}                        # Athlete -> {"node": MeshInstance3D, "mat": ShaderMaterial, "a": float}
 
 
 func _ready() -> void:
@@ -59,22 +63,77 @@ func _process(_dt: float) -> void:
 
 
 func _process_impl(_dt: float) -> void:
-	# predicted landing circle
-	if ball != null and show_landing and ball.live and not ball.floor_touched:
-		var l := ball.predict_landing()
-		if not l.is_empty():
-			var p: Vector3 = l["pos"]
-			landing.visible = true
-			landing.global_position = Vector3(p.x, 0.025, p.z)
-			var s := 0.95 + 0.08 * sin(Time.get_ticks_msec() * 0.012)
-			var tl: float = l["t"]
-			landing.scale = Vector3(s, s, 1.0) * (1.0 + clampf(tl, 0.0, 2.0) * 0.18)
-			var inside := Court.in_court(p, 0.0)
-			landing_mat.set_shader_parameter("ring_color", Color(1, 1, 1, 0.9) if inside else Color(1.0, 0.45, 0.35, 0.9))
-		else:
-			landing.visible = false
-	else:
-		landing.visible = false
+	landing.visible = false              # (the old always-on landing circle is replaced by the per-player markers below)
+	_update_marks(_dt)
+
+
+## "where to stand" marker, designed to carry as little information as possible (see docs section 22):
+##  - only for a ball that is coming down on the human's own half, from the moment it is hit until ~0.1 s before contact
+##  - the player who is meant to take the ball gets the full marker (a fixed ring + a ring that closes in on it = time left),
+##    a team mate's ball only gets a faint ring so nobody runs into the wrong spot
+##  - red when the ball will land outside the court; nothing at all for balls going to the other half
+func _update_marks(dt: float) -> void:
+	var level := int(Game.settings.get("landing_hint", 1))
+	# newcomers get the full version for their first matches unless they picked a level themselves
+	if not bool(Game.settings.get("landing_hint_set", false)) and Game.profile != null and not Game.profile.flags.get("tutorial_done", false) 			and int(Game.profile.stats.get("matches", 0)) < 3:
+		level = 2
+	if Game.main != null and Game.main.dev.has("hintlevel"):
+		level = int(Game.main.dev["hintlevel"])
+	for h in humans:
+		var m := _mark(h)
+		var want := 0.0
+		var pos := Vector3.ZERO
+		var tleft := 99.0
+		var mine := false
+		var out := false
+		if level > 0 and director != null and ball != null and ball.live and not ball.floor_touched 				and director.phase == MatchDirector.P.RALLY and ball.age > 0.08:
+			var plan: Dictionary = director.plans[h.team]
+			if plan.get("mode") == "play" and plan.get("who") != null:
+				mine = plan["who"] == h
+				pos = plan["pos"]
+				tleft = float(plan["t"])
+				if mine or level == 2:
+					want = 1.0 if mine else 0.38
+				if tleft < 0.1:
+					want = 0.0
+				var l := ball.predict_landing()
+				if not l.is_empty():
+					out = not Court.in_court(l["pos"], 0.0)
+		m["a"] = move_toward(float(m["a"]), want, dt * (7.0 if want > 0.0 else 12.0))
+		var node: MeshInstance3D = m["node"]
+		var mat: ShaderMaterial = m["mat"]
+		var a: float = m["a"]
+		node.visible = a > 0.01
+		if not node.visible:
+			continue
+		node.global_position = Vector3(pos.x, 0.026, pos.z)
+		if mine and not _mark_shot_done and Game.main != null and Game.main.dev.has("markshot") and a > 0.95 				and Vector2(pos.x - h.global_position.x, pos.z - h.global_position.z).length() > 2.2:
+			_mark_shot_done = true
+			await get_tree().process_frame
+			get_viewport().get_texture().get_image().save_png(str(Game.main.dev["markshot"]))
+			get_tree().quit()
+		var base := 1.7 if mine else 1.25
+		node.scale = Vector3(base, base, 1.0)
+		var col := Color(1.0, 0.46, 0.38) if out else (Color(1, 1, 1) if mine else Color(0.85, 0.95, 1.0))
+		mat.set_shader_parameter("ring_color", Color(col.r, col.g, col.b, a * (0.95 if mine else 0.8)))
+		# the inner ring closes in on the target as the ball comes down (1.2 s -> contact)
+		var closing := clampf(tleft / 1.2, 0.0, 1.0)
+		mat.set_shader_parameter("inner", lerpf(0.3, 0.86, closing) if (mine and level == 2) else 2.0)
+		mat.set_shader_parameter("fill_alpha", 0.16 if mine else 0.06)
+
+
+func _mark(h: Athlete) -> Dictionary:
+	if not _marks.has(h):
+		var grad: Texture2D = load("res://assets/env/ring_gradient.png")
+		var n := _make_ring(Color(1, 1, 1, 0.9), 0.0, grad)
+		var mat: ShaderMaterial = n.material_override
+		mat.set_shader_parameter("rainbow", 0.0)
+		mat.set_shader_parameter("width", 0.12)
+		mat.set_shader_parameter("halo_strength", 0.8)
+		n.visible = false
+		add_child(n)
+		_marks[h] = {"node": n, "mat": mat, "a": 0.0}
+	return _marks[h]
 
 
 func show_aim(p) -> void:

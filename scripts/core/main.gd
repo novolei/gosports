@@ -41,12 +41,39 @@ func _ready() -> void:
 	if dev.has("quality"):
 		Game.settings["quality"] = int(dev["quality"])
 		Game.apply_settings()
+	if dev.has("lang"):
+		Loc.apply(String(dev["lang"]))
 	var first: String = dev.get("screen", "menu")
+	if dev.has("audit"):
+		_audit_after(int(dev["audit"]))
 	_show(first, {})
 	if dev.has("shot"):
 		_capture_and_quit()
 	if dev.has("burst"):
 		_burst_capture()
+
+
+## dev: --lang=en --audit=<frames>  prints every Control text that still contains Chinese after translation, then quits
+func _audit_after(frames: int) -> void:
+	for i in frames:
+		await get_tree().process_frame
+	var cjk := RegEx.new()
+	cjk.compile("[\u4e00-\u9fff]")
+	var seen := {}
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var t := ""
+		if n is Label or n is Button or n is RichTextLabel:
+			t = String(n.get("text"))
+		if t != "" and cjk.search(TranslationServer.translate(t)) != null and not seen.has(t):
+			seen[t] = true
+			print("[audit] ", TranslationServer.translate(t).replace("
+", " | "))
+	print("[audit] done, leftovers=", seen.size())
+	get_tree().quit()
 
 
 func goto(screen: String, data := {}) -> void:
@@ -58,10 +85,33 @@ func goto(screen: String, data := {}) -> void:
 	await t.finished
 	get_tree().paused = false
 	Engine.time_scale = Game.base_time_scale
+	var card: LoadingCard = null
+	var t_card := Time.get_ticks_msec()
+	if screen == "match" and not dev.has("noloading") and not dev.has("autoplay") and not dev.has("shot") and not dev.has("burst"):
+		card = LoadingCard.new().build()
+		_fade_layer.add_child(card)
+		card.modulate.a = 0.0
+		var tw_card := create_tween()
+		tw_card.tween_property(card, "modulate:a", 1.0, 0.18)
+		await tw_card.finished
+		_fade.color.a = 0.0                  # the card covers the screen now
+		if dev.has("loadshot"):
+			await get_tree().create_timer(0.5).timeout
+			get_viewport().get_texture().get_image().save_png(str(dev["loadshot"]))
+			get_tree().quit()
 	_show(screen, data)
-	var t2 := create_tween()
-	t2.tween_property(_fade, "color:a", 0.0, 0.3)
-	await t2.finished
+	if card != null:
+		var left := 1.5 - float(Time.get_ticks_msec() - t_card) / 1000.0      # keep the tip readable for a moment
+		if left > 0.0:
+			await get_tree().create_timer(left).timeout
+		var tc := create_tween()
+		tc.tween_property(card, "modulate:a", 0.0, 0.3)
+		await tc.finished
+		card.queue_free()
+	else:
+		var t2 := create_tween()
+		t2.tween_property(_fade, "color:a", 0.0, 0.3)
+		await t2.finished
 	_busy = false
 
 

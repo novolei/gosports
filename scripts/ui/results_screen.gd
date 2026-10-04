@@ -21,6 +21,14 @@ var _tick_acc := 0.0
 var _last_xp := 0
 var _again: Button
 
+# dark scoreboard palette (light text on a deep teal board instead of a white web card)
+const T := Color(0.96, 0.98, 1.0)         # primary text
+const T2 := Color(0.62, 0.78, 0.88)       # secondary text
+const ACC := Color("ffe14a")              # accent / headings
+const GOOD := Color("7dffb0")             # positive values
+const BOARD := Color(0.06, 0.2, 0.32, 0.9)
+const TRACK := Color(0.02, 0.1, 0.18, 0.55)
+
 
 ## dev preview (--screen=results): a made-up finished match with a reward computed on a throw-away profile
 func _demo_data() -> Dictionary:
@@ -110,16 +118,20 @@ func _prepare_tournament(data: Dictionary, winner: int) -> void:
 
 
 # ------------------------------------------------------------------ layout
-func _panel(pos: Vector2, size: Vector2, col := Color(1, 1, 1, 0.93)) -> Panel:
-	var p := Panel.new()
-	p.position = pos
-	p.size = size
-	p.add_theme_stylebox_override("panel", UIKit.style_box(col, 40, 0, Color.WHITE, 14))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return p
+func _panel(pos: Vector2, size: Vector2, col := BOARD) -> Control:
+	var b := GW.board(size, col, Color(1, 1, 1, 0.9), 0.02)
+	b.position = pos
+	return b
 
 
-func _lbl(parent: Control, text: String, pos: Vector2, size: Vector2, fsize := 28, col := UIKit.INK, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0, ocol := Color.WHITE) -> Label:
+## small slanted section ribbon (replaces bold heading text)
+func _sec(parent: Control, text: String, pos: Vector2, width := 250.0) -> void:
+	var r := GW.ribbon(text, width, 56.0, UIKit.TEAL, 30)
+	r.position = pos
+	parent.add_child(r)
+
+
+func _lbl(parent: Control, text: String, pos: Vector2, size: Vector2, fsize := 28, col := T, align := HORIZONTAL_ALIGNMENT_LEFT, outline := 0, ocol := Color.WHITE) -> Label:
 	var l := UIKit.label(text, fsize, col, outline, ocol, align)
 	l.position = pos
 	l.size = size
@@ -156,8 +168,9 @@ func _build_ui(data: Dictionary, winner: int) -> void:
 	head.size = Vector2(1000, 170)
 	_root.add_child(head)
 	UIKit.pop_in(head, 0.3, 0.5)
+	# the three section titles of the board are ribbons, not bold text
 	# big card on the right
-	var card := _panel(Vector2(880, 178), Vector2(980, 724))
+	var card := _panel(Vector2(880, 178), Vector2(980, 770))
 	_root.add_child(card)
 	_build_reward_column(card)
 	_build_info_column(card, data, mode, practice)
@@ -167,18 +180,18 @@ func _build_ui(data: Dictionary, winner: int) -> void:
 
 
 func _build_reward_column(card: Control) -> void:
-	_lbl(card, "获得经验", Vector2(34, 18), Vector2(300, 46), 36)
+	_sec(card, "获得经验", Vector2(24, 16))
 	if _reward.is_empty():
-		_lbl(card, "（本次不计入成长记录）", Vector2(34, 80), Vector2(420, 40), 24, Color(0.45, 0.5, 0.62))
+		_lbl(card, "（本次不计入成长记录）", Vector2(34, 80), Vector2(420, 40), 24, T2)
 		return
-	var y := 74.0
+	var y := 84.0
 	for ln in _reward["lines"]:
 		var row := Control.new()
 		row.position = Vector2(34, y)
 		row.size = Vector2(430, 34)
 		card.add_child(row)
-		_lbl(row, String(ln["name"]), Vector2(0, 0), Vector2(310, 34), 25, UIKit.INK)
-		_lbl(row, "+%d" % int(ln["value"]), Vector2(310, 0), Vector2(120, 34), 27, Color(0.15, 0.55, 0.3), HORIZONTAL_ALIGNMENT_RIGHT)
+		_lbl(row, String(ln["name"]), Vector2(0, 0), Vector2(310, 34), 25, T)
+		_lbl(row, "+%d" % int(ln["value"]), Vector2(310, 0), Vector2(120, 34), 27, GOOD, HORIZONTAL_ALIGNMENT_RIGHT)
 		row.modulate.a = 0.0
 		_rows.append(row)
 		y += 36.0
@@ -206,7 +219,7 @@ func _build_reward_column(card: Control) -> void:
 	_total_label = _lbl(card, "+%d XP" % int(_reward["xp"]), Vector2(34, ty), Vector2(430, 70), 56, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, 12, Color("e0902a"))
 	_total_label.modulate.a = 0.0
 	var extra := int(_reward.get("bonus_xp", 0))
-	_bonus_label = _lbl(card, ("成就 / 任务 / 奖励  +%d XP" % extra) if extra > 0 else "", Vector2(34, ty + 68.0), Vector2(430, 30), 22, Color(0.85, 0.45, 0.1))
+	_bonus_label = _lbl(card, ("成就 / 任务 / 奖励  +%d XP" % extra) if extra > 0 else "", Vector2(34, ty + 68.0), Vector2(430, 30), 22, ACC)
 	_bonus_label.modulate.a = 0.0
 	# level bar
 	var ly := ty + 108.0
@@ -219,15 +232,15 @@ func _build_reward_column(card: Control) -> void:
 	_lv_circle = UIKit.label("", 40, Color.WHITE, 8, Color(0.05, 0.25, 0.5))
 	_lv_circle.set_anchors_preset(Control.PRESET_FULL_RECT)
 	circ.add_child(_lv_circle)
-	_lv_title = _lbl(card, "", Vector2(142, ly - 2.0), Vector2(320, 36), 26, UIKit.INK)
+	_lv_title = _lbl(card, "", Vector2(142, ly - 2.0), Vector2(320, 36), 26, T)
 	_bar = ProgressBar.new()
 	_bar.position = Vector2(142, ly + 40.0)
 	_bar.size = Vector2(318, 26)
 	_bar.show_percentage = false
-	_bar.add_theme_stylebox_override("background", UIKit.style_box(Color(0.82, 0.86, 0.94), 13))
+	_bar.add_theme_stylebox_override("background", UIKit.style_box(TRACK, 13, 2, Color(1, 1, 1, 0.5)))
 	_bar.add_theme_stylebox_override("fill", UIKit.style_box(Color("ffb02e"), 13))
 	card.add_child(_bar)
-	_bar_text = _lbl(card, "", Vector2(142, ly + 66.0), Vector2(318, 28), 20, Color(0.4, 0.45, 0.6), HORIZONTAL_ALIGNMENT_RIGHT)
+	_bar_text = _lbl(card, "", Vector2(142, ly + 66.0), Vector2(318, 28), 20, T2, HORIZONTAL_ALIGNMENT_RIGHT)
 	var start_total := int(_reward["total_xp"]) - int(_reward["xp"]) - int(_reward.get("bonus_xp", 0))
 	_last_xp = start_total
 	_shown_level = int(Profile.level_info(start_total)["level"])
@@ -237,8 +250,8 @@ func _build_reward_column(card: Control) -> void:
 	var uy := ly + 116.0
 	var unlocks: Array = _reward["unlocks"]
 	if not unlocks.is_empty():
-		_lbl(card, "新解锁", Vector2(34, uy - 4.0), Vector2(200, 34), 26, Color(0.85, 0.45, 0.1))
-		uy += 34.0
+		_sec(card, "新解锁", Vector2(24, uy - 10.0), 190.0)
+		uy += 54.0
 	var shown := 0
 	for u in unlocks:
 		if shown >= 3:
@@ -247,7 +260,7 @@ func _build_reward_column(card: Control) -> void:
 		var uc := Panel.new()
 		uc.position = Vector2(ux, uy)
 		uc.size = Vector2(140, 104)
-		uc.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.95, 0.97, 1.0), 22, 3, it.get("swatch", Color.WHITE), 6))
+		uc.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.12, 0.3, 0.44, 0.95), 22, 3, it.get("swatch", Color.WHITE), 6))
 		uc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(uc)
 		var sw := Panel.new()
@@ -256,8 +269,8 @@ func _build_reward_column(card: Control) -> void:
 		sw.add_theme_stylebox_override("panel", UIKit.style_box(it.get("swatch", Color.WHITE), 20, 3, Color.WHITE, 3))
 		uc.add_child(sw)
 		var kn := {"trail": "拖尾", "ball": "球", "court": "球场"}
-		_lbl(uc, String(u["name"]), Vector2(0, 50), Vector2(140, 30), 22, UIKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
-		_lbl(uc, "%s · Lv.%d" % [kn.get(String(u["kind"]), ""), int(u["level"])], Vector2(0, 76), Vector2(140, 26), 18, Color(0.45, 0.5, 0.62), HORIZONTAL_ALIGNMENT_CENTER)
+		_lbl(uc, String(u["name"]), Vector2(0, 50), Vector2(140, 30), 22, T, HORIZONTAL_ALIGNMENT_CENTER)
+		_lbl(uc, "%s · Lv.%d" % [kn.get(String(u["kind"]), ""), int(u["level"])], Vector2(0, 76), Vector2(140, 26), 18, T2, HORIZONTAL_ALIGNMENT_CENTER)
 		uc.modulate.a = 0.0
 		uc.set_meta("level", int(u["level"]))
 		_unlock_cards.append(uc)
@@ -271,39 +284,39 @@ func _build_info_column(card: Control, data: Dictionary, mode: String, practice:
 		_build_practice_stats(card, data, x0)
 	else:
 		_build_match_stats(card, data, x0)
-	var y := 318.0
-	_lbl(card, "本场成就", Vector2(x0, y), Vector2(300, 38), 30)
-	y += 42.0
+	var y := 340.0
+	_sec(card, "本场成就", Vector2(x0 - 10.0, y - 6.0), 250.0)
+	y += 56.0
 	var achs: Array = _reward.get("achievements", [])
 	if achs.is_empty():
-		_lbl(card, "—", Vector2(x0, y), Vector2(300, 34), 24, Color(0.55, 0.6, 0.7))
+		_lbl(card, "—", Vector2(x0, y), Vector2(300, 34), 24, T2)
 		y += 38.0
 	for a in achs:
-		if y > 450.0:
+		if y > 490.0:
 			break
 		var b := _StarBadge.new()
 		b.position = Vector2(x0, y)
 		b.size = Vector2(38, 38)
 		card.add_child(b)
-		_lbl(card, "%s  +%d" % [a["name"], int(a.get("xp", 0))], Vector2(x0 + 48.0, y), Vector2(380, 38), 24, UIKit.INK)
+		_lbl(card, "%s  +%d" % [a["name"], int(a.get("xp", 0))], Vector2(x0 + 48.0, y), Vector2(380, 38), 24, T)
 		y += 38.0
-	y = max(y + 6.0, 470.0)
-	_lbl(card, "今日任务", Vector2(x0, y), Vector2(300, 38), 30)
-	y += 42.0
+	y = max(y + 18.0, 520.0)
+	_sec(card, "今日任务", Vector2(x0 - 10.0, y - 6.0), 250.0)
+	y += 56.0
 	for m in Game.profile.daily["list"] if Game.profile != null else []:
 		var done: bool = m["done"]
-		_lbl(card, String(m["text"]), Vector2(x0, y), Vector2(330, 30), 22, Color(0.4, 0.45, 0.58) if done else UIKit.INK)
+		_lbl(card, String(m["text"]), Vector2(x0, y), Vector2(330, 30), 22, T2 if done else T)
 		var pb := ProgressBar.new()
 		pb.position = Vector2(x0, y + 30.0)
 		pb.size = Vector2(300, 12)
 		pb.show_percentage = false
 		pb.max_value = float(m["goal"])
 		pb.value = minf(float(m["progress"]), float(m["goal"]))
-		pb.add_theme_stylebox_override("background", UIKit.style_box(Color(0.84, 0.88, 0.95), 6))
+		pb.add_theme_stylebox_override("background", UIKit.style_box(TRACK, 6))
 		pb.add_theme_stylebox_override("fill", UIKit.style_box(Color("4fd16b") if done else UIKit.BLUE, 6))
 		card.add_child(pb)
-		_lbl(card, "已完成" if done else "%d/%d" % [int(m["progress"]), int(m["goal"])], Vector2(x0 + 310.0, y + 20.0), Vector2(120, 30), 20, Color(0.2, 0.6, 0.35) if done else Color(0.4, 0.45, 0.6), HORIZONTAL_ALIGNMENT_RIGHT)
-		y += 56.0
+		_lbl(card, "已完成" if done else "%d/%d" % [int(m["progress"]), int(m["goal"])], Vector2(x0 + 310.0, y + 20.0), Vector2(120, 30), 20, GOOD if done else T2, HORIZONTAL_ALIGNMENT_RIGHT)
+		y += 54.0
 
 
 func _build_match_stats(card: Control, data: Dictionary, x0: float) -> void:
@@ -314,7 +327,7 @@ func _build_match_stats(card: Control, data: Dictionary, x0: float) -> void:
 	sr.size = Vector2(430, 100)
 	card.add_child(sr)
 	_lbl(sr, str(score[0]), Vector2(0, 0), Vector2(170, 100), 84, UIKit.BLUE, HORIZONTAL_ALIGNMENT_RIGHT, 12, UIKit.INK)
-	_lbl(sr, ":", Vector2(170, 0), Vector2(90, 100), 70, UIKit.INK, HORIZONTAL_ALIGNMENT_CENTER)
+	_lbl(sr, ":", Vector2(170, 0), Vector2(90, 100), 70, T, HORIZONTAL_ALIGNMENT_CENTER)
 	_lbl(sr, str(score[1]), Vector2(260, 0), Vector2(170, 100), 84, UIKit.PINK, HORIZONTAL_ALIGNMENT_LEFT, 12, UIKit.INK)
 	var rows := [
 		["最长回合", "%d 次触球" % int(stats.get("longest", 0))],
@@ -328,27 +341,27 @@ func _build_match_stats(card: Control, data: Dictionary, x0: float) -> void:
 	var y := 120.0
 	for r in rows:
 		_lbl(card, r[0], Vector2(x0, y), Vector2(220, 34), 25)
-		_lbl(card, r[1], Vector2(x0 + 200.0, y), Vector2(230, 34), 25, Color(0.25, 0.3, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
+		_lbl(card, r[1], Vector2(x0 + 200.0, y), Vector2(230, 34), 25, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
 		y += 32.0
 
 
 func _build_practice_stats(card: Control, data: Dictionary, x0: float) -> void:
 	var pr: Dictionary = data["practice"]
 	if pr.get("mode", "rally") == "rally":
-		_lbl(card, "最长回合", Vector2(x0, 14), Vector2(430, 40), 30, Color(0.3, 0.35, 0.5))
+		_lbl(card, "最长回合", Vector2(x0, 14), Vector2(430, 40), 30, ACC)
 		_lbl(card, "%d" % int(pr["best"]), Vector2(x0, 50), Vector2(250, 100), 90, UIKit.BLUE, HORIZONTAL_ALIGNMENT_LEFT, 12, UIKit.INK)
-		_lbl(card, "次触球", Vector2(x0 + 190.0, 100), Vector2(160, 40), 28, Color(0.3, 0.35, 0.5))
+		_lbl(card, "次触球", Vector2(x0 + 190.0, 100), Vector2(160, 40), 28, T2)
 		var mr := HUD_MedalRowProxy.new()
 		mr.position = Vector2(x0, 150)
 		mr.size = Vector2(440, 70)
 		mr.best = int(pr["best"])
 		card.add_child(mr)
 		_lbl(card, "回合数", Vector2(x0, 240), Vector2(220, 34), 25)
-		_lbl(card, "%d" % int(pr["rallies"]), Vector2(x0 + 200.0, 240), Vector2(230, 34), 25, Color(0.25, 0.3, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
+		_lbl(card, "%d" % int(pr["rallies"]), Vector2(x0 + 200.0, 240), Vector2(230, 34), 25, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
 		_lbl(card, "累计触球", Vector2(x0, 276), Vector2(220, 34), 25)
-		_lbl(card, "%d" % int(pr["total"]), Vector2(x0 + 200.0, 276), Vector2(230, 34), 25, Color(0.25, 0.3, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
+		_lbl(card, "%d" % int(pr["total"]), Vector2(x0 + 200.0, 276), Vector2(230, 34), 25, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
 	else:
-		_lbl(card, "教学清单", Vector2(x0, 14), Vector2(430, 40), 30, Color(0.3, 0.35, 0.5))
+		_lbl(card, "教学清单", Vector2(x0, 14), Vector2(430, 40), 30, ACC)
 		var y := 62.0
 		for it in TrainingCoach.ITEMS:
 			_lbl(card, "· " + String(it["text"]), Vector2(x0, y), Vector2(440, 34), 23)
@@ -357,7 +370,7 @@ func _build_practice_stats(card: Control, data: Dictionary, x0: float) -> void:
 
 func _build_buttons(mode: String, winner: int) -> void:
 	var row := HBoxContainer.new()
-	row.position = Vector2(880, 918)
+	row.position = Vector2(880, 962)
 	row.size = Vector2(980, 90)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 20)
@@ -484,4 +497,4 @@ class HUD_MedalRowProxy:
 			draw_circle(c + Vector2(0, 3), 26.0, Color(0, 0, 0, 0.18))
 			draw_circle(c, 26.0, Color.WHITE)
 			draw_circle(c, 22.0, m["color"] if got else Color(0.8, 0.83, 0.9, 0.9))
-			draw_string(font, c + Vector2(-60.0, 58.0), "%s %d" % [m["name"], int(m["goal"])], HORIZONTAL_ALIGNMENT_CENTER, 120.0, 20, Color(0.25, 0.3, 0.45))
+			draw_string(font, c + Vector2(-60.0, 58.0), "%s %d" % [Loc.t(String(m["name"])), int(m["goal"])], HORIZONTAL_ALIGNMENT_CENTER, 120.0, 20, T)

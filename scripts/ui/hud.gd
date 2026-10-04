@@ -2,7 +2,6 @@ extends CanvasLayer
 ## In-match HUD: Switch-Sports-style scoreboard, serve bubble, "next action" hint, popups, banners,
 ## pause menu and touch controls.
 
-const KEY_HINT_PC := "WASD移动  J/左键 击球  K/右键 跳跃  L 扑救  鼠标瞄准  Esc 暂停"
 
 var ms: MatchScene
 var director: MatchDirector
@@ -16,6 +15,7 @@ var popup_layer: Control
 var banner: Label
 var hint_panel: PanelContainer
 var hint_lbl: Label
+var hint_pre: Label
 var hint_sub: Label
 var serve_bubble: Control
 var serve_pill: Panel
@@ -156,7 +156,7 @@ func _build_scoreboard() -> void:
 		# long tapering bar behind the avatars, the score sits near its end
 		var p := _ScoreBar.new()
 		p.position = Vector2(64, 14)
-		p.size = Vector2(370, 62)
+		p.size = Vector2(312, 62)
 		p.col = col
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(p)
@@ -177,13 +177,13 @@ func _build_scoreboard() -> void:
 			nm.add_child(l)
 		# small ball marks the serving team
 		var ic := _BallIcon.new()
-		ic.position = Vector2(212, 24)
+		ic.position = Vector2(184, 24)
 		ic.size = Vector2(42, 42)
 		ic.visible = false
 		row.add_child(ic)
 		serve_icon.append(ic)
 		var sc := UIKit.label("0", 84, Color.WHITE, 16, UIKit.team_dark(t))
-		sc.position = Vector2(318, -4)
+		sc.position = Vector2(262, -4)
 		sc.size = Vector2(110, 96)
 		sc.pivot_offset = Vector2(55, 48)
 		sc.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.25))
@@ -270,6 +270,10 @@ class _BallIcon:
 func _refresh_score(animate := true) -> void:
 	for t in 2:
 		score_lbl[t].text = str(director.score[t])
+		# match point: the leader's numeral turns gold (like the reference scoreboard)
+		var mp: bool = director.target_points < 9000 and int(director.score[t]) >= director.target_points - 1 and int(director.score[t]) > int(director.score[1 - t])
+		score_lbl[t].add_theme_color_override("font_color", Color("ffe14a") if mp else Color.WHITE)
+		score_lbl[t].add_theme_color_override("font_outline_color", Color("b8730a") if mp else UIKit.team_dark(t))
 		serve_icon[t].visible = director.serving_team == t
 		if animate and _last_score[t] != director.score[t]:
 			var l := score_lbl[t]
@@ -304,8 +308,15 @@ func _build_hint() -> void:
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(vb)
-	hint_lbl = UIKit.label("", 54, Color("c8fff0"), 14, Color("17806f"))
-	vb.add_child(hint_lbl)
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 10)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(line)
+	hint_pre = UIKit.label("", 34, Color("8fe9d2"), 10, Color("17806f"))
+	line.add_child(hint_pre)
+	hint_lbl = UIKit.label("", 62, Color("c8fff0"), 14, Color("17806f"))
+	line.add_child(hint_lbl)
 	hint_sub = UIKit.label("", 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.9))
 	vb.add_child(hint_sub)
 	hint_panel.modulate.a = 0.0
@@ -749,6 +760,9 @@ func _update_timing_ring(dt: float) -> void:
 ## flame icon + pill gauge: fills with the team's excitement, shows the remaining time during fever
 class _HypeBar:
 	extends Control
+	var _sb_track := StyleBoxFlat.new()
+	var _sb_fill := StyleBoxFlat.new()
+	var _sb_gloss := StyleBoxFlat.new()
 	var value := 0.0
 	var fever := 0.0                  # 0 = not in fever, else 0..1 = fraction of fever time left
 	var _t := 0.0
@@ -774,19 +788,34 @@ class _HypeBar:
 		var x0 := h * 0.95
 		var w := size.x - x0
 		var r := h * 0.5 - 2.0
-		# gauge background + fill
-		var bg := Rect2(Vector2(x0, h * 0.18), Vector2(w, h * 0.64))
-		draw_rect(bg, Color(0.04, 0.1, 0.2, 0.55), true, -1.0)
-		var frac := fever if in_fever else value
-		var fill := Rect2(bg.position + Vector2(2, 2), Vector2((bg.size.x - 4.0) * clampf(frac, 0.0, 1.0), bg.size.y - 4.0))
-		var c0 := Color("ffd24a")
-		var c1 := Color("ff6a2a")
-		var col := c0.lerp(c1, clampf(frac, 0.0, 1.0))
-		if in_fever:
-			col = col.lightened(0.15 * pulse)
-		draw_rect(fill, col, true, -1.0)
-		draw_rect(Rect2(fill.position, Vector2(fill.size.x, fill.size.y * 0.42)), Color(1, 1, 1, 0.22), true, -1.0)
-		draw_rect(bg, Color(1, 1, 1, 0.85), false, 2.5)
+		# gauge: a rounded pill with a glossy gradient fill and a spark at the tip (same language as the score bars)
+		var bh := h * 0.5
+		var bg := Rect2(Vector2(x0, (h - bh) * 0.5), Vector2(w, bh))
+		_sb_track.set_corner_radius_all(int(bh * 0.5))
+		_sb_track.bg_color = Color(0.04, 0.12, 0.24, 0.62)
+		_sb_track.set_border_width_all(3)
+		_sb_track.border_color = Color(1, 1, 1, 0.92)
+		_sb_track.shadow_size = 6
+		_sb_track.shadow_color = Color(0, 0, 0, 0.25)
+		_sb_track.shadow_offset = Vector2(0, 3)
+		draw_style_box(_sb_track, bg)
+		var frac := clampf(fever if in_fever else value, 0.0, 1.0)
+		if frac > 0.004:
+			var fw := maxf((bg.size.x - 8.0) * frac, bh - 8.0)
+			var fill := Rect2(bg.position + Vector2(4, 4), Vector2(fw, bh - 8.0))
+			var col := Color("ffd24a").lerp(Color("ff6a2a"), frac)
+			if in_fever:
+				col = col.lightened(0.15 * pulse)
+			_sb_fill.set_corner_radius_all(int((bh - 8.0) * 0.5))
+			_sb_fill.bg_color = col
+			_sb_fill.anti_aliasing = true
+			draw_style_box(_sb_fill, fill)
+			_sb_gloss.set_corner_radius_all(int((bh - 8.0) * 0.25))
+			_sb_gloss.bg_color = Color(1, 1, 1, 0.3)
+			draw_style_box(_sb_gloss, Rect2(fill.position + Vector2(6, 2), Vector2(maxf(fill.size.x - 12.0, 2.0), fill.size.y * 0.38)))
+			if in_fever or frac > 0.5:
+				var tip := fill.position + Vector2(fill.size.x - 3.0, fill.size.y * 0.5)
+				draw_circle(tip, 5.0 + 3.0 * pulse, Color(1, 1, 0.85, 0.45 + 0.4 * pulse))
 		# flame
 		var base := Color("ff7a2e") if not in_fever else Color("ffb02e")
 		var f := flame(Vector2(h * 0.5, h * 0.52), r * (1.0 + 0.1 * pulse * (1.0 if in_fever else 0.0)), base, Color("fff0a0"))
@@ -885,7 +914,7 @@ class _MedalRow:
 			draw_circle(c, 20.0, col if got else Color(0.8, 0.83, 0.9, 0.9))
 			if got:
 				draw_circle(c + Vector2(-6.0, -6.0), 7.0, Color(1, 1, 1, 0.45))
-			draw_string(font, c + Vector2(-22.0, 54.0), "%d" % int(m["goal"]), HORIZONTAL_ALIGNMENT_CENTER, 44.0, 22, Color(0.2, 0.25, 0.4))
+			draw_string(font, c + Vector2(-22.0, 54.0), "%d" % int(m["goal"]), HORIZONTAL_ALIGNMENT_CENTER, 44.0, 22, Color(0.9, 0.96, 1.0))
 
 
 class _Check:
@@ -904,7 +933,7 @@ class _Check:
 
 
 var scoreboard_holder: Control
-var _pr_panel: Panel
+var _pr_panel: Control
 var _pr_cur: Label
 var _pr_best: Label
 var _pr_hearts: _Hearts
@@ -926,39 +955,36 @@ func _build_practice() -> void:
 	var inset: Dictionary = Game.safe_insets()
 	var pos := Vector2(30.0 + float(inset["l"]), 24.0 + float(inset["t"]))
 	if director.mode_rules == "rally":
-		_pr_panel = Panel.new()
+		_pr_panel = GW.board(Vector2(440, 258), Color(0.06, 0.2, 0.32, 0.88), Color(1, 1, 1, 0.9), 0.045)
 		_pr_panel.position = pos
-		_pr_panel.size = Vector2(430, 214)
-		_pr_panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.92), 36, 0, Color.WHITE, 12))
-		_pr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root_c.add_child(_pr_panel)
-		_pr_title = UIKit.label("回合挑战", 28, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		_pr_title.position = Vector2(26, 10)
+		_pr_title = UIKit.label("回合挑战", 28, Color("8fe9d2"), 6, Color(0.02, 0.1, 0.2, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+		_pr_title.position = Vector2(44, 12)
 		_pr_title.size = Vector2(220, 40)
 		_pr_panel.add_child(_pr_title)
-		_pr_cur = UIKit.label("0", 92, UIKit.BLUE, 14, UIKit.INK, HORIZONTAL_ALIGNMENT_LEFT)
-		_pr_cur.position = Vector2(26, 38)
+		_pr_cur = UIKit.label("0", 92, Color.WHITE, 14, Color(0.1, 0.35, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+		_pr_cur.position = Vector2(44, 40)
 		_pr_cur.size = Vector2(190, 100)
 		_pr_panel.add_child(_pr_cur)
-		var unit := UIKit.label("次触球", 24, Color(0.3, 0.35, 0.5), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		unit.position = Vector2(142, 92)
+		var unit := UIKit.label("次触球", 24, Color(0.75, 0.88, 0.95), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		unit.position = Vector2(162, 94)
 		unit.size = Vector2(120, 34)
 		_pr_panel.add_child(unit)
 		_pr_hearts = _Hearts.new()
-		_pr_hearts.position = Vector2(250, 20)
+		_pr_hearts.position = Vector2(262, 22)
 		_pr_hearts.size = Vector2(160, 44)
 		_pr_hearts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_pr_panel.add_child(_pr_hearts)
-		_pr_best = UIKit.label("最佳 0", 28, Color(0.9, 0.45, 0.1), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		_pr_best.position = Vector2(250, 76)
+		_pr_best = UIKit.label("最佳 0", 28, Color("ffe14a"), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		_pr_best.position = Vector2(262, 80)
 		_pr_best.size = Vector2(170, 40)
 		_pr_panel.add_child(_pr_best)
 		_pr_medals = _MedalRow.new()
-		_pr_medals.position = Vector2(24, 140)
+		_pr_medals.position = Vector2(40, 140)
 		_pr_medals.size = Vector2(380, 70)
 		_pr_medals.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_pr_panel.add_child(_pr_medals)
-		hype_bar.position = Vector2(pos.x + 4.0, pos.y + 236.0)
+		hype_bar.position = Vector2(pos.x + 4.0, pos.y + 268.0)
 		director.practice_rally_over.connect(_on_practice_rally_over)
 	elif director.mode_rules == "training" and ms.coach != null:
 		_build_tutorial_ui()
@@ -1034,7 +1060,7 @@ func _refresh_coach() -> void:
 	var cur := coach.current()
 	if cur.is_empty():
 		_co_title.text = "全部完成"
-		_co_tip_rich.text = "[color=#e0307f]教学完成![/color]  马上结算奖励…"
+		_co_tip_rich.text = Loc.t("[color=#e0307f]教学完成![/color]  马上结算奖励…")
 		_co_step.text = "毕业!"
 		for ck in _co_rows:
 			(ck as _Check).on = true
@@ -1042,7 +1068,7 @@ func _refresh_coach() -> void:
 		_co_count.text = ""
 		return
 	_co_title.text = String(cur["title"])
-	_co_tip_rich.text = String(cur["tip"]).replace("[b]", "[color=#e0307f]").replace("[/b]", "[/color]")
+	_co_tip_rich.text = Loc.t(String(cur["tip"])).replace("[b]", "[color=#e0307f]").replace("[/b]", "[/color]")
 	_co_step.text = "%s!" % cur["title"]
 	var need := int(cur["need"])
 	var have := coach.count_of(String(cur["id"]))
@@ -1102,6 +1128,11 @@ func _build_pause_button() -> void:
 	root_c.add_child(b)
 
 
+var _pause_main: Control
+var _pause_sub: Control
+
+
+## pause menu in the reference game's style: no panel, just a blurred picture, a heading and a stack of pills
 func _build_pause_menu() -> void:
 	pause_root = Control.new()
 	pause_root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1109,75 +1140,99 @@ func _build_pause_menu() -> void:
 	pause_root.process_mode = Node.PROCESS_MODE_ALWAYS
 	root_c.add_child(pause_root)
 	var dim := ColorRect.new()
-	dim.color = Color(0.05, 0.1, 0.25, 0.55)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var blur := ShaderMaterial.new()
+	blur.shader = load("res://shaders/ui_blur.gdshader")
+	dim.material = blur
 	pause_root.add_child(dim)
-	var c := CenterContainer.new()
-	c.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pause_root.add_child(c)
-	var pn := UIKit.panel(Color(1, 1, 1, 0.96), 44)
-	c.add_child(pn)
+	# ---- main page
+	_pause_main = Control.new()
+	_pause_main.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_root.add_child(_pause_main)
+	var rb := GW.ribbon("暂停", 460.0, 96.0, UIKit.TEAL, 60)
+	rb.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	rb.position = Vector2(-230, 150)
+	_pause_main.add_child(rb)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 16)
-	pn.add_child(vb)
-	vb.add_child(UIKit.label("暂停", 54, UIKit.INK))
-	var resume := UIKit.button("继续比赛", Vector2(420, 72), UIKit.GREEN)
+	vb.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	vb.position = Vector2(-280, 290)
+	_pause_main.add_child(vb)
+	var resume := UIKit.button("继续比赛", Vector2(560, 84), UIKit.GREEN, 40)
+	resume.name = "Resume"
 	resume.pressed.connect(func(): ms.toggle_pause())
 	vb.add_child(resume)
-	var sw := _slider_row("音乐", "music")
-	vb.add_child(sw)
-	vb.add_child(_slider_row("音效", "sfx"))
-	var assist := CheckButton.new()
-	assist.text = " 自动跑位辅助"
-	assist.button_pressed = Game.settings["assist"]
-	assist.add_theme_font_size_override("font_size", 28)
-	assist.add_theme_color_override("font_color", UIKit.INK)
-	assist.toggled.connect(func(v): Game.settings["assist"] = v; Game.save_settings())
-	vb.add_child(assist)
-	var guide := CheckButton.new()
-	guide.text = " 击球时机提示圈"
-	guide.button_pressed = Game.settings["timing_guide"]
-	guide.add_theme_font_size_override("font_size", 28)
-	guide.add_theme_color_override("font_color", UIKit.INK)
-	guide.toggled.connect(func(v): Game.settings["timing_guide"] = v; Game.save_settings())
-	vb.add_child(guide)
-	var cam := UIKit.button("切换镜头 (C)", Vector2(420, 60), UIKit.BLUE, 28)
-	cam.pressed.connect(func(): ms.cam_rig.set_style((ms.cam_rig.style + 1) % 3))
-	vb.add_child(cam)
-	var again := UIKit.button("重新开始本局", Vector2(420, 60), UIKit.YELLOW.darkened(0.1), 28)
+	var again := UIKit.button("重新开始本局", Vector2(560, 76), UIKit.BLUE, 36)
 	again.pressed.connect(func():
 		get_tree().paused = false
 		Game.start_match())
 	vb.add_child(again)
-	var quit := UIKit.button("退出到主菜单", Vector2(420, 66), UIKit.PINK, 30)
+	var settings_btn := UIKit.button("更改比赛设置", Vector2(560, 76), UIKit.BLUE, 36)
+	settings_btn.pressed.connect(func():
+		get_tree().paused = false
+		Game.goto("menu", {"page": "mode"}))
+	vb.add_child(settings_btn)
+	var snd := UIKit.button("声音与提示", Vector2(560, 76), UIKit.BLUE, 36)
+	snd.pressed.connect(func(): _pause_page(true))
+	vb.add_child(snd)
+	var cam := UIKit.button("切换镜头 (C)", Vector2(560, 76), UIKit.BLUE, 36)
+	cam.pressed.connect(func(): ms.cam_rig.set_style((ms.cam_rig.style + 1) % 3))
+	vb.add_child(cam)
+	var quit := UIKit.button("退出到主菜单", Vector2(560, 76), UIKit.BLUE, 36)
 	quit.pressed.connect(func():
 		get_tree().paused = false
 		Game.goto("menu"))
 	vb.add_child(quit)
+	# ---- sound & hints page
+	_pause_sub = Control.new()
+	_pause_sub.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_sub.visible = false
+	pause_root.add_child(_pause_sub)
+	var rb2 := GW.ribbon("声音与提示", 620.0, 96.0, UIKit.TEAL, 56)
+	rb2.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	rb2.position = Vector2(-310, 130)
+	_pause_sub.add_child(rb2)
+	var vb2 := VBoxContainer.new()
+	vb2.add_theme_constant_override("separation", 14)
+	vb2.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	vb2.position = Vector2(-390, 270)
+	_pause_sub.add_child(vb2)
+	vb2.add_child(GW.row_pill("音乐", GW.slider(float(Game.settings["music"]), func(v): Game.settings["music"] = v; Game.apply_settings(), 380.0), 780.0, 74.0, 260.0))
+	vb2.add_child(GW.row_pill("音效", GW.slider(float(Game.settings["sfx"]), func(v): Game.settings["sfx"] = v; Game.apply_settings(), 380.0), 780.0, 74.0, 260.0))
+	vb2.add_child(GW.row_pill("自动跑位辅助", UIKit.toggle_pill(bool(Game.settings["assist"]), func(v): Game.settings["assist"] = v; Game.save_settings()), 780.0, 74.0, 420.0))
+	vb2.add_child(GW.row_pill("击球时机提示圈", UIKit.toggle_pill(bool(Game.settings["timing_guide"]), func(v): Game.settings["timing_guide"] = v; Game.save_settings()), 780.0, 74.0, 420.0))
+	var back := UIKit.button("返回", Vector2(360, 76), UIKit.GREEN, 38)
+	back.name = "SubBack"
+	back.pressed.connect(func(): Game.save_settings(); _pause_page(false))
+	var wrap := CenterContainer.new()
+	wrap.custom_minimum_size = Vector2(780, 90)
+	wrap.add_child(back)
+	vb2.add_child(wrap)
 
 
-func _slider_row(title: String, key: String) -> Control:
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 14)
-	var l := UIKit.label(title, 28, UIKit.INK)
-	l.custom_minimum_size = Vector2(90, 0)
-	h.add_child(l)
-	var s := HSlider.new()
-	s.min_value = 0.0
-	s.max_value = 1.0
-	s.step = 0.05
-	s.value = Game.settings[key]
-	s.custom_minimum_size = Vector2(300, 40)
-	s.value_changed.connect(func(v): Game.settings[key] = v; Game.apply_settings())
-	s.drag_ended.connect(func(_c): Game.save_settings())
-	h.add_child(s)
-	return h
+func _pause_page(sub: bool) -> void:
+	_pause_main.visible = not sub
+	_pause_sub.visible = sub
+	var f := pause_root.find_child("SubBack" if sub else "Resume", true, false)
+	if f != null:
+		(f as Control).grab_focus()
 
 
 func show_pause(on: bool) -> void:
 	pause_root.visible = on
 	if on:
+		root_c.move_child(pause_root, -1)                # above any point card / banner that is still on screen
 		Sfx.play("ui_swoosh", -6.0)
+		_pause_page(false)
+		if Game.main != null and Game.main.dev.has("pauseshot"):
+			for i in 4:
+				await get_tree().process_frame
+			if Game.main.dev.has("pausesub"):
+				_pause_page(true)
+				for i in 3:
+					await get_tree().process_frame
+			get_viewport().get_texture().get_image().save_png(str(Game.main.dev["pauseshot"]))
+			get_tree().quit()
 
 
 # ------------------------------------------------------------------ touch + tutorial
@@ -1224,7 +1279,7 @@ func _build_tutorial() -> void:
 		# keycap chips (like the button prompts of the reference game): [key, what it does]
 		var pads: bool = Input.get_connected_joypads().size() > 0
 		var keys := [["左摇杆", "移动"], ["A", "击球"], ["B", "跳跃"], ["X", "扑救"], ["右摇杆", "瞄准"], ["Start", "暂停"]] if pads \
-				else [["WASD", "移动"], ["J / 左键", "击球"], ["K / 右键", "跳跃"], ["L", "扑救"], ["鼠标", "瞄准"], ["Esc", "暂停"]]
+				else [[_move_keys_text(), "移动"], ["%s / 左键" % Game.key_name("p1_hit"), "击球"], ["%s / 右键" % Game.key_name("p1_jump"), "跳跃"], [Game.key_name("p1_dive"), "扑救"], ["鼠标", "瞄准"], ["Esc", "暂停"]]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 26)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1262,7 +1317,7 @@ func _on_phase(p: int) -> void:
 				Sfx.play("countdown")
 		MatchDirector.P.SERVE_PREP:
 			if director.score[0] + director.score[1] == 0 and director.phase_time < 0.2:
-				show_banner("GO!", UIKit.GREEN, 170, 0.8, UIKit.GREEN_DARK)
+				show_pill("开始!", 0.9)
 				Sfx.play("go")
 				Sfx.play("whistle_long", -6.0)
 			_refresh_score(false)
@@ -1295,9 +1350,9 @@ func _end_vs_card() -> void:
 		scoreboard_holder.modulate.a = 0.0
 		scoreboard_holder.create_tween().tween_property(scoreboard_holder, "modulate:a", 1.0, 0.4)
 	show_target_banner(director.target_points)
+	show_title_tag()
 	await get_tree().create_timer(1.6, true, false, true).timeout
 	if is_inside_tree() and director.phase == MatchDirector.P.INTRO:
-		show_banner("READY?", UIKit.YELLOW, 140, 1.0, UIKit.INK)
 		Sfx.play("countdown")
 
 
@@ -1534,46 +1589,98 @@ func show_point_card(winner: int) -> void:
 	tw.tween_callback(card.queue_free)
 
 
-## sliding "Match Point" style banner with the serving pair's avatars
-func show_match_banner(text: String, team: int) -> void:
-	var b := Control.new()
-	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root_c.add_child(b)
+## teal capsule in the middle of the screen ("Start", "Game!") - the reference game's cue style
+func show_pill(text: String, dur := 1.1, col := Color("2fc7b0")) -> void:
 	var vp := get_viewport().get_visible_rect().size
+	var pill := Panel.new()
+	pill.size = Vector2(maxf(400.0, 66.0 * float(text.length()) + 170.0), 108)
+	pill.position = Vector2((vp.x - pill.size.x) * 0.5, vp.y * 0.34)
+	pill.add_theme_stylebox_override("panel", UIKit.style_box(col, 54, 5, Color.WHITE, 12))
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UIKit.label(text, 64, Color.WHITE, 12, col.darkened(0.45))
+	l.size = pill.size
+	pill.add_child(l)
+	pill.pivot_offset = pill.size * 0.5
+	pill.scale = Vector2(0.4, 0.4)
+	pill.modulate.a = 0.0
+	root_c.add_child(pill)
+	var tw := pill.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(pill, "modulate:a", 1.0, 0.1)
+	tw.parallel().tween_property(pill, "scale", Vector2.ONE, 0.26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(dur)
+	tw.tween_property(pill, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(pill.queue_free)
+
+
+## full-width team-coloured band with the serving pair's avatars: "Match Point"
+func show_match_banner(text: String, team: int) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(c)
+	var col := UIKit.team_color(team)
+	var y0 := vp.y * 0.38
+	var hh := 150.0
+	var band := ColorRect.new()
+	band.color = Color(col.r, col.g, col.b, 0.94)
+	band.position = Vector2(0, y0)
+	band.size = Vector2(vp.x, hh)
+	c.add_child(band)
+	for yy in [y0, y0 + hh - 5.0]:
+		var ln := ColorRect.new()
+		ln.color = Color(1, 1, 1, 0.9)
+		ln.position = Vector2(0, yy)
+		ln.size = Vector2(vp.x, 5)
+		c.add_child(ln)
 	var ids: Array = Game.team_a if team == 0 else Game.team_b
-	var y := vp.y * 0.3
-	var x0 := vp.x * 0.5 - 360.0
+	var x0 := vp.x * 0.5 - 430.0
 	for i in 2:
-		var a := UIKit.avatar(ids[i], 104, UIKit.team_color(team), 5)
-		a.position = Vector2(x0 + float(i) * 96.0, y)
-		b.add_child(a)
-		var nm := Panel.new()
-		nm.position = Vector2(x0 + float(i) * 96.0 + 8, y + 96)
-		nm.size = Vector2(88, 26)
-		nm.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.1, 0.15, 0.3, 0.88), 13))
-		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var nl := UIKit.label(Roster.by_id(ids[i])["name"], 18, Color.WHITE)
-		nl.set_anchors_preset(Control.PRESET_FULL_RECT)
-		nm.add_child(nl)
-		b.add_child(nm)
-	var l := UIKit.label(text, 128, Color("c8fff0"), 26, Color("17806f"), HORIZONTAL_ALIGNMENT_LEFT)
-	l.position = Vector2(x0 + 230.0, y - 14)
-	l.size = Vector2(700, 140)
-	b.add_child(l)
-	b.modulate.a = 0.0
-	b.position.x = -420.0
-	var tw := b.create_tween()
-	tw.tween_property(b, "position:x", 0.0, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(b, "modulate:a", 1.0, 0.2)
-	tw.tween_interval(1.3)
-	tw.tween_property(b, "position:x", 420.0, 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(b, "modulate:a", 0.0, 0.32)
-	tw.tween_callback(b.queue_free)
+		var a := UIKit.avatar(ids[i], 108, col, 5)
+		a.position = Vector2(x0 + float(i) * 100.0, y0 + 21.0)
+		c.add_child(a)
+	var l := UIKit.label(text, 112, Color.WHITE, 22, col.darkened(0.5), HORIZONTAL_ALIGNMENT_LEFT)
+	l.position = Vector2(x0 + 250.0, y0 + 6.0)
+	l.size = Vector2(900, 140)
+	c.add_child(l)
+	c.position.x = -vp.x
+	var tw := c.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(c, "position:x", 0.0, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.5)
+	tw.tween_property(c, "position:x", vp.x, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(c.queue_free)
 	Sfx.play("ui_swoosh", -4.0)
 
 
+## "排球 · court name" in the top left while the intro camera glides over the venue (like the reference's stage intro)
+func show_title_tag(dur := 2.6) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var inset: Dictionary = Game.safe_insets()
+	var box := Control.new()
+	box.position = Vector2((vp.x - 820.0) * 0.5, 36.0 + float(inset["t"]))
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(box)
+	var court_name := String(Profile.item("court", ms.arena.theme_id)["name"])
+	var l := UIKit.label("排球  ·  %s" % court_name, 46, Color.WHITE, 10, Color(0.05, 0.14, 0.3, 0.9))
+	l.size = Vector2(820, 60)
+	box.add_child(l)
+	var ln := ColorRect.new()
+	ln.color = Color(1, 1, 1, 0.8)
+	ln.position = Vector2(160, 66)
+	ln.size = Vector2(500, 3)
+	box.add_child(ln)
+	box.modulate.a = 0.0
+	var tw := box.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(box, "modulate:a", 1.0, 0.3)
+	tw.tween_interval(dur)
+	tw.tween_property(box, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(box.queue_free)
+
+
 func _on_match_over(_winner: int) -> void:
-	pass                                   # the scene calls show_win_banner() after the instant replay
+	show_pill("比赛结束!", 1.5)             # the scene calls show_win_banner() after the instant replay
 
 
 ## diagonal band across the screen: "胜利!" + the final score + the winning pair (like the reference game's Win! card)
@@ -1713,9 +1820,23 @@ func _update_hint() -> void:
 				sub = "圈内球靠近时按 %s" % hit_key if tn < 3 else "起跳后在最高点按 %s 扣杀" % hit_key
 				if icon_name == "dive":
 					sub = "按 扑救键 飞身救球"
+			elif d.last_team == 1 - h.team and d.touches[1 - h.team] == 2 and absf(h.global_position.z) < 4.2 and h.state == Athlete.S.READY:
+				# the other side has just set the ball: a spike is coming - block it at the net
+				text = "下一步: 拦网"
+				icon_name = "block"
+				sub = "在网前按 %s 起跳，举手拦网" % (Game.key_name("p1_jump") if not Game.is_touch else "跳")
+	# once the basics are learned the explanatory second line goes away (less to read while playing)
+	if Game.profile != null and (Game.profile.flags.get("tutorial_done", false) or int(Game.profile.stats.get("matches", 0)) >= 3) and text != "" and not text.begins_with("发球"):
+		sub = ""
 	if text != _hint_text:
 		_hint_text = text
-		hint_lbl.text = text
+		var cut := text.find(": ")
+		if cut > 0 and text.begins_with("下一步"):
+			hint_pre.text = text.substr(0, cut + 1)
+			hint_lbl.text = text.substr(cut + 2)
+		else:
+			hint_pre.text = ""
+			hint_lbl.text = text
 		hint_sub.text = sub
 		_hint_icon_name = icon_name
 		hint_icon.icon = act_icon(icon_name) if icon_name != "" else null
@@ -1730,9 +1851,14 @@ func _update_hint() -> void:
 	hint_panel.position.x = (get_viewport().get_visible_rect().size.x - hint_panel.size.x) * 0.5
 
 
+func _move_keys_text() -> String:
+	var t := Game.key_name("p1_up") + Game.key_name("p1_left") + Game.key_name("p1_down") + Game.key_name("p1_right")
+	return "WASD" if t == "WASD" else t
+
+
 func _hit_key_name() -> String:
 	if Game.is_touch:
 		return "击球键"
 	if Input.get_connected_joypads().size() > 0 and Input.is_joy_known(Input.get_connected_joypads()[0]) and Game.main and Game.main.dev.get("pad", false):
 		return "A"
-	return "J / 鼠标左键"
+	return "%s / 鼠标左键" % Game.key_name("p1_hit")

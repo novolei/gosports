@@ -43,7 +43,7 @@ func build(athletes: Array, cam: Camera3D, round_name := "") -> VsCard:
 		var team: int = a.team
 		var col := UIKit.team_color(team)
 		var plate := Control.new()
-		plate.position = Vector2(sp.x, clampf(sp.y + 26.0 + (22.0 if a.slot == 0 else 0.0), 600.0, 900.0))
+		plate.position = Vector2(sp.x, clampf(sp.y + 14.0 + (26.0 if a.slot == 0 else 0.0), 600.0, 930.0))
 		var perk := Roster.perk_info(String(a.perk))
 		var title := UIKit.label(String(perk["name"]) if perk["name"] != "" else "新秀", 28, col.lightened(0.35), 8, col.darkened(0.55))
 		title.position = Vector2(-120, -4)
@@ -85,6 +85,16 @@ func build(athletes: Array, cam: Camera3D, round_name := "") -> VsCard:
 		_tag.position = Vector2(vp.x * 0.5 - 300.0, vp.y * 0.5 + 100.0)
 		_tag.size = Vector2(600, 60)
 		add_child(_tag)
+	# "press any key to skip" chip above the bottom bar
+	var chip := Panel.new()
+	chip.size = Vector2(330, 56)
+	chip.position = Vector2(vp.x - 330.0 - 40.0, vp.y - 96.0 - 76.0)
+	chip.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.05, 0.12, 0.3, 0.55), 28, 2, Color(1, 1, 1, 0.8), 6))
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var cl := UIKit.label("轻触跳过" if Game.is_touch else "按任意键跳过", 28, Color.WHITE, 6, Color(0.05, 0.1, 0.25, 0.9))
+	cl.size = chip.size
+	chip.add_child(cl)
+	add_child(chip)
 	Sfx.play("ui_swoosh", -3.0)
 	return self
 

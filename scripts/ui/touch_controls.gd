@@ -205,6 +205,6 @@ func _draw() -> void:
 		draw_circle(c, r, Color(col.r, col.g, col.b, 0.9 if down else (0.55 + 0.3 * (hit_hint if k == "hit" else 0.0))))
 		draw_arc(c, r, 0, TAU, 56, Color(1, 1, 1, 0.9), 5.0, true)
 		var fs := 40 if k == "hit" else 32
-		var text: String = hit_text if k == "hit" else BTN[k]["label"]
+		var text: String = Loc.t(hit_text if k == "hit" else String(BTN[k]["label"]))
 		var sz := font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, fs)
 		draw_string(font, c + Vector2(-sz.x * 0.5, sz.y * 0.28), text, HORIZONTAL_ALIGNMENT_CENTER, -1, fs, Color(1, 1, 1))
