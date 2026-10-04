@@ -6,11 +6,12 @@ from PIL import Image, ImageDraw, ImageFont
 CW, CH = 640, 256
 COLS, ROWS = 4, 4
 SS = 2                                   # supersampling for smooth edges
-FONT = "assets/fonts/ui_font.ttf"
+FONT_LATIN = "assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
+FONT_CJK = "assets/fonts/cjk_display.ttf"          # Noto Sans SC Black (SIL OFL)
 
 
-def font(size):
-    return ImageFont.truetype(FONT, int(size * SS))
+def font(size, text=""):
+    return ImageFont.truetype(FONT_CJK if any(ord(ch) > 0x2000 for ch in text) else FONT_LATIN, int(size * SS))
 
 
 def hexc(h, a=255):
@@ -46,7 +47,7 @@ class Cell:
         self.d.line([(self.s(x), self.s(y)) for x, y in pts], fill=fill, width=self.s(w), joint="curve")
 
     def text(self, xy, t, size, fill, shadow=None, anchor="mm", off=4):
-        f = font(size)
+        f = font(size, t)
         if shadow is not None:
             self.d.text((self.s(xy[0] + off), self.s(xy[1] + off)), t, font=f, fill=shadow, anchor=anchor)
         self.d.text((self.s(xy[0]), self.s(xy[1])), t, font=f, fill=fill, anchor=anchor)

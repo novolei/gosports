@@ -104,6 +104,7 @@ var ring: MeshInstance3D
 var ring_mat: ShaderMaterial
 var team_disc: MeshInstance3D
 var tag: Label3D
+var _bonk_t := 0.0
 var arrow: MeshInstance3D
 var hit_zone_radius := 1.3
 
@@ -173,6 +174,7 @@ func _build_markers() -> void:
 
 	# name tag
 	tag = Label3D.new()
+	tag.font = Fonts.body()
 	tag.text = display_name
 	tag.font_size = 40
 	tag.pixel_size = 0.0036
@@ -321,7 +323,17 @@ func _tick_ready(dt: float) -> void:
 		_try_hit()
 
 
+## hit on the head by something the umpire threw: the head snaps back, the hands fly up (the serve is not lost)
+func bonk() -> void:
+	_bonk_t = 1.15
+
+
 func _tick_serve_hold(dt: float) -> void:
+	if _bonk_t > 0.0:
+		_bonk_t -= dt
+		_steer(dt, RUN_SPEED * 0.2)
+		rig.play_if("bonk", 0.06)
+		return
 	# the server may slide along the base line while holding the ball
 	_steer(dt, RUN_SPEED * 0.55)
 	rig_play_if("serve_ready", 0.15)

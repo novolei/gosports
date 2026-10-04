@@ -261,8 +261,31 @@ static func authored() -> Dictionary:
 	var pho_crouch_up := _m(pho_crouch, {"handc_l": Vector3(-0.08, 0.52, 0.5), "handc_r": Vector3(0.08, 0.52, 0.5),
 		"elbow_l": Vector3(-0.95, 0.1, -0.2), "elbow_r": Vector3(0.95, 0.1, -0.2), "head": Vector3(-16, 0, 0)})
 
+	# --- the umpire throws something at a server who is dawdling (scripts/match/referee.gd): wind-up, release, follow-through
+	var r_wind_r := _m(rsit, {"handc_r": Vector3(0.62, 0.85, -0.5), "elbow_r": Vector3(1.0, 0.6, -0.9), "handc_l": Vector3(-0.3, -0.3, 0.45),
+			"torso": Vector3(-4, -26, 0), "body": Vector3(-3, -14, 0), "head": Vector3(-4, 20, 0)})
+	var r_rel_r := _m(rsit, {"handc_r": Vector3(0.3, 0.45, 1.0), "elbow_r": Vector3(0.9, 0.2, -0.1), "handc_l": Vector3(-0.3, -0.3, 0.45),
+			"torso": Vector3(8, 24, 0), "body": Vector3(6, 12, 0), "head": Vector3(-4, 14, 0)})
+	var r_fol_r := _m(rsit, {"handc_r": Vector3(-0.1, 0.0, 0.8), "elbow_r": Vector3(0.7, -0.3, 0.0), "torso": Vector3(10, 18, 0), "body": Vector3(6, 8, 0), "head": Vector3(-6, 8, 0)})
+	var r_wind_l := _m(rsit, {"handc_l": Vector3(-0.62, 0.85, -0.5), "elbow_l": Vector3(-1.0, 0.6, -0.9), "handc_r": Vector3(0.3, -0.3, 0.45),
+			"torso": Vector3(-4, 26, 0), "body": Vector3(-3, 14, 0), "head": Vector3(-4, -20, 0)})
+	var r_rel_l := _m(rsit, {"handc_l": Vector3(-0.3, 0.45, 1.0), "elbow_l": Vector3(-0.9, 0.2, -0.1), "handc_r": Vector3(0.3, -0.3, 0.45),
+			"torso": Vector3(8, -24, 0), "body": Vector3(6, -12, 0), "head": Vector3(-4, -14, 0)})
+	var r_fol_l := _m(rsit, {"handc_l": Vector3(0.1, 0.0, 0.8), "elbow_l": Vector3(-0.7, -0.3, 0.0), "torso": Vector3(10, -18, 0), "body": Vector3(6, -8, 0), "head": Vector3(-6, -8, 0)})
+	var r_stern := _m(rsit, {"handc_r": Vector3(0.45, 0.4, 0.5), "elbow_r": Vector3(0.9, 0.0, -0.4), "head": Vector3(8, 0, 0), "torso": Vector3(6, 0, 0)})
+
+	# --- a player who gets hit on the head by a thrown prop: head snaps back, hands fly to the head, a dizzy wobble, then recovers
+	var bonk_a := _m(serve_stand, {"hips": Vector3(0, -0.07, -0.02), "body": Vector3(-6, 0, 0), "torso": Vector3(-8, 0, 0), "head": Vector3(-44, 0, 0),
+			"handc_l": Vector3(-0.26, 0.82, 0.2), "handc_r": Vector3(0.26, 0.82, 0.2), "elbow_l": Vector3(-0.9, 0.1, -0.3), "elbow_r": Vector3(0.9, 0.1, -0.3)})
+	var bonk_b := _m(bonk_a, {"hips": Vector3(0, -0.1, 0.0), "body": Vector3(8, 0, 4), "torso": Vector3(6, 0, 0), "head": Vector3(10, 6, 14)})
+	var bonk_c := _m(bonk_a, {"hips": Vector3(0, -0.09, 0.0), "body": Vector3(6, 0, -4), "torso": Vector3(4, 0, 0), "head": Vector3(6, -6, -12)})
+
 	return {
 		"ready": {"loop": true, "keys": [[0.0, ready], [0.55, ready_b, "smooth"], [1.1, ready, "smooth"]]},
+		"ref_throw_r": {"keys": [[0.0, rsit], [0.3, r_wind_r, "smooth"], [0.44, r_rel_r, "out"], [0.62, r_fol_r, "smooth"], [1.3, r_fol_r], [1.7, rsit, "smooth"]]},
+		"ref_throw_l": {"keys": [[0.0, rsit], [0.3, r_wind_l, "smooth"], [0.44, r_rel_l, "out"], [0.62, r_fol_l, "smooth"], [1.3, r_fol_l], [1.7, rsit, "smooth"]]},
+		"ref_stern": {"keys": [[0.0, rsit], [0.25, r_stern, "smooth"], [1.6, r_stern], [2.0, rsit, "smooth"]]},
+		"bonk": {"keys": [[0.0, serve_stand], [0.07, bonk_a, "out"], [0.3, bonk_b, "smooth"], [0.58, bonk_c, "smooth"], [0.85, bonk_b, "smooth"], [1.15, serve_stand, "smooth"]]},
 		"photo_idle": {"loop": true, "keys": [[0.0, pho_hold], [0.9, pho_hold_b, "smooth"], [1.8, pho_hold, "smooth"]]},
 		"photo_shoot": {"keys": [[0.0, pho_hold], [0.16, pho_up, "out"], [0.46, pho_up], [0.52, pho_click], [0.6, pho_up], [0.9, pho_hold, "smooth"]]},
 		"photo_crouch": {"loop": true, "keys": [[0.0, pho_crouch], [1.0, _m(pho_crouch, {"head": Vector3(-8, 5, 0)}), "smooth"], [2.0, pho_crouch, "smooth"]]},

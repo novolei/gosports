@@ -5,7 +5,7 @@ extends Control
 
 signal back_pressed
 
-const KIND_TITLES := {"trail": "球拖尾", "ball": "比赛用球", "court": "球场主题", "deco": "场地装饰"}
+const KIND_TITLES := {"trail": "球拖尾", "ball": "比赛用球", "court": "球场主题", "deco": "场地装饰", "net": "球网风格"}
 const GOLD := Color("ffc928")
 # dark scoreboard palette shared with the results screen
 const T := Color(0.96, 0.98, 1.0)
@@ -27,6 +27,71 @@ class _Swatch:
 	var kind := "trail"
 	var item := {}
 	var locked := false
+
+	## a mini volleyball net in the style's colours
+	func _draw_net(k: float) -> void:
+		var w := size.x
+		var h := size.y
+		var fade := 0.5 if locked else 0.0
+		var pale := Color(0.82, 0.85, 0.92)
+		draw_rect(Rect2(0, 0, w, h), Color(0.72, 0.88, 1.0).lerp(pale, fade))
+		draw_rect(Rect2(0, h * 0.72, w, h * 0.28), Color(0.2, 0.7, 0.68).lerp(pale, fade))
+		var id := String(item["id"])
+		var sw: Color = item["swatch"]
+		var post: Color = Color(0.12, 0.13, 0.17)
+		var tape: Color = Color.WHITE
+		match id:
+			"candy": post = Color(1.0, 0.55, 0.75); tape = Color(1.0, 0.6, 0.78)
+			"cloud": post = Color(0.95, 0.97, 1.0); tape = Color(0.7, 0.85, 1.0)
+			"cat": post = Color(0.35, 0.55, 1.0)
+			"heart": post = Color(1.0, 0.5, 0.7); tape = Color(1.0, 0.5, 0.7)
+			"star": post = Color(0.2, 0.22, 0.4); tape = Color(1.0, 0.82, 0.25)
+			"rainbow": post = Color(0.97, 0.97, 1.0); tape = Color(0.7, 0.5, 1.0)
+		post = post.lerp(pale, fade)
+		tape = tape.lerp(pale, fade)
+		var x0 := w * 0.16
+		var x1 := w * 0.84
+		var top := h * 0.36
+		var bot := h * 0.74
+		draw_rect(Rect2(x0 - 3, top - 22, 6, bot - top + 22), post)
+		draw_rect(Rect2(x1 - 3, top - 22, 6, bot - top + 22), post)
+		for i in 8:
+			var gx := lerpf(x0, x1, float(i) / 7.0)
+			draw_line(Vector2(gx, top), Vector2(gx, bot), Color(0.1, 0.14, 0.22, 0.55 * k), 1.0)
+		for j in 4:
+			var gy := lerpf(top, bot, float(j) / 3.0)
+			draw_line(Vector2(x0, gy), Vector2(x1, gy), Color(0.1, 0.14, 0.22, 0.55 * k), 1.0)
+		draw_rect(Rect2(x0, top - 3, x1 - x0, 7), tape)
+		if id == "candy":
+			for i in 7:
+				draw_rect(Rect2(x0 + float(i) * (x1 - x0) / 7.0, top - 3, (x1 - x0) / 14.0, 7), Color.WHITE.lerp(pale, fade))
+		if id == "rainbow":
+			for i in 7:
+				draw_rect(Rect2(x0 + float(i) * (x1 - x0) / 7.0, top - 3, (x1 - x0) / 7.0, 7), Color.from_hsv(float(i) / 7.0, 0.55, 1.0).lerp(pale, fade))
+		match id:
+			"candy":
+				for gx in [x0, x1]:
+					draw_circle(Vector2(gx, top - 28), 8.0, Color(1.0, 0.55, 0.75).lerp(pale, fade))
+			"cloud":
+				for gx in [x0, x1]:
+					draw_circle(Vector2(gx - 5, top - 26), 7.0, Color.WHITE.lerp(pale, fade))
+					draw_circle(Vector2(gx + 4, top - 28), 8.0, Color.WHITE.lerp(pale, fade))
+			"cat":
+				for gx in [x0, x1]:
+					draw_colored_polygon(PackedVector2Array([Vector2(gx - 9, top - 20), Vector2(gx - 8, top - 36), Vector2(gx - 1, top - 22)]), post)
+					draw_colored_polygon(PackedVector2Array([Vector2(gx + 9, top - 20), Vector2(gx + 8, top - 36), Vector2(gx + 1, top - 22)]), post)
+			"heart":
+				for gx in [x0, x1]:
+					draw_circle(Vector2(gx - 4, top - 30), 5.0, Color(1.0, 0.45, 0.65).lerp(pale, fade))
+					draw_circle(Vector2(gx + 4, top - 30), 5.0, Color(1.0, 0.45, 0.65).lerp(pale, fade))
+					draw_colored_polygon(PackedVector2Array([Vector2(gx - 9, top - 28), Vector2(gx + 9, top - 28), Vector2(gx, top - 16)]), Color(1.0, 0.45, 0.65).lerp(pale, fade))
+			"star":
+				for gx in [x0, x1]:
+					draw_circle(Vector2(gx, top - 30), 7.0, Color(1.0, 0.85, 0.3).lerp(pale, fade))
+			"rainbow":
+				for gx in [x0, x1]:
+					for r in 3:
+						draw_arc(Vector2(gx, top - 22), 6.0 + 4.0 * float(r), PI, TAU, 10, [Color(1, 0.4, 0.4), Color(1, 0.85, 0.3), Color(0.4, 0.7, 1)][r].lerp(pale, fade), 3.0, true)
 
 	## a tiny flat scene of the decoration: sky, floor strip and the style's signature props
 	func _draw_deco(k: float) -> void:
@@ -154,6 +219,8 @@ class _Swatch:
 				draw_circle(c + Vector2(-r * 0.35, -r * 0.4), r * 0.2, Color(1, 1, 1, 0.5 * k))
 			"deco":
 				_draw_deco(k)
+			"net":
+				_draw_net(k)
 			"court":
 				var th: Dictionary = Arena.THEMES.get(String(item["id"]), Arena.THEMES["day"])
 				var pale := Color(0.82, 0.85, 0.92)
@@ -406,7 +473,7 @@ func _build_overview() -> void:
 
 func _next_unlock(level: int) -> Dictionary:
 	var best := {}
-	for kind in ["trail", "ball", "court", "deco"]:
+	for kind in ["trail", "ball", "court", "deco", "net"]:
 		for it in Profile.catalog(kind):
 			if int(it["level"]) > level and (best.is_empty() or int(it["level"]) < int(best["level"])):
 				best = (it as Dictionary).duplicate()
@@ -426,7 +493,7 @@ func _build_collection() -> void:
 	sc.add_child(holder)
 	var y := 0.0
 	var per_row := 7
-	for kind in ["trail", "ball", "court", "deco"]:
+	for kind in ["trail", "ball", "court", "deco", "net"]:
 		var t := UIKit.label(tr(String(KIND_TITLES[kind])), 38, Color.WHITE, 10, Color(0.05, 0.2, 0.45, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
 		t.position = Vector2(6, y)
 		t.size = Vector2(400, 52)
@@ -492,6 +559,7 @@ func _item_card(kind: String, it: Dictionary, p: Profile) -> Button:
 		lk.size = Vector2(120, 40)
 		b.add_child(lk)
 	var nm := UIKit.label(String(it["name"]), 27, Color.WHITE if unlocked else T2, 8, Color(0.03, 0.14, 0.26, 0.95))
+	nm.clip_text = true
 	nm.position = Vector2(0, 130)
 	nm.size = Vector2(212, 40)
 	b.add_child(nm)

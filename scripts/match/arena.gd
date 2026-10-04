@@ -12,6 +12,7 @@ var quality := 2
 var net_node: Node3D
 var _mat_cache := {}
 var theme_id := "day"
+var net_id := "classic"                   # the equipped net style (Profile.NETS)
 var deco_id := "ads"                      # the equipped court decoration style (Profile.DECOS)
 
 ## sky / light / fog presets for the unlockable court themes
@@ -50,6 +51,9 @@ func build(p_quality := 2) -> void:
 	theme_id = String(Game.profile.equipped_item("court")["id"]) if (Game.profile != null and Game.profile_enabled) else "day"
 	if Game.main != null and Game.main.dev.has("court"):
 		theme_id = String(Game.main.dev["court"])
+	net_id = String(Game.profile.equipped_item("net")["id"]) if (Game.profile != null and Game.profile_enabled) else "classic"
+	if Game.main != null and Game.main.dev.has("net"):
+		net_id = String(Game.main.dev["net"])
 	deco_id = String(Game.profile.equipped_item("deco")["id"]) if (Game.profile != null and Game.profile_enabled) else "ads"
 	if Game.main != null and Game.main.dev.has("deco"):
 		deco_id = String(Game.main.dev["deco"])
@@ -246,6 +250,9 @@ func _build_net() -> void:
 	var nm := ShaderMaterial.new()
 	nm.shader = load("res://shaders/net.gdshader")
 	nm.set_shader_parameter("size", Vector2(width, nh))
+	var nlook: Dictionary = CourtDeco.net_look(net_id)
+	for k in (nlook.get("shader", {}) as Dictionary).keys():
+		nm.set_shader_parameter(k, nlook["shader"][k])
 	q.material_override = nm
 	q.position = Vector3(0, Court.NET_TOP - nh * 0.5 + 0.02, 0)
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -260,14 +267,21 @@ func _build_net() -> void:
 	silver.metallic = 0.85
 	silver.roughness = 0.25
 	var blue := StandardMaterial3D.new()
-	blue.albedo_color = Color(0.1, 0.42, 0.95)
+	blue.albedo_color = nlook.get("band", Color(0.1, 0.42, 0.95))
 	blue.roughness = 0.35
 	blue.emission_enabled = true
-	blue.emission = Color(0.1, 0.4, 1.0)
+	blue.emission = nlook.get("band", Color(0.1, 0.4, 1.0))
 	blue.emission_energy_multiplier = 0.4
 	var white := StandardMaterial3D.new()
 	white.albedo_color = Color(1, 1, 1)
 	white.roughness = 0.5
+	var post_mats := {-1.0: black, 1.0: black}
+	if nlook.has("post"):
+		for sd in [-1.0, 1.0]:
+			var pm := StandardMaterial3D.new()
+			pm.albedo_color = nlook["post2"] if (sd > 0.0 and nlook.has("post2")) else nlook["post"]
+			pm.roughness = 0.45
+			post_mats[sd] = pm
 	for s in [-1.0, 1.0]:
 		var base := Node3D.new()
 		base.position = Vector3(s * Court.NET_X, 0, 0)
@@ -279,7 +293,7 @@ func _build_net() -> void:
 		cm.height = 2.7
 		cm.radial_segments = 20
 		post.mesh = cm
-		post.material_override = black
+		post.material_override = post_mats[s]
 		post.position.y = 1.35
 		base.add_child(post)
 		var cap := MeshInstance3D.new()
@@ -333,6 +347,7 @@ func _build_net() -> void:
 		rod.material_override = am2
 		rod.position = Vector3(s * Court.HALF_W, Court.NET_TOP - 0.8 + 0.95, 0)
 		net_node.add_child(rod)
+	CourtDeco.net_toppers(self, net_id)
 
 
 func _stripe_texture() -> Texture2D:

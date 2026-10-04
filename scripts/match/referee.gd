@@ -25,13 +25,17 @@ var _sleeping := false
 var _wow_cd := 0.0                           # surprise is rare, so it stays funny
 var _look := 0.0                             # current extra yaw of the rig (radians, relative to the chair)
 var _rng := RandomNumberGenerator.new()
+var scene: MatchScene
+var _gaze: Variant = null                    # Vector3: look at this spot instead of the ball (the server being scolded)
+var _gaze_until := 0.0
 var _dev_clip := ""                          # dev: --refclip=<clip> replays one clip forever
 
 
 ## `look` = the venue look (Arena.LOOKS[...]) so the chair matches the boards
-func build(p_director: MatchDirector, p_ball: Node3D, look: Dictionary) -> void:
+func build(p_director: MatchDirector, p_ball: Node3D, look: Dictionary, p_scene: MatchScene = null) -> void:
 	director = p_director
 	ball = p_ball
+	scene = p_scene
 	_rng.randomize()
 	position = SPOT
 	rotation.y = -PI * 0.5                    # the rig and the chair face -Z locally: this turns them to +x (towards the court)
@@ -140,8 +144,13 @@ func _process(dt: float) -> void:
 		return
 	# follow the ball with the whole upper body (the ball is hidden during the VS shot: look at the net then)
 	var target := 0.0
-	if ball != null and ball.visible:
-		var to := ball.global_position - (global_position + Vector3(0, 0, 0))
+	var watch: Variant = null
+	if _gaze != null and float(Time.get_ticks_msec()) / 1000.0 < _gaze_until:
+		watch = _gaze
+	elif ball != null and ball.visible:
+		watch = ball.global_position
+	if watch != null:
+		var to := (watch as Vector3) - (global_position + Vector3(0, 0, 0))
 		# local yaw: the chair faces +x (global); atan2 of the ball offset along the chair's right (+z) vs forward (+x)
 		target = clampf(atan2(to.z, maxf(to.x, 0.5)), -1.05, 1.05)
 	if _busy > 0.0 or _sleeping:
@@ -208,6 +217,8 @@ func _on_rally(ev: String, data: Dictionary) -> void:
 			_react("ref_nod", 2)
 		"vs_end":
 			_react("ref_wave", 2)
+		"serve_warn":
+			_throw(data["athlete"] as Athlete, int(data["n"]))
 
 
 func _wow(chance: float) -> void:
@@ -228,6 +239,8 @@ func _on_point(team: int, reason: String, _pos: Vector3) -> void:
 			clip = "ref_shake"
 		"发球失误":
 			clip = "ref_shrug"
+		"发球超时":
+			clip = "ref_stern"
 		"ACE!":
 			clip = "ref_cheer"
 	_react(clip, 4, true)
@@ -241,3 +254,65 @@ func _after(delay: float, clip: String) -> void:
 	await get_tree().create_timer(delay).timeout
 	if is_inside_tree() and _busy < 0.3:
 		_react(clip, 1)
+
+
+# ------------------------------------------------------------------ scolding a dawdling server (the funny bit)
+## warning 1: something small (pencil stub / eraser / paper ball / paper plane); warning 2: something bigger (rubber duck / score book)
+func _throw(a: Athlete, tier: int) -> void:
+	if rig == null or a == null:
+		return
+	_sleeping = false
+	var right := a.global_position.z >= 0.0                     # the umpire's right hand reaches +z (team 0's baseline)
+	var clip := "ref_throw_r" if right else "ref_throw_l"
+	_gaze = a.global_position
+	_gaze_until = float(Time.get_ticks_msec()) / 1000.0 + 2.6
+	Sfx.play("whistle_short", -3.0)
+	_react(clip, 7, true)
+	await get_tree().create_timer(0.44).timeout                # the release frame of the clip
+	if not is_inside_tree() or not is_instance_valid(a):
+		return
+	var from := rig.hand_world("r" if right else "l")
+	_launch(a, ThrowProp.random_id(tier), tier, from)
+
+
+func _launch(a: Athlete, id: String, tier: int, from: Vector3) -> void:
+	var prop := ThrowProp.make(id, 2.6 if tier <= 1 else 3.2)       # (cartoon-sized so it reads from the broadcast camera)
+	get_parent().add_child(prop)
+	prop.global_position = from
+	var spin := Vector3(_rng.randf_range(2.0, 4.0), _rng.randf_range(2.0, 5.0), 0.0) * TAU * (1.0 if _rng.randf() < 0.5 else -1.0)
+	var dur := 0.66
+	Sfx.play("whoosh", -6.0, 1.2)
+	var tw := prop.create_tween()
+	tw.tween_method(func(u: float):
+		if not is_instance_valid(a):
+			return
+		var to := a.rig.head_world() + Vector3(0, 0.04, 0)
+		prop.global_position = from.lerp(to, u) + Vector3(0, 0.55 * 4.0 * u * (1.0 - u), 0)
+		prop.rotation = spin * u, 0.0, 1.0, dur)
+	tw.tween_callback(func(): _prop_hit(a, prop, tier))
+
+
+func _prop_hit(a: Athlete, prop: MeshInstance3D, tier: int) -> void:
+	if not is_instance_valid(a):
+		prop.queue_free()
+		return
+	a.bonk()
+	var head_y: float = a.rig.head_world().y - a.global_position.y
+	AlertMark.spawn_over(a, head_y, 1.35)
+	Sfx.play("body_bump", -1.0, 0.9)
+	Sfx.play("ui_confirm", -4.0, 1.7)
+	if scene != null:
+		scene.cam_rig.shake(0.18 if tier <= 1 else 0.3)
+		scene.vfx.hit_burst(prop.global_position, "good", 0.35)
+	if Game.main != null and Game.main.dev.has("log"):
+		print("[ref] prop hit ", a.display_name, " tier ", tier)
+	# it bounces off and drops to the floor, then shrinks away
+	var p0 := prop.global_position
+	var away := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(0.2, 0.5))
+	var tw := prop.create_tween()
+	tw.tween_method(func(u: float):
+		prop.global_position = p0.lerp(Vector3(p0.x, 0.05, p0.z) + away, u) + Vector3(0, 0.35 * 4.0 * u * (1.0 - u), 0), 0.0, 1.0, 0.55)
+	tw.tween_interval(1.6)
+	tw.tween_property(prop, "scale", Vector3.ZERO, 0.3)
+	tw.tween_callback(prop.queue_free)
+

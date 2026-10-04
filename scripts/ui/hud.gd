@@ -293,9 +293,8 @@ func _dev_card(team: int) -> void:
 	director.score[team] -= 1
 	_refresh_score(false)
 	director.score[team] += 1
-	show_banner("得分!", Color.WHITE, 130, 1.4, UIKit.team_dark(team))
 	await get_tree().create_timer(0.25).timeout
-	show_point_card(team)
+	show_point_card(team, "得分!")
 
 
 func _on_score(_s: Array, _serving: int) -> void:
@@ -351,30 +350,42 @@ func _build_hint() -> void:
 	root_c.add_child(rally_lbl)
 
 
+## The callout lane: every ambient "flying text" (Ready / Fever / Nice / combo / power spike / timing hints ...) lives in a calm strip
+## above the net, centred, out of the way of the players and the ball. One slot each for the headline, the timing / quality line
+## and a small flavour line; a newer callout replaces the old one in its slot.
+const LANE_Y := 0.235
+const LANE_SLOT_Y := {"main": 0.0, "sub": 92.0, "sub2": 150.0}
+var _lane := {}
+
+
 func _build_banner() -> void:
-	banner = UIKit.label("", 150, Color.WHITE, 26, UIKit.INK)
-	banner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	banner.anchor_top = 0.28
-	banner.anchor_bottom = 0.52
+	banner = UIKit.label("", 150, Color.WHITE, 26, UIKit.INK)          # (kept for older call sites; the lane draws the text now)
 	banner.modulate.a = 0.0
+	banner.visible = false
 	root_c.add_child(banner)
 
 
+func say(slot: String, text: String, font_size: int, top: Color, bottom: Color, outline: Color, hold := 1.0, sparkle := false) -> Callout:
+	var vp := get_viewport().get_visible_rect().size
+	var c := Callout.make(text, font_size, top, bottom, outline)
+	c.position = Vector2(vp.x * 0.5, vp.y * LANE_Y + float(LANE_SLOT_Y.get(slot, 0.0)))
+	var old = _lane.get(slot)
+	if old != null and is_instance_valid(old):
+		(old as Callout).dismiss()
+	_lane[slot] = c
+	popup_layer.add_child(c)
+	c.play(hold, 1.5 if slot == "main" else 1.3, 22.0, sparkle)
+	return c
+
+
+## headline callout in the lane (old call sites keep their arguments: `size` is the legacy 96-150 px size, scaled down for the lane)
 func show_banner(text: String, color := Color.WHITE, size := 150, dur := 1.1, outline := Color(0.1, 0.15, 0.35)) -> void:
-	banner.text = text
-	banner.add_theme_font_size_override("font_size", size)
-	banner.add_theme_color_override("font_color", color)
-	banner.add_theme_color_override("font_outline_color", outline)
-	banner.pivot_offset = banner.size * 0.5
-	if _banner_tween:
-		_banner_tween.kill()
-	banner.scale = Vector2(0.5, 0.5)
-	banner.modulate.a = 0.0
-	_banner_tween = create_tween()
-	_banner_tween.tween_property(banner, "modulate:a", 1.0, 0.12)
-	_banner_tween.parallel().tween_property(banner, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_banner_tween.tween_interval(dur)
-	_banner_tween.tween_property(banner, "modulate:a", 0.0, 0.3)
+	var fs := clampi(int(float(size) * 0.62), 62, 96)
+	var top := color.lerp(Color.WHITE, 0.45)
+	var bottom := color.darkened(0.12)
+	if color.get_luminance() > 0.93:                                   # plain white text: a cool grey-blue lower half
+		bottom = Color(0.74, 0.86, 1.0)
+	say("main", text, fs, top, bottom, outline, dur, size >= 120 and color != Color.WHITE)
 
 
 func _build_serve_bubble() -> void:
@@ -1416,6 +1427,15 @@ func _on_rally_event(ev: String, data: Dictionary) -> void:
 	if ev == "vs_end":
 		_end_vs_card()
 		return
+	if ev == "serve_warn":
+		var n := int(data["n"])
+		if n == 1:
+			say("main", tr("裁判警告 1/2"), 70, Color("fff3c0"), Color("ffc02e"), Color("a8480c"), 1.6, true)
+			say("sub", tr("请尽快发球!"), 44, Color.WHITE, Color("ffe08a"), Color("a8480c"), 1.4)
+		else:
+			say("main", tr("最后警告 2/2"), 76, Color("ffe6e6"), Color("ff6b6b"), Color("8f1224"), 1.8, true)
+			say("sub", tr("再不发球将判负!"), 46, Color.WHITE, Color("ffb0b0"), Color("8f1224"), 1.6)
+		return
 	if ev == "match_point":
 		_match_point_team = int(data["team"])
 	elif ev == "hit":
@@ -1439,119 +1459,38 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		if a.is_human:
 			human_team = a.team
 			break
-	var txt := reason
-	if reason == "得分!" or reason == "ACE!":
-		txt = reason
-	show_banner(txt, Color.WHITE, 130, 1.4, UIKit.team_dark(team))
 	await get_tree().create_timer(0.25).timeout
 	if director.phase != MatchDirector.P.OVER:
-		show_point_card(team)                      # (rolls the card AND the scoreboard from the old to the new score)
+		show_point_card(team, reason)              # (the reason headline + the old -> new score roll, and the scoreboard follows)
 	else:
+		show_banner(reason, Color.WHITE, 130, 1.4, UIKit.team_dark(team))
 		_refresh_score(true)
 
 
 func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 	if kind == "point" or kind == "info":
 		return
-	var cam := ms.cam_rig.cam
-	if cam.is_position_behind(wpos):
+	if kind == "inout":
+		var cam := ms.cam_rig.cam
+		if cam.is_position_behind(wpos):
+			return
+		_inout_pill(text, cam.unproject_position(wpos), wpos)
 		return
-	var sp := cam.unproject_position(wpos)
-	var size := 56
-	var col := Color.WHITE
-	var outline := Color(0.1, 0.15, 0.35)
 	match kind:
 		"perfect":
-			if text.begins_with("Nice") and text.contains("×"):
-				size = 64                       # chained perfect touches: the pink power-up colour
-				col = Color("ffd6ec")
-				outline = Color("e0307f")
+			if text.begins_with("Nice") and text.contains("×"):              # chained perfect touches: the pink power-up colour
+				say("sub", text, 60, Color("fff0f8"), Color("ff8ac8"), Color("b81e68"), 0.55, true)
 			elif text.begins_with("Nice"):
-				size = 58
-				col = Color("c8fff0")
-				outline = Color("17806f")
+				say("sub", text, 56, Color("eafff8"), Color("6fe8c8"), Color("11705f"), 0.5)
 			else:
-				size = 74
-				col = Color("ffe14a")
-				outline = Color("c4501a")
+				say("sub", text, 66, Color("fff6b0"), Color("ffc02e"), Color("b5470f"), 0.55, true)
 		"good":
-			size = 50
-			col = Color("a6ffcb")
-			outline = Color("1b7a4a")
+			say("sub", text, 48, Color("eaffef"), Color("8be6ad"), Color("1b6f47"), 0.45)
 		"late":
-			size = 44
-			col = Color("ffffff")
-			outline = Color("5d6b95")
+			var early := text.begins_with("早")
+			say("sub", tr("时机有点早!") if early else tr("时机有点晚!"), 40, Color("fffbe0") if early else Color("f0f8ff"), Color("ffd24a") if early else Color("8fc8ff"), Color(0.08, 0.14, 0.34), 0.7)
 		"label":
-			size = 46
-			col = Color("ffffff")
-			outline = Color("e0307f")
-	if kind == "inout":
-		_inout_pill(text, sp, wpos)
-		return
-	if kind == "late":
-		_timing_note(text.begins_with("早"), sp)
-		return
-	if kind == "perfect" and text.begins_with("Nice") and text.contains("×"):
-		_combo_badge(int(text.get_slice("×", 1)), sp)
-	var l := UIKit.label(text, size, col, 14, outline)
-	l.position = sp - Vector2(200, 30)
-	l.size = Vector2(400, 60)
-	l.pivot_offset = l.size * 0.5
-	popup_layer.add_child(l)
-	l.scale = Vector2(0.4, 0.4)
-	var tw := l.create_tween().set_parallel(true)
-	tw.tween_property(l, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(l, "position:y", l.position.y - 90.0, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.chain().tween_property(l, "modulate:a", 0.0, 0.25)
-	tw.chain().tween_callback(l.queue_free)
-
-
-## "Your timing was... a bit early" - the same gentle coaching line as the reference game, under the contact point
-func _timing_note(early: bool, sp: Vector2) -> void:
-	var box := Control.new()
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.position = sp + Vector2(0, 26)
-	var l1 := UIKit.label("你的时机…", 30, Color.WHITE, 9, Color(0.05, 0.12, 0.3, 0.9))
-	l1.position = Vector2(-160, 0)
-	l1.size = Vector2(320, 38)
-	box.add_child(l1)
-	var l2 := UIKit.label("有点早!" if early else "有点晚!", 46, Color("ffe14a") if early else Color("9fd8ff"), 10, Color(0.05, 0.12, 0.3, 0.95))
-	l2.position = Vector2(-160, 34)
-	l2.size = Vector2(320, 56)
-	box.add_child(l2)
-	box.modulate.a = 0.0
-	popup_layer.add_child(box)
-	var tw := box.create_tween()
-	tw.tween_property(box, "modulate:a", 1.0, 0.1)
-	tw.parallel().tween_property(box, "position:y", box.position.y - 24.0, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(0.5)
-	tw.tween_property(box, "modulate:a", 0.0, 0.25)
-	tw.tween_callback(box.queue_free)
-
-
-## gold "x2 / x3" bubble next to a chained Nice!
-func _combo_badge(n: int, sp: Vector2) -> void:
-	var c := Control.new()
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.position = sp + Vector2(120, -40)
-	var panel := Panel.new()
-	panel.size = Vector2(70, 70)
-	panel.position = Vector2(-35, -35)
-	panel.add_theme_stylebox_override("panel", UIKit.style_box(Color("ffc928"), 35, 5, Color.WHITE, 8))
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.add_child(panel)
-	var l := UIKit.label("×%d" % n, 36, Color.WHITE, 8, Color("a85a00"))
-	l.size = panel.size
-	panel.add_child(l)
-	c.scale = Vector2(0.3, 0.3)
-	popup_layer.add_child(c)
-	var tw := c.create_tween()
-	tw.tween_property(c, "scale", Vector2(1.15, 1.15), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(c, "scale", Vector2.ONE, 0.1)
-	tw.parallel().tween_property(c, "position:y", c.position.y - 70.0, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(c, "modulate:a", 0.0, 0.25)
-	tw.tween_callback(c.queue_free)
+			say("sub2", text, 40, Color("ffffff"), Color("ffc4e2"), Color("b81e68"), 0.8)
 
 
 ## the line call, drawn like a broadcast judge badge: IN = teal / OUT = coral, a check / cross disc, big caps and a tail pointing
@@ -1616,11 +1555,11 @@ func _inout_pill(text: String, sp: Vector2, wpos: Vector3) -> void:
 ## big centre card after a point. It opens on the OLD score, lights up the team that won the rally (team-coloured glow, hopping
 ## avatars, the other side dims), then the winner's numeral rolls up to the new value like an odometer with a "+1", one ring
 ## pulse and a few sparkles; the scoreboard at the top left changes at the same moment.
-func show_point_card(winner: int) -> void:
+func show_point_card(winner: int, reason := "得分!") -> void:
 	var card := Control.new()
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp := get_viewport().get_visible_rect().size
-	card.position = Vector2(vp.x * 0.5, vp.y * 0.26)
+	card.position = Vector2(vp.x * 0.5, vp.y * 0.32)
 	root_c.add_child(card)
 	var new_score: int = director.score[winner]
 	var old_score := maxi(new_score - 1, 0)
@@ -1694,7 +1633,7 @@ func show_point_card(winner: int) -> void:
 	if human_teams.size() == 1:
 		cap_text = tr("我方得分") if human_teams.has(winner) else tr("对方得分")
 	var cap := Control.new()
-	cap.position = Vector2(num_pos[winner].x - 140.0, -178)         # above the winner's numeral (the big banner owns the space below)
+	cap.position = Vector2(num_pos[winner].x - 140.0, -146)         # above the winner's numeral
 	cap.size = Vector2(280, 56)
 	cap.pivot_offset = cap.size * 0.5
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1706,6 +1645,20 @@ func show_point_card(winner: int) -> void:
 	cap.modulate.a = 0.0
 	cap.scale = Vector2(0.7, 0.7)
 	card.add_child(cap)
+	# the headline (what happened): ACE! / 得分! / 出界 / 触网 ... in the lane style, above the team tag
+	var hc := _reason_colors(reason, wcol)
+	var head := Callout.make(reason, 84, hc[0], hc[1], hc[2])
+	head.position = Vector2(0, -232)
+	card.add_child(head)
+	head.scale = Vector2(1.5, 1.5)
+	head.modulate.a = 0.0
+	var htw := head.create_tween()
+	htw.tween_interval(0.12)
+	htw.tween_callback(func():
+		var t2 := head.create_tween().set_parallel(true)
+		t2.tween_property(head, "modulate:a", 1.0, 0.1)
+		t2.tween_property(head, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		t2.tween_method(func(v: float): head.fill_mat.set_shader_parameter("sheen", v), -0.25, 1.25, 0.55))
 	# card in
 	card.modulate.a = 0.0
 	card.scale = Vector2(0.8, 0.8)
@@ -1750,6 +1703,14 @@ func show_point_card(winner: int) -> void:
 		_refresh_score(true)                               # the scoreboard changes in the same instant
 		Sfx.play("xp_tick", -5.0, 1.2)
 		_point_card_fx(card, num_pos[winner], wcol))
+
+
+## colours of the headline by what happened: [top, bottom, outline]
+func _reason_colors(reason: String, team_col: Color) -> Array:
+	match reason:
+		"ACE!": return [Color("fff4b0"), Color("ffb62e"), Color("b5470f")]
+		"出界", "触网", "发球失误", "发球超时": return [Color("ffeaea"), Color("ff8f98"), Color("a3182f")]
+	return [Color.WHITE.lerp(team_col, 0.1), team_col.lightened(0.55), team_col.darkened(0.5)]
 
 
 ## "+1", one ring pulse and a handful of sparkles around the numeral that just changed (kept small on purpose)
@@ -1807,7 +1768,7 @@ func show_pill(text: String, dur := 1.1, col := Color("2fc7b0")) -> void:
 	var vp := get_viewport().get_visible_rect().size
 	var pill := Panel.new()
 	pill.size = Vector2(maxf(400.0, 66.0 * float(text.length()) + 170.0), 108)
-	pill.position = Vector2((vp.x - pill.size.x) * 0.5, vp.y * 0.34)
+	pill.position = Vector2((vp.x - pill.size.x) * 0.5, vp.y * LANE_Y - pill.size.y * 0.5)
 	pill.add_theme_stylebox_override("panel", UIKit.style_box(col, 54, 5, Color.WHITE, 12))
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := UIKit.label(text, 64, Color.WHITE, 12, col.darkened(0.45))

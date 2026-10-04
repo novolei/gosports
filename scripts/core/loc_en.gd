@@ -391,9 +391,9 @@ F11 全屏	F11 Fullscreen
 选择模式	Choose a mode
 你 + 电脑队友  VS  电脑二人组	You + a CPU partner  VS  two CPU players
 两位玩家同一队，一起对战电脑	Two players on one team against the CPU
-两位玩家各带一名电脑，同屏对抗	Two players, each with a CPU partner, head to head
+两位玩家各带一名电脑，同屏对抗	Two players, one CPU partner each, head to head
 比赛设置	Match Settings
-电脑难度	CPU strength
+电脑难度	CPU level
 比赛分数	Points to win
 7 分	7 pts
 11 分	11 pts
@@ -451,7 +451,6 @@ Cubebrush「Simple Character Pack」及忍者模型（开发者提供的素材�
 图标	Icons
 程序绘制，部分动作图标由 Gemini 生成后抠图	Drawn in code; some action icons were generated with Gemini and cut out
 界面字体	UI Font
-字魂趣圆黑（试用版，商用前需替换为已授权字体）	Zihun Quyuanhei (trial version; replace with a licensed font before commercial use)
 灵感	Inspiration
 界面节奏与操作提示的参考来自「任天堂 Switch Sports」排球的公开演示；所有素材均为原创实现，不使用任何官方资源	The pacing of the UI and control prompts were studied from public footage of Nintendo Switch Sports volleyball; everything here is an original implementation and uses no official assets
 按键设置 (玩家1 键盘)	Key Bindings (Player 1 keyboard)
@@ -606,6 +605,29 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 角色渲染	Character look
 柔和	Soft
 描边	Outlined
-摄影记者	Press Photographers
+摄影记者	Press Crew
 场边的摄影记者，回放时闪光灯此起彼伏	Press photographers on the sidelines; flashes pop during replays
+Kanit、Rubik、Noto Sans SC（均为 SIL Open Font License 1.1，可商用）	Kanit, Rubik, Noto Sans SC (all SIL Open Font License 1.1, free for commercial use)
+时机有点早!	A little early!
+时机有点晚!	A little late!
+发球超时	Serve timeout
+裁判警告 1/2	Umpire warning 1/2
+请尽快发球!	Serve quickly, please!
+最后警告 2/2	Final warning 2/2
+再不发球将判负!	Serve now or lose the point!
+球网风格	Net Style
+经典球网	Classic Net
+糖果条纹	Candy Stripes
+云朵	Clouds
+猫耳	Cat Ears
+爱心	Hearts
+球网	Net
+标准比赛球网	The standard match net
+粉白条纹网带，棒棒糖网柱	Pink-white striped tape and lollipop posts
+蓝白网带，网柱上有小云朵	Blue-white tape with little clouds on the posts
+网柱戴着猫耳朵，系着小铃铛	Posts wear cat ears and a tiny bell
+粉色网带和爱心网眼	Pink tape and heart-woven mesh
+金色网带，星星挂饰	Golden tape with star charms
+彩虹网带和小彩虹拱门	Rainbow tape and mini rainbow arches
+鹰眼回放	Hawk-Eye Review
 """

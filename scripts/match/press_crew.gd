@@ -3,7 +3,7 @@ extends Node3D
 ## "摄影记者" court decoration: a row of press photographers on a low riser outside the side hoardings (and a few behind the far
 ## end), cartoon animals in their own outfits with a camera. They idle with the camera at the chest, shoot at random while a
 ## replay of a scoring play is running (raise the camera, click, a flash of light) and join in briefly when a point is scored.
-## Cheap: one rig each (plain AnimationPlayer), one shared camera mesh, one small additive flash quad each.
+## Kept deliberately small (5 photographers at most) so it never costs frame time. Cheap: one rig each (plain AnimationPlayer), one shared camera mesh, one small additive flash quad each.
 
 const X := 9.7                          # outside the hoarding (outer face at 8.6)
 const RISER_H := 0.42
@@ -28,12 +28,12 @@ func build(p_scene: MatchScene, p_director: MatchDirector, look: Dictionary, exc
 			pool.append(e)
 	pool.shuffle()
 	var q := int(Game.settings["quality"])
-	var side_n := 6 if q >= 2 else (4 if q == 1 else 3)
-	var far_n := 3 if q >= 1 else 2
+	var side_n := 2 if q >= 1 else 1                    # just a few for the atmosphere: 2 per side + 1 behind the far end
+	var far_n := 1
 	var spots: Array[Dictionary] = []                         # {pos, crouch}
 	for sx in [-1.0, 1.0]:
 		for i in side_n:
-			var z := lerpf(-8.2, 7.4, float(i) / float(maxi(side_n - 1, 1))) + _rng.randf_range(-0.35, 0.35)
+			var z := lerpf(-4.8, 3.6, float(i) / float(maxi(side_n - 1, 1))) + _rng.randf_range(-0.35, 0.35)
 			spots.append({"pos": Vector3(sx * (X + _rng.randf_range(-0.1, 0.5)), RISER_H, z), "crouch": i % 2 == 1})
 	for i in far_n:
 		var x := lerpf(-3.8, 3.8, float(i) / float(maxi(far_n - 1, 1))) + _rng.randf_range(-0.3, 0.3)

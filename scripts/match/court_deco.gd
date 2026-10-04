@@ -203,6 +203,95 @@ static func hoarding(m: Mesher, look: Dictionary, col_a: Color, col_b: Color, ca
 				m.box(pc + Vector3(0, 0.05, 0), ssz, Color(1, 1, 1, 1))
 
 
+# ------------------------------------------------------------------ net styles (the "球网风格" collection)
+## material overrides for Arena._build_net: post / band colours + net shader parameters
+static func net_look(id: String) -> Dictionary:
+	match id:
+		"candy":
+			return {"post": Color(1.0, 0.55, 0.75), "band": Color(1, 1, 1), "shader": {"tape_col": Color(1.0, 0.55, 0.75), "tape_col2": Color(1, 1, 1), "tape_stripe": 0.25, "mesh_col": Color(0.3, 0.1, 0.22)}}
+		"cloud":
+			return {"post": Color(0.95, 0.97, 1.0), "band": Color(0.45, 0.72, 1.0), "shader": {"tape_col": Color(0.78, 0.9, 1.0), "tape_col2": Color(1, 1, 1), "tape_stripe": 0.6, "mesh_col": Color(0.2, 0.32, 0.5)}}
+		"cat":
+			return {"post": Color(0.3, 0.5, 1.0), "post2": Color(1.0, 0.45, 0.7), "band": Color(1, 1, 1), "shader": {"tape_col": Color(1, 1, 1), "mesh_col": Color(0.12, 0.14, 0.24)}}
+		"heart":
+			return {"post": Color(1.0, 0.5, 0.7), "band": Color(1, 1, 1), "shader": {"tape_col": Color(1.0, 0.5, 0.7), "hearts": 1.0, "mesh_col": Color(0.26, 0.12, 0.22)}}
+		"star":
+			return {"post": Color(0.16, 0.18, 0.38), "band": Color(1.0, 0.82, 0.25), "shader": {"tape_col": Color(1.0, 0.82, 0.25), "mesh_col": Color(0.08, 0.09, 0.2)}}
+		"rainbow":
+			return {"post": Color(0.97, 0.97, 1.0), "band": Color(0.7, 0.5, 1.0), "shader": {"rainbow": 1.0, "mesh_col": Color(0.2, 0.24, 0.36)}}
+	return {}
+
+
+## the small accents on the posts (and a charm or two on the tape ends): one merged lit mesh, a few hundred triangles
+static func net_toppers(arena: Arena, id: String) -> void:
+	if id == "classic":
+		return
+	var m := Mesher.new()
+	var ptop := 2.7
+	for s in [-1.0, 1.0]:
+		var x: float = s * Court.NET_X
+		var p := Vector3(x, ptop, 0.0)
+		match id:
+			"candy":
+				m.bar(p, p + Vector3(0, 0.28, 0), 0.05, Color(0.97, 0.97, 0.98))
+				m.sphere(p + Vector3(0, 0.46, 0), 0.19, Color(1.0, 0.5, 0.74), 10, 6, 1.0, Color(1.0, 0.75, 0.88))
+				for k in 4:                                                          # white swirl bands on the lollipop
+					var a := TAU * float(k) / 4.0
+					m.box(p + Vector3(cos(a) * 0.15, 0.46, sin(a) * 0.15), Vector3(0.05, 0.3, 0.05), Color(1, 1, 1), Basis(Vector3.UP, -a))
+			"cloud":
+				for off in [Vector3(-0.15, 0.1, 0), Vector3(0.0, 0.2, 0.02), Vector3(0.16, 0.1, 0), Vector3(0.0, 0.08, -0.12)]:
+					m.sphere(p + off + Vector3(0, 0.12, 0), 0.16, Color(0.93, 0.96, 1.0), 8, 5, 0.85, Color(1, 1, 1))
+			"cat":
+				var col := Color(0.3, 0.5, 1.0) if s < 0 else Color(1.0, 0.45, 0.7)
+				for sx in [-1.0, 1.0]:
+					m.cyl(p + Vector3(sx * 0.1, 0.0, 0), 0.1, 0.0, 0.3, col, 4)
+					m.cyl(p + Vector3(sx * 0.1, 0.03, 0.045), 0.055, 0.0, 0.2, Color(1.0, 0.82, 0.88), 4)
+				m.sphere(Vector3(x - s * 0.34, Court.NET_TOP - 0.2, 0.0), 0.06, Color(1.0, 0.82, 0.25), 6, 4)       # a little bell on the tape
+				m.bar(Vector3(x - s * 0.34, Court.NET_TOP - 0.02, 0.0), Vector3(x - s * 0.34, Court.NET_TOP - 0.15, 0.0), 0.012, Color(0.9, 0.2, 0.3))
+			"heart":
+				var pk := Color(1.0, 0.42, 0.64)
+				m.sphere(p + Vector3(-0.09, 0.26, 0), 0.12, pk, 8, 5)
+				m.sphere(p + Vector3(0.09, 0.26, 0), 0.12, pk, 8, 5)
+				m.cyl(p + Vector3(0, 0.38, 0), 0.0, 0.0, 0.0, pk)
+				# the lower point of the heart: a cone pointing down
+				for k in 8:
+					var a0 := TAU * float(k) / 8.0
+					var a1 := TAU * float(k + 1) / 8.0
+					var tip := p + Vector3(0, 0.07, 0)
+					m.tri(p + Vector3(cos(a0) * 0.19, 0.3, sin(a0) * 0.08), p + Vector3(cos(a1) * 0.19, 0.3, sin(a1) * 0.08), tip, pk, Vector3(cos((a0 + a1) * 0.5), 0, sin((a0 + a1) * 0.5)))
+			"star":
+				_star(m, p + Vector3(0, 0.3, 0), 0.22, Color(1.0, 0.84, 0.28))
+				_star(m, Vector3(x - s * 0.4, Court.NET_TOP - 0.22, 0.0), 0.1, Color(1.0, 0.9, 0.5))
+				m.bar(Vector3(x - s * 0.4, Court.NET_TOP - 0.02, 0.0), Vector3(x - s * 0.4, Court.NET_TOP - 0.14, 0.0), 0.012, Color(1.0, 0.9, 0.5))
+			"rainbow":
+				var bands: Array[Color] = [Color(1.0, 0.35, 0.35), Color(1.0, 0.85, 0.3), Color(0.35, 0.7, 1.0)]
+				for r in 3:
+					var rad := 0.2 - 0.06 * float(r)
+					var prev := p + Vector3(rad, 0.02, 0)
+					for k in range(1, 9):
+						var a := PI * float(k) / 8.0
+						var q := p + Vector3(cos(a) * rad, 0.02 + sin(a) * rad, 0)
+						m.bar(prev, q, 0.05, bands[r])
+						prev = q
+				m.sphere(p + Vector3(-0.23, 0.04, 0), 0.07, Color(1, 1, 1), 6, 4)
+				m.sphere(p + Vector3(0.23, 0.04, 0), 0.07, Color(1, 1, 1), 6, 4)
+	arena.add_child(m.commit(lit_material()))
+
+
+## flat five-point star in the XY plane (faces the broadcast camera), double-sided
+static func _star(m: Mesher, c: Vector3, r: float, col: Color) -> void:
+	for i in 5:
+		var a0 := -PI * 0.5 + TAU * float(i) / 5.0
+		var a1 := -PI * 0.5 + TAU * float(i + 1) / 5.0
+		var am := (a0 + a1) * 0.5
+		var tip := c + Vector3(cos(a0), sin(a0), 0) * r
+		var nxt := c + Vector3(cos(a1), sin(a1), 0) * r
+		var inner := c + Vector3(cos(am), sin(am), 0) * r * 0.42
+		m.tri2(c, tip, inner, col)
+		m.tri2(c, inner, nxt, col)
+	m.box(c + Vector3(0, 0, -0.015), Vector3(0.001, 0.001, 0.001), col)
+
+
 # ------------------------------------------------------------------ entry
 static func build(arena: Arena, id: String, look: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()

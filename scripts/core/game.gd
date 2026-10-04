@@ -79,26 +79,9 @@ func _ready() -> void:
 	apply_settings()
 
 
-## Fonts: assets/fonts/ui_font.ttf is the Chinese UI font (trial version, see docs section 22 for licensed alternatives).
-## Optional: drop a Latin font at assets/fonts/ui_font_en.ttf (e.g. Fredoka, OFL) and it takes over every Latin glyph, with the
-## Chinese font behind it as a fallback - no code change needed.
+## Fonts: see Fonts (scripts/core/fonts.gd) - Rubik + Noto Sans SC for text, Kanit Italic + Noto Sans SC Black (slanted) for headlines.
 func _make_font() -> Font:
-	var path := "res://assets/fonts/ui_font.ttf"
-	var en_path := "res://assets/fonts/ui_font_en.ttf"
-	if ResourceLoader.exists(path):
-		var ff: FontFile = load(path)
-		var sf := SystemFont.new()
-		sf.font_names = PackedStringArray(["Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif"])
-		ff.fallbacks = [sf]
-		if ResourceLoader.exists(en_path):
-			var en: FontFile = load(en_path)
-			en.fallbacks = [ff]
-			return en
-		return ff
-	var s := SystemFont.new()
-	s.font_names = PackedStringArray(["Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif"])
-	s.font_weight = 700
-	return s
+	return Fonts.body()
 
 
 func _detect_touch() -> void:

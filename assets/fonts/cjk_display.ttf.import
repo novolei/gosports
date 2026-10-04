@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://df4ljvndeqgmh"
-path="res://.godot/imported/ui_font.ttf-9d63957364c5df0569ecb3c33ae17992.fontdata"
+uid="uid://bvrksatcg2tlb"
+path="res://.godot/imported/cjk_display.ttf-914ffdf2cfd36143b0997bee9dc8e625.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/ui_font.ttf"
-dest_files=["res://.godot/imported/ui_font.ttf-9d63957364c5df0569ecb3c33ae17992.fontdata"]
+source_file="res://assets/fonts/cjk_display.ttf"
+dest_files=["res://.godot/imported/cjk_display.ttf-914ffdf2cfd36143b0997bee9dc8e625.fontdata"]
 
 [params]
 

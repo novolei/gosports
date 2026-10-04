@@ -98,7 +98,14 @@ func begin() -> void:
 	set_progress(0.0)
 
 
+## the same HUD layer with another title (hawk-eye review): text + a small eye glyph
+func begin_titled(text: String, glyph := "") -> void:
+	_label.text = text
+	begin()
+
+
 func end() -> void:
+	_label.text = tr("回放")
 	_label.visible = false
 	_line.visible = false
 	_skip.visible = false

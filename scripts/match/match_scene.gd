@@ -22,6 +22,7 @@ var _quit_after := -1.0
 var _elapsed := 0.0
 var _stats_log := []
 var replay: ReplaySystem = null
+var hawk: HawkEye = null
 var _points_since_replay := 2
 var _last_replay_ours := true          # the previous replay was for the player's team (so one against them may follow)
 
@@ -93,7 +94,7 @@ func _build() -> void:
 	if not Game.dbg("noref"):
 		referee = Referee.new()
 		add_child(referee)
-		referee.build(director, ball, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]))
+		referee.build(director, ball, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]), self)
 	if arena.deco_id == "press" and not Game.dbg("nodeco"):
 		var press := PressCrew.new()
 		add_child(press)
@@ -167,6 +168,8 @@ func _build() -> void:
 		replay = ReplaySystem.new()
 		add_child(replay)
 		replay.setup(self)
+		hawk = HawkEye.new()
+		add_child(hawk)
 	if Game.dbg("nohud"):
 		hud.visible = false
 
@@ -192,6 +195,8 @@ func _build() -> void:
 	if Game.main != null and Game.main.dev.has("refcam"):
 		var rc := String(Game.main.dev["refcam"]).split(",")
 		cam_rig.set_free(Vector3(float(rc[0]), float(rc[1]), float(rc[2])), Vector3(float(rc[3]), float(rc[4]), float(rc[5])), float(rc[6]))
+	if Game.main != null and Game.main.dev.has("hawkdemo"):          # dev: --hawkdemo=in|out plays the hawk-eye review on a synthetic call
+		_dev_hawk(String(Game.main.dev["hawkdemo"]))
 	if Game.main != null and Game.main.dev.has("callshot"):          # dev: --callshot=in|out|inclose|outclose fires a fake line call after 4 s
 		_dev_call(String(Game.main.dev["callshot"]))
 	if director.vs_time > 0.0:
@@ -213,6 +218,19 @@ func _connect_signals() -> void:
 	ball.floor_contact.connect(_on_floor)
 	ball.net_contact.connect(func(p): vfx.hit_burst(p, "good", 0.2); cam_rig.shake(0.2))
 	director.score_changed.connect(func(s, st): if _log_events: print("[score] ", s, " serving=", st))
+
+
+func _dev_hawk(kind: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	var inside := not kind.ends_with("out")
+	var pos := Vector3(4.54 if inside else 4.64, 0.14, 3.2)
+	if kind.begins_with("end"):
+		pos = Vector3(1.0, 0.14, 6.98 if inside else 7.1)
+	hawk = hawk if hawk != null else HawkEye.new()
+	if hawk.get_parent() == null:
+		add_child(hawk)
+	await hawk.play(self, {"floor": {"pos": pos, "vel": Vector3(-1.5, -7.0, 2.0), "inside": inside, "dist": minf(4.5 - absf(pos.x), 7.0 - absf(pos.z)) + 0.04}})
+	get_tree().quit()
 
 
 func _dev_call(kind: String) -> void:
@@ -365,7 +383,10 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		get_tree().create_timer(2.5).timeout.connect(func(): if crowd: crowd.cheer(false))
 	cam_rig.point_focus(pos, team)
 	cam_rig.slowmo(0.35, 0.55)
-	if _replay_wanted(reason):
+	if hawk != null and HawkEye.wanted(director._point_info):
+		director.hold_next = true
+		_run_hawkeye()
+	elif _replay_wanted(reason):
 		director.hold_next = true
 		_run_point_replay()
 	var winners_center := Vector3.ZERO
@@ -404,7 +425,7 @@ func _replay_wanted(reason: String) -> bool:
 		if a.is_human:
 			humans[a.team] = true
 	var ours := humans.is_empty() or humans.has(winner) or humans.size() > 1
-	var mistake := reason == "出界" or reason == "触网" or reason == "发球失误"     # points that came from an error are not highlights ...
+	var mistake := reason == "出界" or reason == "触网" or reason == "发球失误" or reason == "发球超时"     # points that came from an error are not highlights ...
 	var highlight := (reason == "ACE!" or kind == "spike" or kind == "block" or ball.combo or rally >= 6) if not mistake else rally >= 12   # ... unless it was a marathon
 	var want := false
 	if ours:
@@ -420,6 +441,11 @@ func _replay_wanted(reason: String) -> bool:
 		_points_since_replay = 0
 		_last_replay_ours = ours
 	return want
+
+
+func _run_hawkeye() -> void:
+	await hawk.play(self, director._point_info)
+	director.hold_next = false
 
 
 func _run_point_replay() -> void:

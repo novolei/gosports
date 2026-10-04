@@ -205,6 +205,7 @@ func _physics_process_impl(dt: float) -> void:
 				_serve_prompt_given = false
 		P.SERVING:
 			_serve_timer += dt
+			_update_serve_timeout(dt)
 		P.RALLY:
 			_update_plans(dt)
 			_check_blocks()
@@ -222,6 +223,27 @@ func _physics_process_impl(dt: float) -> void:
 
 var _serve_prompt_given := false
 
+## slow-server rules (human servers only): the umpire throws something at them twice, then the point goes to the other team
+const SERVE_WARN := [9.0, 17.0]
+const SERVE_FAULT := 25.0
+var _hold_t := 0.0
+var _warned := 0
+
+
+func _update_serve_timeout(dt: float) -> void:
+	if Game.main != null and Game.main.dev.has("servescale"):               # dev: --servescale=0.2 shrinks the timers for testing
+		dt *= 1.0 / float(Game.main.dev["servescale"])
+	if is_practice() or server == null or not server.is_human or server.state != Athlete.S.SERVE_HOLD:
+		return
+	_hold_t += dt
+	var grace := 4.0 if score[0] + score[1] == 0 else 0.0              # the very first serve: time to read the hints
+	if _warned < SERVE_WARN.size() and _hold_t >= float(SERVE_WARN[_warned]) + grace:
+		_warned += 1
+		rally_event.emit("serve_warn", {"n": _warned, "athlete": server})
+	elif _warned >= SERVE_WARN.size() and _hold_t >= SERVE_FAULT + grace:
+		_hold_t = 0.0
+		_end_point(1 - serving_team, "发球超时", server.global_position)
+
 
 func _all_in_place() -> bool:
 	for a in athletes:
@@ -232,6 +254,8 @@ func _all_in_place() -> bool:
 
 func _begin_serve_prep() -> void:
 	server = athletes[serving_team * 2 + server_idx[serving_team]]
+	_hold_t = 0.0
+	_warned = 0
 	touches = [0, 0]
 	last_team = -1
 	last_hitter = null
@@ -412,10 +436,12 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 		chain[a.team] += 1
 	else:
 		chain[a.team] = 0
+	var show_fb := a.is_human or not _has_human()              # callouts are feedback for the player's own touches (AI-only matches keep them)
 	match q:
 		"perfect":
 			var n: int = chain[a.team]
-			popup.emit("Nice!" if n < 2 else "Nice! ×%d" % n, "perfect", contact + Vector3(0, 0.6, 0))
+			if show_fb:
+				popup.emit("Nice!" if n < 2 else "Nice! ×%d" % n, "perfect", contact + Vector3(0, 0.6, 0))
 		"good":
 			if a.is_human:
 				popup.emit("Nice", "good", contact + Vector3(0, 0.6, 0))
@@ -423,7 +449,7 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 			# a little too early / too late (only worth telling the humans)
 			if a.is_human and kind != "serve":
 				popup.emit("早了!" if info.get("early", true) else "晚了!", "late", contact + Vector3(0, 0.6, 0))
-	if label != "":
+	if label != "" and show_fb:
 		popup.emit(label, "label", contact + Vector3(0, 1.1, 0))
 	var gain := 0.0
 	match q:
@@ -439,6 +465,13 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 		add_hype(1, 0.012)
 	rally_event.emit("hit", {"athlete": a, "info": info, "touch": touches[a.team]})
 	# the other team's AI gets a short reaction delay from the brains themselves
+
+
+func _has_human() -> bool:
+	for h in athletes:
+		if h.is_human:
+			return true
+	return false
 
 
 func plan_shot(a: Athlete, kind: String, quality: String, face: Vector2) -> Dictionary:
@@ -577,6 +610,7 @@ func _solve_over_net(p0: Vector3, target: Vector3, t_min: float, t_max := 2.2) -
 	return v
 
 
+var _pending_floor := {}
 var _letgo_key := ""
 var _letgo_val := false
 
@@ -822,6 +856,8 @@ func _on_floor_contact(pos: Vector3) -> void:
 	else:
 		winner = 1 - last_team
 		reason = "出界"
+	var edge_in := minf(Court.HALF_W - absf(pos.x), Court.HALF_D - absf(pos.z))
+	_pending_floor = {"pos": pos, "vel": ball.vel, "inside": inside, "dist": edge_in + 0.04}      # (the +0.04 is the in_court margin above)
 	if not (phase == P.SERVING and last_team < 0):
 		popup.emit("In" if inside else "Out", "inout", Vector3(pos.x, 0.3, pos.z))
 		var edge := minf(Court.HALF_W - absf(pos.x), Court.HALF_D - absf(pos.z))
@@ -859,6 +895,9 @@ func _end_point(winner: int, reason: String, pos: Vector3) -> void:
 		serving_team = winner
 		server_idx[winner] = 1 - server_idx[winner]
 	_point_info = {"winner": winner, "reason": reason, "pos": pos, "kind": _last_kind if last_team == winner else "", "rally": rally_len}
+	if not _pending_floor.is_empty() and (reason == "得分!" or reason == "ACE!" or reason == "出界"):
+		_point_info["floor"] = _pending_floor                # for the hawk-eye review of close calls
+	_pending_floor = {}
 	_set_phase(P.POINT)
 	score_changed.emit(score, serving_team)
 	point_scored.emit(winner, reason, pos)

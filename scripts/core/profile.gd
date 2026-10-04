@@ -52,6 +52,17 @@ const DECOS := [
 	{"id": "party", "name": "派对气球", "level": 20, "desc": "彩色气球拱门和彩带", "swatch": Color(1.0, 0.45, 0.65)},
 ]
 
+## net styles (the posts, the tape and a few restrained cute accents; see CourtDeco.net_look / net_toppers)
+const NETS := [
+	{"id": "classic", "name": "经典球网", "level": 1, "desc": "标准比赛球网", "swatch": Color(0.2, 0.22, 0.28)},
+	{"id": "candy", "name": "糖果条纹", "level": 4, "desc": "粉白条纹网带，棒棒糖网柱", "swatch": Color(1.0, 0.55, 0.75)},
+	{"id": "cloud", "name": "云朵", "level": 8, "desc": "蓝白网带，网柱上有小云朵", "swatch": Color(0.6, 0.8, 1.0)},
+	{"id": "cat", "name": "猫耳", "level": 12, "desc": "网柱戴着猫耳朵，系着小铃铛", "swatch": Color(0.35, 0.55, 1.0)},
+	{"id": "heart", "name": "爱心", "level": 15, "desc": "粉色网带和爱心网眼", "swatch": Color(1.0, 0.45, 0.65)},
+	{"id": "star", "name": "星光", "level": 18, "desc": "金色网带，星星挂饰", "swatch": Color(1.0, 0.82, 0.25)},
+	{"id": "rainbow", "name": "彩虹", "level": 22, "desc": "彩虹网带和小彩虹拱门", "swatch": Color(0.7, 0.5, 1.0)},
+]
+
 const TITLES := ["新手", "新手", "球场新星", "球场新星", "校队候补", "校队候补", "校队主力", "校队主力", "区域好手", "区域好手",
 		"地区冠军", "地区冠军", "省队选手", "省队选手", "国家队后备", "国家队后备", "国手", "国手", "传奇", "传奇"]
 
@@ -103,7 +114,7 @@ var xp := 0
 var stats := {}                # lifetime numbers shown on the career page
 var counters := {}             # achievement / mission counters
 var achievements := {}         # id -> unix time unlocked
-var equipped := {"trail": "speed", "ball": "classic", "court": "day", "deco": "ads"}
+var equipped := {"trail": "speed", "ball": "classic", "court": "day", "deco": "ads", "net": "classic"}
 var daily := {"day": "", "list": [], "streak": 0, "last_day": ""}
 var flags := {"tutorial_done": false, "welcomed": false, "tournament_best": 0, "rally_best": 0}
 var path := PATH
@@ -158,6 +169,7 @@ static func catalog(kind: String) -> Array:
 		"ball": return BALLS
 		"court": return COURTS
 		"deco": return DECOS
+		"net": return NETS
 	return []
 
 
@@ -190,7 +202,7 @@ func equipped_item(kind: String) -> Dictionary:
 ## everything that becomes available between two levels: [{"kind", "id", "name"}]
 static func unlocks_between(from_level: int, to_level: int) -> Array:
 	var out := []
-	for kind in ["trail", "ball", "court", "deco"]:
+	for kind in ["trail", "ball", "court", "deco", "net"]:
 		for e in catalog(kind):
 			if int(e["level"]) > from_level and int(e["level"]) <= to_level:
 				out.append({"kind": kind, "id": e["id"], "name": e["name"], "level": e["level"]})

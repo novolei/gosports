@@ -16,7 +16,8 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-FONT = "assets/fonts/ui_font.ttf"
+FONT_LATIN = "assets/fonts/latin_display.ttf"      # Kanit ExtraBold Italic (SIL OFL)
+FONT_CJK = "assets/fonts/cjk_display.ttf"          # Noto Sans SC Black (SIL OFL)
 BG_TOP = (46, 232, 200)          # icon gradient: turquoise ...
 BG_BOT = (20, 140, 216)          # ... to a clear blue
 SPLASH_BG = (29, 186, 205)       # the solid colour behind the splash (== project.godot boot_splash/bg_color)
@@ -157,7 +158,7 @@ def fit_in_circle(mark, canvas, circle_frac):
 
 
 def outlined_text(text, size, fill, outline, ow, shadow=None):
-    font = ImageFont.truetype(FONT, size)
+    font = ImageFont.truetype(FONT_CJK if any(ord(ch) > 0x2000 for ch in text) else FONT_LATIN, size)
     l, t, r, b = font.getbbox(text, stroke_width=ow)
     pad = ow + 24
     img = Image.new("RGBA", (r - l + pad * 2, b - t + pad * 2), (0, 0, 0, 0))

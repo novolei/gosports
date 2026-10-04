@@ -74,6 +74,8 @@ static func label(text: String, size := 32, color := Color.WHITE, outline := 0, 
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
+	if size >= 46:
+		l.add_theme_font_override("font", Fonts.display())              # big headlines / scores: the sporty italic face
 	l.add_theme_color_override("font_color", color)
 	if outline > 0:
 		l.add_theme_constant_override("outline_size", outline)
@@ -166,6 +168,8 @@ static func button(text: String, size := Vector2(360, 76), color := GREEN, font_
 	b.size = size
 	b.focus_mode = Control.FOCUS_ALL
 	b.add_theme_font_size_override("font_size", font_size)
+	if font_size >= 52:
+		b.add_theme_font_override("font", Fonts.display())
 	var empty := StyleBoxEmpty.new()
 	for st in ["normal", "hover", "pressed", "focus", "hover_pressed", "disabled"]:
 		b.add_theme_stylebox_override(st, empty)
