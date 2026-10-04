@@ -426,7 +426,7 @@ PC 手感新增：
 **排球更容易看清**（`Ball`）：深海军蓝描边（同一网格反面外扩 1.17×，一次额外的球体绘制）；球贴图提高饱和度（`volleyball_vivid.png`）并加一点自发光，夜场 / 阴影里不会发灰；视觉大小随离镜头距离放大（1×→1.85×，只影响显示，不影响物理），远端场地的球在手机上也有 ~25 px；光晕基础亮度 0.12，球在飞行时始终有一圈淡光。
 
 **启动画面 / 图标 / Logo**（`tools/render_ball.gd` 用游戏里真实的排球模型渲染透明 PNG，`tools/make_logo.py` 合成全部尺寸）：
-* 启动画面改成**纯色背景 + 居中的 Logo 与文字**：`assets/ui/splash.png` 是透明底（球 + 速度线 + 「Go Sports」+ 「VOLLEYBALL · 排球」），`boot_splash/bg_color` 是同一个青色（29,186,205）且 `fullsize=true`：图片按窗口等比缩放，多余的区域就是纯色，所以任何屏幕比例（手机 21:9 / 平板 4:3 / 桌面 16:9）都不会露边；进入菜单的淡入起点用同一个颜色（`Main`），启动画面 → 菜单是连续的。
+* 启动画面改成**纯色背景 + 居中的 Logo 与文字**：`assets/ui/splash.png` 是 960×640 的透明小画布（球 + 速度线 + 「Go Sports」+ 「VOLLEYBALL · 排球」），`boot_splash/bg_color` 是纯色（29,186,205），`fullsize=false`：Logo 以原始大小居中显示在纯色上。（试过 `fullsize=true`：Godot 会按窗口较长的一边铺满并裁掉另一边，宽窗口 / 方窗口里 Logo 会被切掉，所以不用。）任何屏幕比例（手机 21:9 / 平板 4:3 / 桌面 16:9）都不会露边也不会被裁；进入菜单的淡入起点用同一个颜色（`Main`），启动画面 → 菜单是连续的。
 * **App 图标**：1024×1024、不透明 RGB（App Store 不允许 alpha）、直角全出血（iOS 自己加圆角）、只有一个焦点（球），不放文字；渐变青→蓝 + 淡斜条纹，球 + 三条速度线（白 / 粉 / 黄）+ 两颗星光。导出：`art_src/brand/ios/AppStore_1024.png` 以及 180/167/152/120/87/80/76/60/58/40/29/20 全套，`play_store_512.png`，`icon.ico`；Android：`assets/brand/android_192 / fg / bg / mono`（前景在 66 % 安全区内，另有单色主题图标），已写进 `export_presets.cfg` 的 launcher_icons；项目图标 `icon.png`。
 * 字：Logo 文字仍用 `ui_font.ttf`（试用字体，非商业授权）——**商用前必须换成有授权的字体**（推荐 Fredoka / Baloo 2 / 站酷快乐体，见 22.4），然后重跑 `make_logo.py`。
 

@@ -4,7 +4,7 @@
 Input : art_src/brand/ball_render.png  (the real in-game ball, rendered by tools/render_ball.gd)
 Output: icon.png (512, project icon)             art_src/brand/ios/*.png (App Store 1024 + the iOS size set)
         assets/brand/android_*.png (launcher)    art_src/brand/play_store_512.png      art_src/brand/icon.ico
-        assets/ui/splash.png (transparent logo + text on a 16:9 canvas; project.godot gives it a solid background colour)
+        assets/ui/splash.png (compact transparent logo + text; shown at native size on a solid colour from project.godot)
         art_src/brand/wordmark.png
 
 App Store rules respected: 1024 x 1024 px, fully opaque RGB (no alpha channel), square corners (iOS rounds them itself),
@@ -166,20 +166,22 @@ def make_wordmark(h=300):
     return mk.rotate(4, resample=Image.BICUBIC, expand=True)
 
 
-def make_splash(w=1920, h=1080):
-    """transparent canvas with the logo group centred; project.godot paints the solid background and scales this to the window"""
+def make_splash(w=960, h=640):
+    """compact transparent canvas with the logo group centred. project.godot shows it at NATIVE size (boot_splash/fullsize=false)
+    on the solid boot_splash/bg_color: Godot's fullsize mode crops to the longer window side, a fixed small logo never does."""
     out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     mark = compose_mark(700, ball_d=400, trail_scale=0.9, center=(400, 330))
-    wm = make_wordmark()
-    k = 1000.0 / wm.size[0]
-    wm = wm.resize((int(wm.size[0] * k), int(wm.size[1] * k)), Image.LANCZOS)
-    sub = outlined_text("VOLLEYBALL  ·  排球", 62, WHITE + (255,), NAVY + (255,), 7)
     mk = mark.crop((20, 40, 680, 620))
-    total_h = mk.size[1] + wm.size[1] + sub.size[1] - 90
+    mk = mk.resize((int(mk.size[0] * 0.48), int(mk.size[1] * 0.48)), Image.LANCZOS)
+    wm = make_wordmark()
+    k = 515.0 / wm.size[0]
+    wm = wm.resize((int(wm.size[0] * k), int(wm.size[1] * k)), Image.LANCZOS)
+    sub = outlined_text("VOLLEYBALL  ·  排球", 31, WHITE + (255,), NAVY + (255,), 4)
+    total_h = mk.size[1] + wm.size[1] + sub.size[1] - 54
     y0 = (h - total_h) // 2
-    out.alpha_composite(mk, ((w - mk.size[0]) // 2 + 20, y0))
-    out.alpha_composite(wm, ((w - wm.size[0]) // 2, y0 + mk.size[1] - 40))
-    out.alpha_composite(sub, ((w - sub.size[0]) // 2, y0 + mk.size[1] - 40 + wm.size[1] - 30))
+    out.alpha_composite(mk, ((w - mk.size[0]) // 2 + 12, y0))
+    out.alpha_composite(wm, ((w - wm.size[0]) // 2, y0 + mk.size[1] - 26))
+    out.alpha_composite(sub, ((w - sub.size[0]) // 2, y0 + mk.size[1] - 26 + wm.size[1] - 18))
     return out
 
 

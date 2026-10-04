@@ -20,7 +20,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.png"
 boot_splash/bg_color=Color(0.1137, 0.7294, 0.8039, 1)
 boot_splash/image="res://assets/ui/splash.png"
-boot_splash/fullsize=true
+boot_splash/fullsize=false
 boot_splash/use_filter=true
 
 [autoload]
