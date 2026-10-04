@@ -562,3 +562,13 @@ PC 手感新增：
 * **设置 → 提示 →「击球时机窗口」**（`Game.settings["timing_window"]`，`Game.TIMING_WINDOWS`）：宽松 ×1.4（默认）/ 标准 ×1.2 / 精准 ×1.0（原版）；只对真人，电脑永远 ×1.0；`Athlete.timing_window_scale()` 读 `Game.human_window()`，圈、脚下亮圈、瞄准散布圈、大力扣杀概率都跟着变。开发开关 `--timingwin=0|1|2`。用同一个机器人、同一套出手时机各打 4 个难度：宽松窗口 perfect 69/78 ≈ 88 %，精准窗口 43/73 ≈ 59 %（机器人不代表真人，只证明窗口确实起作用）。
 * **成就 / 任务**：成就「网前一击」（1 次大力扣杀）、「重炮手」（累计 10 次）→ 共 22 个；每日任务池新增「完成 N 次大力扣杀」；`Profile` 终身统计 `smashes`；大力扣杀进「精彩表现」经验（每次 +4，最多 +20）；生涯页「强力扣球 / 大力扣杀」一格，「得分」格换成「击球完美率」。
 * **击球时机数据**（给以后调窗口用）：`MatchDirector.stats["timing"]` 统计近端真人每次非发球击球的 perfect / good / ok，以及非 perfect 里是「早」还是「晚」（球还在逼近理想点 = 早）；`Profile.finish_match` 累加到终身 `t_*` 和按窗口设置分开的 `timing_by_window`；`--log` 打印 `[timing]`。读取：`python tools/timing_report.py [profile.json]`（默认读 Windows 桌面版存档）。
+
+## 37. 共用核心 gosports-core v0（2026‑10‑05）
+
+目标：排球 / 乒乓球 / 足球（以及以后的沙狐球）保持**独立游戏**（各自的分支 / 工程名 / 包名 / 存档目录 / 发布节奏），但把与运动无关的代码**只写一份**，以带版本号的依赖形式共用，而不是各自 fork。
+* **仓库**：`G:\NewGDP\gosports-core`（独立 git 仓库，`main` + tag `v0.1.0` / `v0.1.1`）。设计、依赖规则、路线图在它的 `docs/CORE.md`，接入 / 更新 / 回馈流程在 `docs/ADOPT.md`。
+* **形式**：`git subtree`（`--squash`）放在各游戏的 `core/`——文件物理上在游戏工程里（Godot 要求在 `res://` 下，打包脚本整树复制，worktree 多时 submodule 很麻烦）。更新：`git subtree pull --prefix=core G:/NewGDP/gosports-core main --squash`。核心里的资源路径一律 `res://core/...`。
+* **依赖规则**：核心永远不引用运动专属的类（Court / Ball / Athlete / MatchDirector ...）；游戏用核心，反过来不行；游戏不直接改 `core/` 下的文件，需要的改动先回到核心仓库；一个模块要等「至少一个游戏在用 + 各 fork 的同名文件已对齐」才晋升。
+* **v0 的内容**（三条线都没改过的稳定交集 + 一个被共用的网格构建器）：`Fonts`（+ 字体文件）、`Callout`（+ 着色器 + star 贴图）、`Mesher`（从 `CourtDeco.Mesher` 原样搬出）、`Confetti`、`AlertMark`、`AngerMark`、`DizzyStars`（改成接收任意带 `.rig.head_world()` 的 `Node3D`）。排球里这些文件的副本已删除（UID 保留），`CourtDeco` 的内部类 `Mesher` 已删除，`BenchCrew` / `PressCrew` / `ThrowProp` / `AngerMark` 改用全局 `Mesher`；`tools/check_scripts.gd` 也扫描 `core/`；字体 / 宣传片 / 广告 / logo 脚本的字体路径改成 `core/assets/fonts/`。
+* **v0.1.0 的一个坑**：我用 `sed 's#assets/fonts/#core/assets/fonts/#g'` 整文件替换，把已经改好的 `DIR` 常量又替换成 `res://core/core/assets/...`，字体没加载出来，但 `--fontscan` 仍报 0 个例外（字体为 null 时回落到别的字体）。教训：**回归脚本要同时 grep `^ERROR:` / `Resource file not found`**（已加进 `tmp_shots/regress_core.sh`），路径搬家后直接 `load()` 一遍每个资源。v0.1.1 修复并带上 Godot 生成的 `.uid` / `.import`（保证各游戏资源 UID 一致）。
+* **接下来**（路线图见 CORE.md）：v0.2 `Loc` 框架 + 多语言表注册 + `Sfx` bank + `Prof`（先对齐足球改过的 loc.gd / sfx.gd 和乒乓球改过的 loc_en.gd）；v0.3 UI 语言；v0.4 `Game` 拆成核心服务 + 游戏配置、`Profile` 引擎 + `SportDef`；v0.5 角色骨架与动画烘焙；v0.6 工具链；v0.7 场馆框架与回放。乒乓球 / 足球两个 session 已收到通知（暂时别 merge main，核心接入说明会在验证后发给它们）。

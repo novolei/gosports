@@ -542,7 +542,7 @@ func _on_match_over(winner: int) -> void:
 		Game.save_settings()
 		if _log_events:
 			print("[timing] window=%d %s" % [int(Game.settings.get("timing_window", 0)), str(director.stats["timing"])])
-		if autoplay and Game.main.dev.has("quit_on_over"):
+		if Game.main.dev.has("quit_on_over"):                  # (dev: AI-only AND human-bot test matches end here instead of idling on the results screen)
 			var lens := []
 			var reasons := {}
 			for r in director.rally_history:
@@ -632,9 +632,11 @@ func _notification(what: int) -> void:
 ## dev: --pausetest pauses for 2 real seconds and prints what moved (it must be nothing)
 func _run_pause_test() -> void:
 	var snap := func() -> Dictionary:
-		var d := {"ball": ball.global_position, "t": director.match_time, "anim": athletes[0].rig.anim.current_animation_position, "elapsed": _elapsed}
+		var apos := func(ap: AnimationPlayer) -> float:                 # (reading the position of a player with no current animation logs an engine error)
+			return ap.current_animation_position if ap.current_animation != "" else -1.0
+		var d := {"ball": ball.global_position, "t": director.match_time, "anim": apos.call(athletes[0].rig.anim), "elapsed": _elapsed}
 		if crowd != null and not crowd._rigs.is_empty():
-			d["crowd"] = crowd._rigs[0].anim.current_animation_position
+			d["crowd"] = apos.call(crowd._rigs[0].anim)
 		d["pos"] = athletes[2].global_position
 		return d
 	var before: Dictionary = snap.call()
