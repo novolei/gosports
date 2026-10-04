@@ -638,4 +638,8 @@ Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
 落点、时机、目标区域	Landing, timing, target zone
 按键、触屏、瞄准	Keys, touch, aiming
 中文：文道潮黑；英文：Kanit、Rubik（SIL OFL 1.1）；后备：Noto Sans SC（SIL OFL 1.1）	Chinese: WenDao ChaoHei; Latin: Kanit and Rubik (SIL OFL 1.1); fallback: Noto Sans SC (SIL OFL 1.1)
+大力扣杀!	SMASH!
+大力扣杀	Net smash
+在网前起跳、打出 Nice! 的扣球，有机会变成大力扣杀：时机越准、离网越近，越容易触发。	Jump at the net and hit a spike with Nice! timing for a chance at a net smash: the better the timing and the closer to the net, the likelier.
+在 [p]网前[/p] 起跳扣球，时机越准越有机会触发 [t]大力扣杀[/t]：球又快又陡，很难拦!	Jump at the [p]net[/p] and spike: the better your timing, the likelier a [t]net smash[/t] - fast, steep and hard to block!
 """

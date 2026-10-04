@@ -40,8 +40,17 @@ var difficulty := 1
 var sets_won := [0, 0]
 var chain := [0, 0]                 # consecutive "perfect" touches of a team in its current possession
 var stats := {"aces": [0, 0], "spikes": [0, 0], "blocks": [0, 0], "perfects": [0, 0], "longest": 0,
-		"power_spikes": [0, 0], "knockdowns": [0, 0], "fever": [0, 0], "spike_points": [0, 0]}
+		"power_spikes": [0, 0], "knockdowns": [0, 0], "fever": [0, 0], "spike_points": [0, 0], "smashes": [0, 0]}
 const FEVER_TIME := 9.0
+
+## NET SMASH: a perfect spike taken close to the net may turn into a smash (faster, steeper, a block rarely stuffs it). The chance is
+## adaptive: the closer the contact was to the centre of the (current) perfect window the likelier - a roomier window (fever) makes
+## the same timing more precise relative to it - and the nearer the net the better. The computer does not smash (SMASH_AI_MUL).
+const SMASH_Z := 3.6                # the contact must be within this distance (m) of the net plane
+const SMASH_AI_MUL := 0.0
+const SMASH_SPEED := 22.0
+const SMASH_MIN_Y := 2.45          # the ball must be taken above the top of the net
+const SMASH_MAX_T := 0.5           # ... and the resulting flight must be clearly faster than a normal spike (~0.55 s)
 var mode_rules := "normal"          # normal | rally (3 lives, count the rally) | training (endless, coach checklist)
 var lives := 3
 var rally_best := 0
@@ -455,7 +464,7 @@ func on_hit(a: Athlete, info: Dictionary) -> void:
 			if a.is_human and kind != "serve":
 				popup.emit("早了!" if info.get("early", true) else "晚了!", "late", contact + Vector3(0, 0.6, 0))
 	if label != "" and show_fb:
-		popup.emit(label, "label", contact + Vector3(0, 1.1, 0))
+		popup.emit(label, "smash" if bool(info.get("smash", false)) else "label", contact + Vector3(0, 1.1, 0))
 	var gain := 0.0
 	match q:
 		"perfect":
@@ -528,10 +537,70 @@ func plan_shot(a: Athlete, kind: String, quality: String, face: Vector2) -> Dict
 		shot = _shot_friendly(a, p0, kind)
 	else:
 		shot = _plan_normal(a, kind, quality, p0, mate, tn, skill_err)
+	if not shot.is_empty() and kind == "spike" and _smash_roll(a, quality):
+		shot = _smash_shot(a, p0, shot)
 	if a.is_human and Game.main != null and Game.main.dev.has("aimlog") and not shot.is_empty():
 		var tg: Vector3 = shot.get("target", Vector3.ZERO)
 		print("[aimshot] kind=%s q=%s from_move=%s aim=%s -> target x=%.2f z=%.2f (own side z>0 = %s)" % [kind, quality, str(a.aim_from_move), str(a.aim_point), tg.x, tg.z, str(a.team == 0)])
 	return _finish_shot(a, kind, quality, shot)
+
+
+## chance (0..1) that a perfect net spike of `a` becomes a smash: 0.18 at the edge of the perfect window up to ~0.85 dead centre, a
+## little better right at the net and in fever
+func smash_chance(a: Athlete) -> float:
+	var pe := Athlete.PERFECT_D * a.timing_window_scale()
+	var c := clampf(1.0 - a.hit_d / pe, 0.0, 1.0)
+	var near := clampf(1.0 - absf(a.global_position.z) / SMASH_Z, 0.0, 1.0)
+	var p := (0.18 + 0.62 * c * c) * lerpf(0.78, 1.0, near)
+	if is_fever(a.team):
+		p += 0.12
+	return clampf(p, 0.0, 0.92)
+
+
+func _smash_roll(a: Athlete, quality: String) -> bool:
+	if quality != "perfect" or a.global_position.y < 0.2 or absf(a.global_position.z) > SMASH_Z or ball.global_position.y < SMASH_MIN_Y:
+		return false
+	var prior_chain: int = chain[a.team] if last_team == a.team else 0
+	if prior_chain >= 2:
+		return false                                  # bump-set-spike all Nice: that is the (pink) power spike, which has priority
+	var mul := 1.0 if a.is_human else SMASH_AI_MUL
+	var force: bool = Game.main != null and Game.main.dev.has("smash")          # dev: --smash forces every perfect net spike to smash
+	var p := smash_chance(a) * mul
+	var hit := force or _rng.randf() < p
+	if Game.main != null and Game.main.dev.has("log") and a.is_human:
+		print("[smashroll] %s d=%.2f window=%.2f z=%.1f chance=%.2f -> %s" % [a.display_name, a.hit_d, Athlete.PERFECT_D * a.timing_window_scale(), a.global_position.z, p, str(hit)])
+	return hit
+
+
+## the smash replaces the planned spike: same aimed column, the FASTEST ball that still clears the net. From just above the tape a
+## fast ball can only land deep (a steep line would clip the net), so several landing depths are tried and the one with the
+## shortest flight time wins - roughly 0.4 s instead of ~0.55 s for a normal spike: a drive down the court that is hard to dig.
+func _smash_shot(a: Athlete, p0: Vector3, shot: Dictionary) -> Dictionary:
+	var S := Court.team_sign(a.team)
+	var tgt: Vector3 = shot.get("target", Vector3(0, 0, -S * 4.0))
+	var depth := clampf(absf(tgt.z) * 0.85, 3.4, 6.2)
+	var best_t := 9.0
+	var best_tz := depth
+	var best_v := Vector3.ZERO
+	for k in 8:
+		var tz := minf(depth + 0.4 * float(k), 6.3)
+		var tg := Vector3(tgt.x, Court.BALL_R, -S * tz)
+		var d := Vector2(tg.x - p0.x, tg.z - p0.z).length()
+		var t := maxf(d / SMASH_SPEED, 0.27)
+		var vv := Court.solve_velocity(p0, tg, t)
+		while t < 0.7 and Court.net_clearance(p0, vv) < 0.05:
+			t += 0.02
+			vv = Court.solve_velocity(p0, tg, t)
+		if t < best_t:
+			best_t = t
+			best_tz = tz
+			best_v = vv
+	if best_t > SMASH_MAX_T:                           # contact too low to be both fast and clear: it stays a normal (perfect) spike
+		return shot
+	tgt.z = -S * best_tz
+	if Game.main != null and Game.main.dev.has("log"):
+		print("[smashshot] landing %.1f m beyond the net, flight %.2f s, from z=%.1f y=%.1f" % [best_tz, best_t, p0.z, p0.y])
+	return {"vel": best_v, "power": 1.0, "target": tgt, "label": "大力扣杀!", "smash": true}
 
 
 func _plan_normal(a: Athlete, kind: String, quality: String, p0: Vector3, mate: Athlete, tn: int, skill_err: float) -> Dictionary:
@@ -563,6 +632,15 @@ func _finish_shot(a: Athlete, kind: String, quality: String, shot: Dictionary) -
 	var pw: float = shot.get("power", 0.4)
 	var prior_chain: int = chain[a.team] if last_team == a.team else 0
 	ball.combo = false
+	ball.smash = bool(shot.get("smash", false))
+	if ball.smash:
+		pw = 1.0
+		add_hype(a.team, 0.14)
+		stats["smashes"][a.team] += 1
+		if a.team == 0:
+			Game.live("smashes")
+		if Game.main != null and Game.main.dev.has("log"):
+			print("[smash] net smash by %s (speed %.1f)" % [a.display_name, (shot["vel"] as Vector3).length()])
 	if kind == "spike" and quality == "perfect" and prior_chain >= 2 and a.global_position.y > 0.2:
 		# bump -> set -> spike, every touch "Nice": the power spike (pink trail, can not be blocked for a kill)
 		ball.combo = true
@@ -579,6 +657,8 @@ func _finish_shot(a: Athlete, kind: String, quality: String, shot: Dictionary) -
 		shot["power"] = pw
 	if ball.combo:
 		ball.set_trail(true, 2, Color(1.0, 0.36, 0.68), a.team)
+	elif ball.smash:
+		ball.set_trail(true, 2, Color(1.0, 0.42, 0.08), a.team)
 	elif is_fever(a.team) and quality != "ok":
 		ball.set_trail(true, 1, Color(1.0, 0.5, 0.12), a.team)
 	elif quality == "perfect":
@@ -841,6 +921,8 @@ func _do_block(a: Athlete) -> void:
 	var kill_p := clampf(0.12 + a.global_position.y * 0.3 + (0.1 if a.skill > 0.7 else 0.0) + (0.15 if a.perk == "iron" else 0.0), 0.0, 0.85)
 	if last_hitter != null and last_hitter.perk == "might":
 		kill_p *= 0.5                      # a powerful hitter breaks through the block
+	if ball.smash:
+		kill_p *= 0.3                      # a smash is hard to stuff
 	var kill := _rng.randf() < kill_p
 	if ball.combo:
 		kill = false                       # the power spike goes through (a soft touch at best)

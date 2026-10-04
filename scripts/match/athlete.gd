@@ -84,6 +84,7 @@ var _pending_serve_jump := false
 var _pending_serve_jump_t := 0.0
 var in_perfect_zone := false
 var last_quality := ""
+var hit_d := 99.0                   # distance (m) of the ball to the ideal contact point at the moment of the last hit (director: net smash roll)
 var facing_override := NAN
 var locked := false
 var choreo := false                 # the post-point choreography (celebration walk / dance / punch) drives this athlete: input is ignored
@@ -699,8 +700,15 @@ func _ball_approaching(kind: String) -> bool:
 	return later < now - 0.002 and ball.live
 
 
+## the human's timing windows (the yellow "good" and the green "perfect" part of the timing ring) are wider than the computer's:
+## "Nice" was by far the most common result and a perfect felt like luck, so a hit inside the ring now lands a perfect far more often
+const HUMAN_WINDOW := 1.4
+
+
 func timing_window_scale() -> float:
 	var s := 1.0
+	if is_human:
+		s *= HUMAN_WINDOW
 	if director != null and director.is_fever(team):
 		s *= 1.35                            # fever time: a roomier timing window
 	if perk == "eagle":
@@ -708,11 +716,15 @@ func timing_window_scale() -> float:
 	return s
 
 
+const PERFECT_D := 0.36             # hit distance (m) under which a hit is "perfect" / "good", before timing_window_scale()
+const GOOD_D := 0.66
+
+
 func _quality_of(d: float) -> String:
 	var w := timing_window_scale()
-	if d < 0.36 * w:
+	if d < PERFECT_D * w:
 		return "perfect"
-	if d < 0.66 * w:
+	if d < GOOD_D * w:
 		return "good"
 	return "ok"
 
@@ -737,6 +749,7 @@ func _perform_hit(kind: String, quality: String, d: float) -> void:
 	var snap := 0.85 if quality != "ok" else 0.7
 	var contact := ball.global_position.lerp(ip, snap)
 	ball.global_position = contact
+	hit_d = d
 	var shot: Dictionary = director.plan_shot(self, kind, quality, face)
 	if shot.is_empty():
 		_whiff(kind)
@@ -748,7 +761,7 @@ func _perform_hit(kind: String, quality: String, d: float) -> void:
 	ball.launch(shot["vel"], shot.get("power", 0.4), shot.get("spin", Vector3.ZERO))
 	var early := _ball_approaching(kind)   # still closing in on the ideal point = we swung early, else late
 	var info := {"kind": kind, "quality": quality, "power": shot.get("power", 0.4), "contact": contact, "early": early,
-			"label": shot.get("label", ""), "target": shot.get("target", Vector3.ZERO), "dist": d}
+			"label": shot.get("label", ""), "target": shot.get("target", Vector3.ZERO), "dist": d, "smash": bool(shot.get("smash", false))}
 	last_quality = quality
 	if perk == "gale" and quality == "perfect":
 		_gale_t = 2.0
@@ -1011,7 +1024,7 @@ func _update_ring(dt: float) -> void:
 			var kind := _choose_kind()
 			var dd := hit_distance(kind)
 			ok = dd < KINDS[kind]["zone"]
-			in_perfect_zone = dd < 0.4
+			in_perfect_zone = dd < (PERFECT_D + 0.04) * timing_window_scale()
 		_since_zone = 0.0 if ok else _since_zone + dt
 		ring_mat.set_shader_parameter("pulse", 0.9 if in_perfect_zone else (0.25 if ok else 0.0))
 		ring_mat.set_shader_parameter("intensity", 1.0 if ok else 0.8)

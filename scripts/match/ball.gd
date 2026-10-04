@@ -19,6 +19,7 @@ var floor_touched := false
 var net_touched_at := -1.0
 var age := 0.0                  # seconds since the last launch
 var combo := false              # power spike (bump-set-spike all perfect): pink trail, not killable by a block
+var smash := false              # net smash (a perfect spike at the net, rolled by the timing): orange-red trail, a block rarely stuffs it
 var power := 0.0                # 0..1, how violent the last hit was (trail / sfx intensity)
 var side := 0                   # which half the ball is in
 var mesh: MeshInstance3D

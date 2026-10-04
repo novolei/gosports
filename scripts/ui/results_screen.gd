@@ -38,7 +38,7 @@ func _demo_data() -> Dictionary:
 	prof.bump("power_spikes")
 	prof.mission_progress("perfects", 20)
 	var stats := {"aces": [2, 1], "spikes": [7, 5], "blocks": [1, 0], "perfects": [14, 6], "longest": 17,
-			"power_spikes": [1, 0], "knockdowns": [0, 1], "fever": [1, 0], "spike_points": [4, 2]}
+			"power_spikes": [1, 0], "knockdowns": [0, 1], "fever": [1, 0], "spike_points": [4, 2], "smashes": [3, 0]}
 	var reward := prof.finish_match({"won": true, "score": [11, 8], "difficulty": 2, "mode": "solo", "time": 420.0, "deuce": true,
 			"stats": stats, "spike_points": 4})
 	if Game.profile == null:
@@ -362,11 +362,14 @@ func _build_match_stats(card: Control, data: Dictionary, x0: float) -> void:
 	]
 	if int(stats.get("power_spikes", [0, 0])[0]) + int(stats.get("fever", [0, 0])[0]) > 0:
 		rows.append(["强力扣球 / 热血", "%d  /  %d" % [stats["power_spikes"][0], stats["fever"][0]]])
+	if int(stats.get("smashes", [0, 0])[0]) > 0:
+		rows.append(["大力扣杀", "%d" % int(stats["smashes"][0])])
 	var y := 120.0
+	var pitch := 32.0 if rows.size() <= 6 else 28.0                 # (a 7th row must still end above the achievements header)
 	for r in rows:
 		_lbl(card, r[0], Vector2(x0, y), Vector2(220, 34), 25)
 		_lbl(card, r[1], Vector2(x0 + 200.0, y), Vector2(230, 34), 25, ACC, HORIZONTAL_ALIGNMENT_RIGHT)
-		y += 32.0
+		y += pitch
 
 
 func _build_practice_stats(card: Control, data: Dictionary, x0: float) -> void:

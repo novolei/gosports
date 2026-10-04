@@ -278,12 +278,15 @@ func _on_hit_done(a: Athlete, info: Dictionary) -> void:
 		Sfx.play(snd, 0.0, 1.0, 0.06)
 	vfx.hit_burst(contact, q, info["power"])
 	ball.flash(0.5 if q != "perfect" else 1.0)
+	if bool(info.get("smash", false)):
+		_smash_feel(a, contact)                         # (first: it takes the time scale, so the generic hit-stop below is skipped)
 	_hit_feel(a, kind, q, float(info["power"]))
 	if kind == "spike" or (kind == "serve" and info["power"] > 0.8):
 		var amt := 0.35 if q == "perfect" else 0.15
 		cam_rig.shake(amt)
 		if q == "perfect" and kind == "spike":
 			cam_rig.punch(7.0, 0.4, 0.22)
+
 	if _log_events:
 		print("[hit] t=%.1f team=%d %s %s %s touch=%d" % [_elapsed, a.team, a.display_name, kind, q, director.touches[a.team]])
 	if Game.main != null and Game.main.dev.has("hitshots"):
@@ -292,6 +295,33 @@ func _on_hit_done(a: Athlete, info: Dictionary) -> void:
 	for h in humans:
 		if h.index == a.player_index:
 			h.clear_touch_aim()
+
+
+## the net smash: a heavy thump, a bigger shake and punch, a flash, speed lines, a blink of slow motion and a burst of sparks
+func _smash_feel(a: Athlete, contact: Vector3) -> void:
+	Sfx.play("hit_spike", 3.0, 0.8)
+	Sfx.play("whoosh", -2.0, 0.75)
+	Sfx.play("crowd_oh", -6.0, 1.15)
+	cam_rig.shake(0.6)
+	cam_rig.punch(11.0, 0.7, 0.3)
+	cam_rig.roll_kick(randf_range(2.4, 3.2) * (1.0 if a.global_position.x < 0.0 else -1.0))
+	hud.flash_screen(0.34, 0.2)
+	hud.flash_speed_lines(0.55, 1.0)
+	vfx.hit_burst(contact, "perfect", 1.0)
+	vfx.hit_burst(contact + Vector3(0, -0.2, 0), "good", 0.8)
+	cam_rig.smash_stop(0.11, 0.55, 0.22)                       # the hit-stop: ~0.1 s freeze on contact, then a blink of slow motion
+	if a.is_human:
+		Game.haptic(140, 1.0)
+	if Game.main != null and Game.main.dev.has("smashshot") and not _smash_shot_done:        # dev: --smashshot=<prefix> saves 8 frames of the first smash
+		_smash_shot_done = true
+		for i in 8:
+			await get_tree().create_timer(0.06, true, false, true).timeout
+			get_viewport().get_texture().get_image().save_png("%s_%d.png" % [Game.main.dev["smashshot"], i])
+			if _log_events:
+				print("[smashts] frame %d time_scale %.2f" % [i, Engine.time_scale])
+
+
+var _smash_shot_done := false
 
 
 ## hit-stop, squash & stretch, speed lines, vibration - scaled by how good and how hard the hit was
@@ -441,12 +471,12 @@ func _replay_wanted(reason: String) -> bool:
 			humans[a.team] = true
 	var ours := humans.is_empty() or humans.has(winner) or humans.size() > 1
 	var mistake := reason == "出界" or reason == "触网" or reason == "发球失误" or reason == "发球超时"     # points that came from an error are not highlights ...
-	var highlight := (reason == "ACE!" or kind == "spike" or kind == "block" or ball.combo or rally >= 6) if not mistake else rally >= 12   # ... unless it was a marathon
+	var highlight := (reason == "ACE!" or kind == "spike" or kind == "block" or ball.combo or ball.smash or rally >= 6) if not mistake else rally >= 12   # ... unless it was a marathon
 	var want := false
 	if ours:
 		want = (highlight and _points_since_replay >= 2) or (_points_since_replay >= 5 and rally >= 3 and not mistake)
 	else:
-		var wow := reason == "ACE!" or ball.combo or rally >= 10
+		var wow := reason == "ACE!" or ball.combo or ball.smash or rally >= 10
 		want = wow and _points_since_replay >= 4 and _last_replay_ours
 	if Game.main != null and Game.main.dev.has("replay") and highlight:
 		want = true
@@ -587,6 +617,9 @@ func _notification(what: int) -> void:
 	# auto-pause when the window loses focus / the phone app goes to the background / Android back button
 	if _over or paused or director == null or OS.has_feature("movie"):          # (a Movie Maker recording never auto-pauses)
 		return
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and OS.has_feature("debug") and not OS.has_feature("mobile") \
+			and not (Game.main != null and Game.main.dev.has("focuspause")):
+		return                                  # a DEBUG desktop client keeps running when its window is not active (test windows keep popping up over it); --focuspause restores the pause
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if Game.main != null and (Game.main.dev.has("autoplay") or Game.main.dev.has("shot") or Game.main.dev.has("burst")):
 			return

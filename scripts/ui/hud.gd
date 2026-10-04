@@ -935,8 +935,8 @@ func _update_timing_ring(dt: float) -> void:
 				if Game.settings.get("timing_guide", true) and dist < 2.4:
 					want = true
 					var w := h.timing_window_scale()
-					var pe := 0.36 * w                                       # the perfect window (see Athlete._quality_of)
-					var ge := 0.66 * w
+					var pe := Athlete.PERFECT_D * w                                       # the perfect window (see Athlete._quality_of)
+					var ge := Athlete.GOOD_D * w
 					var u := clampf((dist - pe) / (1.8 - pe), 0.0, 1.0)
 					timing_ring.radius = timing_ring.target_r + (150.0 - timing_ring.target_r) * pow(u, 0.85)
 					var lv := 2 if dist < pe else (1 if dist < ge else 0)
@@ -1663,6 +1663,8 @@ func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 			say("sub", tr("时机有点早!") if early else tr("时机有点晚!"), 40, Color("fffbe0") if early else Color("f0f8ff"), Color("ffd24a") if early else Color("8fc8ff"), Color(0.08, 0.14, 0.34), 0.7)
 		"label":
 			say("sub2", text, 40, Color("ffffff"), Color("ffc4e2"), Color("b81e68"), 0.8)
+		"smash":                                                                   # the net smash: a big hot-orange headline in the main slot
+			say("main", text, 92, Color("fff3d0"), Color("ff6a1f"), Color("8a1a00"), 1.1, true)
 
 
 ## the line call, drawn like a broadcast judge badge: IN = teal / OUT = coral, a check / cross disc, big caps and a tail pointing

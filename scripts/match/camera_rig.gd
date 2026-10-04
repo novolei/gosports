@@ -177,6 +177,25 @@ func hit_stop(dur: float) -> void:
 	_stop_active = false
 
 
+## the net smash's impact: a hard freeze for `freeze` real seconds (hit-stop), then a short slow motion that eases back to full speed.
+## It claims the time scale first, so the generic hit_stop of the same hit is skipped and nothing cancels the freeze early.
+func smash_stop(freeze: float, slow: float, slow_dur: float) -> void:
+	if _stop_active:
+		return
+	_stop_active = true
+	_slowmo_until = float(Time.get_ticks_msec()) / 1000.0 + freeze + slow_dur + 0.4
+	if _slow_tween:
+		_slow_tween.kill()
+	Engine.time_scale = 0.02
+	await get_tree().create_timer(freeze, true, false, true).timeout
+	Engine.time_scale = slow * Game.base_time_scale
+	_slow_tween = create_tween()
+	_slow_tween.set_ignore_time_scale(true)
+	_slow_tween.tween_interval(slow_dur)
+	_slow_tween.tween_property(Engine, "time_scale", Game.base_time_scale, 0.25)
+	_stop_active = false
+
+
 func point_focus(pos: Vector3, winner_team: int) -> void:
 	if _mode == "free":                  # (dev fixed camera: leave it alone)
 		return
