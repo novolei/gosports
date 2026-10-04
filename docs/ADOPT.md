@@ -1,6 +1,7 @@
 # Adopting, updating and contributing to gosports-core
 
-The core is embedded in a game with **git subtree**. `<core>` below is `G:/NewGDP/gosports-core` (a separate repo; `main` branch).
+The core is embedded in a game with **git subtree**. `<core>` below is `G:/NewGDP/gosports-core` (a separate repo; `main` branch) or,
+equivalently, the remote `https://github.com/novolei/gosports-core.git` - use either as the repository argument of every subtree command.
 
 ## First adoption (once per game)
 
