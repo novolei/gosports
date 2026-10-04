@@ -76,6 +76,7 @@ var _jump_cd := 0.0
 var _getup_t := 0.0
 var _step_t := 0.0
 var _land_t := 0.0
+var _step_dust_t := 0.0
 var _block_pose := false
 var _pending_serve_jump := false
 var _pending_serve_jump_t := 0.0
@@ -158,6 +159,9 @@ func _build_markers() -> void:
 	ring_mat.set_shader_parameter("ring_color", Color(col.r, col.g, col.b, 1.0))
 	ring_mat.set_shader_parameter("grad", load("res://assets/env/ring_gradient.png"))
 	ring_mat.set_shader_parameter("inner", 0.5)
+	ring_mat.set_shader_parameter("width", 0.15)
+	ring_mat.set_shader_parameter("halo_strength", 1.0)
+	ring_mat.set_shader_parameter("core_white", 0.35)
 	ring.material_override = ring_mat
 	ring.rotation_degrees.x = -90
 	ring.position.y = 0.02
@@ -277,6 +281,7 @@ func _physics_process(dt: float) -> void:
 	_dive_cd = maxf(_dive_cd - dt, 0.0)
 	_jump_cd = maxf(_jump_cd - dt, 0.0)
 	_bump_cd = maxf(_bump_cd - dt, 0.0)
+	_step_dust(dt)
 	_gale_t = maxf(_gale_t - dt, 0.0)
 	if state != S.KNOCKED and _dizzy_fx != null:
 		_end_dizzy_fx()
@@ -738,6 +743,21 @@ func _perform_hit(kind: String, quality: String, d: float) -> void:
 # ------------------------------------------------------------------ body collisions
 func mass() -> float:
 	return pow(power_mul, 3.0) * (1.3 if perk == "iron" else 1.0)   # the power stat (0.92 .. 1.15) -> 0.78 .. 1.5
+
+
+func entry_id() -> String:
+	return String(rig.entry.get("id", ""))
+
+
+## small puffs under the feet while sprinting (humans only: keeps the particle count down)
+func _step_dust(dt: float) -> void:
+	if not is_human or state != S.READY or global_position.y > 0.05 or vel.length() < 4.0:
+		_step_dust_t = 0.0
+		return
+	_step_dust_t += dt
+	if _step_dust_t >= 0.2:
+		_step_dust_t = 0.0
+		director.vfx_step_dust(global_position - Vector3(vel.x, 0.0, vel.y).normalized() * 0.25)
 
 
 func is_down() -> bool:

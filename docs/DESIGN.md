@@ -259,3 +259,26 @@ shaders/   court  net  ring
 `--profile=user://x.json`（测试用独立存档）、`--nosave`、`--court=night|sunset|dawn`、`--trail=<id>`、`--ballskin=<id>`、`--welcome`、`--page=career --tab=0|1|2`、`--mode=rally|training|tournament`、`--autonext=<秒>`（结果页自动点主按钮）、`--resultshot=<png> --resultdelay=<秒>`、`--fever`。`tools/preview_trail.gd out.png 0 styles` 一次渲染所有拖尾样式。
 
 碰撞阈值复测（2026‑10‑04，4 局 × 170 秒电脑互打）：原阈值 3.6 / 7.0 约每分钟撞倒 1.4 次，过于频繁；调到 4.8 / 8.5 后约 2–3 分钟 1 次。测试脚本 `tools/coll_count.sh`（数日志里的 `level=3`）。
+
+## 20. 对照参考视频的第二轮 HUD / 体验打磨（2026‑10‑04）
+
+逐段看了 `E:\backup\Volleyball! - Nintendo Switch Sports.mp4`（每 10 秒一帧的 16 张接触图 + 关键帧），补上此前缺的部分（均为原创实现）：
+
+| 参考画面 | 实现 |
+|---|---|
+| 开场「VS」分屏卡：黑边、斜线分割左右两队、大 VS、每人名牌（称号 + 名字） | `ui/vs_card.gd` + `CameraRig.start_vs()`（侧面镜头，两队在场上摆好姿势，称号用角色特性名）；任意键 / 点击可跳过；锦标赛会显示轮次 |
+| 「Score 5 points to win!」整屏宽斜条 | `Hud.show_target_banner()`，VS 卡之后、READY 之前 |
+| 得分后慢动作回放（左上「Replay」+ 进度线 + 右下「Skip」） | `match/replay_system.gd`：30 Hz 录制球 + 四名角色骨骼姿势（7 秒环形缓冲），回放时用幽灵角色 + 侧面推进镜头 + 减速，青色斜向转场（`ui/replay_overlay.gd`）；只在长回合（≥ 8 次触球）/ ACE / 拦网得分 / 强力扣球后触发，且至少隔 3 分，结束时必放；设置 `replays` 可关 |
+| 「Win!」整屏斜条 + 比分 + 获胜两人头像 | `Hud.show_win_banner()`（回放之后） |
+| 「Your timing was… A BIT EARLY」两行教练提示 | `Hud._timing_note()`（替代原来的「早了! / 晚了!」） |
+| 连续 Nice! 旁边的 ×2 金色气泡 | `Hud._combo_badge()` |
+| 球飞出画面时，屏幕边缘的球图标；队友出画面时的头像气泡 | `Hud._EdgeTracker`（球带速度色尾迹指向球场；队友离屏 0.25 秒后出现头像 + 箭头） |
+| 教程：深色标题 pill + 白色说明条 + 右侧「Bump!」卡片和三个打勾圆圈 | `TrainingCoach` 改成「垫 ×3 → 传 ×3 → 扣 ×3 → Nice! ×3 → 连续 8 次」，HUD 用 `_build_tutorial_ui()`；修了教练在 HUD 之后才创建导致教学面板从未显示的问题 |
+| 菜单右下角按钮提示（Select / Back / OK） | `MenuScreen._build_footer()`（有手柄时显示 A / B） |
+| 底部操作提示 | 改成键帽 chips（键盘 / 手柄两套） |
+| 脚下的发光双环 | `ring.gdshader` 加外发光和亮芯线，环更粗 |
+| 镜头跟随玩家左右移动、球场更贴近 | `CameraRig.follow_players`：水平跟随玩家 + 前瞻，玩家深入后场时抬高焦点；默认镜头更低更近 |
+
+PC 手感 / 打击感新增：完美扣球的**镜头侧倾 + 白闪**（`roll_kick` / `flash_screen`）、跑动**脚步尘土**（仅人类玩家）、教学里**发球机会把球送给队友**。回放中隐藏 HUD 其余部分，结束后用同一转场回到比赛（`ReplaySystem._leave`）。
+
+开发开关：`--replay`（autoplay 下也启用回放）、`--replayshot=<前缀>`（截回放 3 帧后退出）、`--winshot=<png>`、`--vs`（强制 VS 卡）、`--skipvs`（跳过 VS 卡，测试 / 截图用，autoplay 默认跳过）。

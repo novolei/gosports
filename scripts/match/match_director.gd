@@ -28,6 +28,7 @@ var touches := [0, 0]
 var last_team := -1
 var last_hitter: Athlete = null
 var rally_len := 0
+var hold_next := false                   # the scene keeps the point on hold (instant replay) before the next serve
 var feed_target: Athlete = null            # practice: aim the ball machine at this athlete instead of the human (the coach sets it)
 var phase_time := 0.0
 var plans := [{}, {}]
@@ -52,6 +53,8 @@ var max_deficit := [0, 0]           # the biggest deficit each team came back fr
 var _last_kind := ""
 var _serve_timer := 0.0
 var _intro_timer := 0.0
+var vs_time := 0.0                       # > 0: the "VS" card shot comes before the usual intro camera sweep
+var _vs_active := false
 var _rng := RandomNumberGenerator.new()
 var _point_info := {}
 var _last_plan_t := 0.0
@@ -133,10 +136,38 @@ func start_match() -> void:
 	score = [0, 0]
 	serving_team = 1 if is_practice() else 0          # practice: the ball machine serves, the human only receives
 	server_idx = [0, 0]
+	_vs_active = _wants_vs()
+	vs_time = 2.9 if _vs_active else 0.0
 	_set_phase(P.INTRO)
-	_intro_timer = 2.4
+	_intro_timer = 2.4 + vs_time
 	_formation_for_serve(true)
+	if _vs_active:
+		_vs_pose()
 	popup.emit("准备!", "info", Vector3(0, 2.5, 0))
+
+
+func _wants_vs() -> bool:
+	var dev: Dictionary = Game.main.dev if Game.main != null else {}
+	if dev.has("vs"):
+		return true
+	return not is_practice() and not dev.has("autoplay") and not dev.has("skipvs")
+
+
+## everybody poses in a 3/4 view for the side-on VS camera: team A on the left, team B on the right
+func _vs_pose() -> void:
+	for a in athletes:
+		var s := Court.team_sign(a.team)
+		var near: bool = a.slot == 0
+		var p := Vector3(0.6 if near else -0.6, 0.0, s * (1.9 if near else 4.3))
+		a.teleport(p)
+		a.yaw = -1.0 if a.team == 0 else -2.09
+		a.rotation.y = a.yaw
+
+
+func skip_vs() -> void:
+	if _vs_active and phase == P.INTRO and phase_time < vs_time:
+		_intro_timer -= vs_time - phase_time
+		phase_time = vs_time
 
 
 func _set_phase(p: int) -> void:
@@ -158,6 +189,10 @@ func _physics_process_impl(dt: float) -> void:
 	_update_hype(dt)
 	match phase:
 		P.INTRO:
+			if _vs_active and phase_time >= vs_time:
+				_vs_active = false
+				_formation_for_serve(true)
+				rally_event.emit("vs_end", {})
 			_intro_timer -= dt
 			if _intro_timer <= 0.0:
 				_begin_serve_prep()
@@ -175,7 +210,7 @@ func _physics_process_impl(dt: float) -> void:
 			_update_plans(dt)
 			_check_blocks()
 		P.POINT:
-			if phase_time > (1.5 if is_practice() else 2.7):
+			if phase_time > (1.5 if is_practice() else 2.7) and not hold_next:
 				if phase == P.POINT:
 					_next_point()
 	if phase == P.SERVING or phase == P.RALLY:
@@ -921,6 +956,11 @@ func support_spot(a: Athlete) -> Vector3:
 	if back:
 		return Vector3(-2.2 + ox, 0, S * 5.2)
 	return Vector3(2.0 + ox, 0, S * 3.4)
+
+
+func vfx_step_dust(pos: Vector3) -> void:
+	if vfx:
+		vfx.step_dust(pos)
 
 
 func vfx_dust(pos: Vector3) -> void:

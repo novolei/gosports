@@ -67,6 +67,10 @@ func set_mode(on: bool, p_boost := 0, p_override := Color(0, 0, 0, 0), p_team :=
 		head_color.a = 0.0
 
 
+func team() -> int:
+	return _team
+
+
 func clear() -> void:
 	_pts.clear()
 	active = false

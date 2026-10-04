@@ -17,10 +17,12 @@ var _mode := "game"          # game | point | orbit | intro
 var _mode_t := 0.0
 var _point_focus := Vector3.ZERO
 var _slow_tween: Tween
-var follow_player: Node3D = null
+var follow_players: Array = []              # human athletes: the camera slides sideways with them (like the broadcast view of the reference game)
 var _slowmo_until := 0.0
 var _stop_active := false
 var style := 1              # 0 far / 1 normal / 2 close
+var _replay := {}
+var _roll := 0.0               # camera roll kick (radians) on big hits, decays by itself
 
 
 func _ready() -> void:
@@ -38,9 +40,9 @@ func set_style(s: int) -> void:
 
 
 func game_pose() -> Dictionary:
-	var h: float = [6.2, 4.5, 3.7][style]
-	var z: float = [17.0, 13.8, 12.0][style]
-	var f: float = [48.0, 52.0, 54.0][style]
+	var h: float = [6.0, 4.2, 3.4][style]
+	var z: float = [16.5, 13.0, 11.2][style]
+	var f: float = [50.0, 54.0, 56.0][style]
 	if Game.main != null and Game.main.dev.has("cam"):
 		var p: PackedStringArray = String(Game.main.dev["cam"]).split(",")
 		h = float(p[0]); z = float(p[1]); f = float(p[2])
@@ -57,6 +59,33 @@ func _snap() -> void:
 func intro() -> void:
 	_mode = "intro"
 	_mode_t = 0.0
+
+
+## side-on shot of the two teams for the VS card (a slow dolly keeps it alive)
+func start_vs() -> void:
+	_mode = "vs"
+	_mode_t = 0.0
+	_pos = Vector3(10.0, 3.1, 0.0)
+	_focus = Vector3(0.0, 0.95, 0.0)
+	_fov = 33.0
+	_apply(0.0)
+
+
+func start_replay() -> void:
+	_mode = "replay"
+	_mode_t = 0.0
+	_replay = {}
+
+
+func set_replay_view(pos: Vector3, focus: Vector3, fov: float) -> void:
+	_replay = {"pos": pos, "focus": focus, "fov": fov}
+
+
+func end_replay() -> void:
+	_mode = "game"
+	_mode_t = 0.0
+	_replay = {}
+	_snap()
 
 
 func set_game() -> void:
@@ -76,6 +105,12 @@ func punch(fov_in: float, shake: float, dur := 0.35) -> void:
 func shake(amount: float) -> void:
 	if Game.settings["shake"]:
 		_shake = maxf(_shake, amount)
+
+
+## quick sideways roll of the picture (spikes): sign = direction, deg = size
+func roll_kick(deg: float) -> void:
+	if Game.settings["shake"]:
+		_roll = deg_to_rad(deg)
 
 
 func slowmo(scale: float, dur: float) -> void:
@@ -122,9 +157,32 @@ func _physics_process_impl(dt: float) -> void:
 	var want_fov: float = g["fov"]
 	if ball != null:
 		var b := ball.global_position
-		# follow the ball a little: sideways + a bit of height
-		want_pos.x = clampf(b.x * 0.28, -2.0, 2.0)
-		want_focus.x = clampf(b.x * 0.5, -3.0, 3.0)
+		# follow the player (and a little of the ball): sideways, with a lead in the running direction
+		var px := b.x
+		var lead := 0.0
+		var wp := 0.28
+		var wf := 0.5
+		if not follow_players.is_empty():
+			px = 0.0
+			for fp in follow_players:
+				px += (fp as Node3D).global_position.x
+				lead += float((fp as Athlete).vel.x)
+			px /= float(follow_players.size())
+			lead /= float(follow_players.size())
+			wp = 0.5
+			wf = 0.42
+			px = lerpf(px, b.x, 0.22) + lead * 0.14
+		want_pos.x = clampf(px * wp, -3.0, 3.0)
+		want_focus.x = clampf(px * wf + b.x * 0.22, -3.2, 3.2)
+		if not follow_players.is_empty():
+			# keep the player's feet in frame when they are deep in their own court (serve line / baseline digs)
+			var pz := 0.0
+			for fp in follow_players:
+				pz += (fp as Node3D).global_position.z
+			pz /= float(follow_players.size())
+			var deep := maxf(pz, 0.0)
+			want_focus.z += clampf((deep - 3.6) * 0.8, 0.0, 4.8)
+			want_pos.z += clampf((deep - 6.0) * 0.5, 0.0, 1.8)
 		want_focus.y = clampf(1.0 + b.y * 0.12, 1.0, 1.9)
 		want_focus.z = -1.6 + clampf(b.z * 0.18, -1.6, 1.6)
 	match _mode:
@@ -143,14 +201,31 @@ func _physics_process_impl(dt: float) -> void:
 			want_fov = float(g["fov"]) - 7.0
 			if _mode_t > 2.2:
 				_mode = "game"
+		"vs":
+			want_pos = Vector3(10.0 - _mode_t * 0.2, 3.1, sin(_mode_t * 0.7) * 0.3)
+			want_focus = Vector3(0.0, 0.95, 0.0)
+			want_fov = 33.0
+		"replay":
+			if not _replay.is_empty():
+				want_pos = _replay["pos"]
+				want_focus = _replay["focus"]
+				want_fov = _replay["fov"]
+				if _mode_t < 0.08:
+					_pos = want_pos
+					_focus = want_focus
+					_fov = want_fov
 		"orbit":
 			var a := _mode_t * 0.5
 			want_pos = Vector3(sin(a) * 7.5, 2.8, cos(a) * 7.5)
 			want_focus = Vector3(0, 1.1, 0)
 			want_fov = 52.0
 	var k := 1.0 - exp(-4.5 * rt)
+	var kf := 1.0 - exp(-6.0 * rt)
+	if _mode == "replay":
+		k = 1.0 - exp(-10.0 * rt)
+		kf = 1.0 - exp(-14.0 * rt)
 	_pos = _pos.lerp(want_pos, k)
-	_focus = _focus.lerp(want_focus, 1.0 - exp(-6.0 * rt))
+	_focus = _focus.lerp(want_focus, kf)
 	_fov = lerpf(_fov, want_fov, 1.0 - exp(-3.0 * rt))
 	_apply(rt)
 
@@ -161,5 +236,10 @@ func _apply(rt: float) -> void:
 		off = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-0.5, 0.5)) * _shake * 0.12
 		_shake = move_toward(_shake, 0.0, rt * 2.2)
 	cam.global_position = _pos + off
-	cam.look_at(_focus + off * 0.4, Vector3.UP)
+	var up := Vector3.UP
+	if absf(_roll) > 0.0005:
+		up = Vector3.UP.rotated((_focus - _pos).normalized(), _roll)
+		_roll = move_toward(_roll, 0.0, rt * 0.35)
+		_roll *= exp(-rt * 7.0)
+	cam.look_at(_focus + off * 0.4, up)
 	cam.fov = _fov - _punch

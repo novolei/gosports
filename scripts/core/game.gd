@@ -22,6 +22,7 @@ var settings := {
 	"left_handed": false,
 	"haptics": true,         # phone / gamepad vibration on hits and bumps
 	"timing_guide": true,    # shrinking ring around the ball that shows the moment to hit
+	"replays": true,         # instant replay after the big points and at the end of a match
 	"render_scale": 0.0,     # 3D resolution scale; 0 = automatic (phones render below native resolution)
 	"shadow_size": 0,        # directional shadow map; 0 = automatic
 	"dbg": "",               # dev: comma separated render kill switches (see Game.dbg) for phone profiling

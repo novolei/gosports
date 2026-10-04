@@ -30,6 +30,18 @@ var _hint_icon_name := ""
 var _banner_tween: Tween
 var _last_score := [0, 0]
 var _msg_label: Label
+var replay_overlay: ReplayOverlay
+var _vs_card: VsCard = null
+var _flash: ColorRect
+var tracker: _EdgeTracker
+var _mate_icon: Control
+var _mate_id := ""
+var _mate_off_t := 0.0
+var _vs_hold := false
+var replay_mode := false:
+	set(v):
+		replay_mode = v
+		_set_replay_hud(v)
 
 
 func bind(p_ms: MatchScene) -> void:
@@ -49,10 +61,13 @@ func bind(p_ms: MatchScene) -> void:
 	_build_banner()
 	_build_serve_bubble()
 	_build_markers()
+	_build_tracker()
 	_build_feel_layers()
 	_build_hype()
 	_build_practice()
 	root_c.add_child(popup_layer)
+	replay_overlay = ReplayOverlay.new().build()
+	root_c.add_child(replay_overlay)
 	_build_pause_button()
 	_build_pause_menu()
 	_build_touch()
@@ -387,6 +402,120 @@ func _update_markers() -> void:
 			m.position = cam.unproject_position(wp) + Vector2(0, sin(Time.get_ticks_msec() * 0.006 + float(a.player_index)) * 3.0)
 
 
+# ------------------------------------------------------------------ off-screen trackers
+## ball icon pinned to the screen edge while the ball is out of view (a coloured streak points back at the court),
+## plus an arrow bubble for a team mate who is off screen
+class _EdgeTracker:
+	extends Control
+	var ball_show := false
+	var ball_pos := Vector2.ZERO
+	var ball_dir := Vector2.UP
+	var ball_col := Color.WHITE
+	var mate_show := false
+	var mate_pos := Vector2.ZERO
+	var mate_dir := Vector2.UP
+	var mate_col := Color.WHITE
+
+	func _draw() -> void:
+		if ball_show:
+			var back := -ball_dir
+			var perp := Vector2(-back.y, back.x)
+			var tail := PackedVector2Array([ball_pos + back * 30.0 + perp * 12.0, ball_pos + back * 30.0 - perp * 12.0, ball_pos + back * 92.0])
+			draw_colored_polygon(tail, Color(ball_col.r, ball_col.g, ball_col.b, 0.62))
+			draw_circle(ball_pos + Vector2(0, 3), 31.0, Color(0, 0, 0, 0.22))
+			draw_circle(ball_pos, 31.0, Color.WHITE)
+			draw_circle(ball_pos, 26.0, Color(1.0, 0.86, 0.26))
+			var seam := Color(0.2, 0.42, 0.92)
+			draw_arc(ball_pos + Vector2(-20, 6), 24.0, -1.0, 0.5, 12, seam, 4.0, true)
+			draw_arc(ball_pos + Vector2(20, 6), 24.0, PI - 0.5, PI + 1.0, 12, seam, 4.0, true)
+			draw_arc(ball_pos + Vector2(0, -24), 20.0, 0.5, PI - 0.5, 12, seam, 4.0, true)
+			draw_circle(ball_pos + Vector2(-9, -10), 7.0, Color(1, 1, 1, 0.5))
+			_arrow(ball_pos, ball_dir, 42.0, Color.WHITE)
+		if mate_show:
+			_arrow(mate_pos, mate_dir, 52.0, mate_col)
+
+	func _arrow(c: Vector2, d: Vector2, dist: float, col: Color) -> void:
+		var perp := Vector2(-d.y, d.x)
+		var tip := c + d * (dist + 12.0)
+		var base := c + d * dist
+		draw_colored_polygon(PackedVector2Array([tip, base + perp * 10.0, base - perp * 10.0]), col)
+
+
+func _build_tracker() -> void:
+	tracker = _EdgeTracker.new()
+	tracker.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tracker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(tracker)
+	_mate_icon = Control.new()
+	_mate_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mate_icon.visible = false
+	root_c.add_child(_mate_icon)
+
+
+func _human_and_mate() -> Array:
+	for a in ms.athletes:
+		if a.is_human:
+			var m: Athlete = director.mate_of(a)
+			return [a, m]
+	return [null, null]
+
+
+func _update_tracker(dt: float) -> void:
+	var cam := ms.cam_rig.cam
+	var vp := get_viewport().get_visible_rect().size
+	var live: bool = director.phase == MatchDirector.P.RALLY or director.phase == MatchDirector.P.SERVING
+	# --- ball
+	var b := ms.ball
+	var show_ball := false
+	if live and b.live and not cam.is_position_behind(b.global_position):
+		var sp := cam.unproject_position(b.global_position)
+		var ex := 70.0 if absf(sp.x - vp.x * 0.5) > 460.0 else 180.0       # keep clear of the hint text at the top centre
+		if sp.y < 46.0 or sp.x < 30.0 or sp.x > vp.x - 30.0:
+			var pos := Vector2(clampf(sp.x, 80.0, vp.x - 80.0), maxf(sp.y, ex))
+			tracker.ball_pos = pos
+			var d := sp - pos
+			tracker.ball_dir = d.normalized() if d.length() > 1.0 else Vector2.UP
+			tracker.ball_col = BallRibbon.speed_color(b.vel.length())
+			show_ball = true
+	if show_ball != tracker.ball_show or show_ball:
+		tracker.ball_show = show_ball
+		tracker.queue_redraw()
+	# --- team mate
+	var hm := _human_and_mate()
+	var h: Athlete = hm[0]
+	var m: Athlete = hm[1]
+	var show_mate := false
+	if h != null and m != null and not m.is_human and live:
+		var wp := m.global_position + Vector3(0, 1.0, 0)
+		var behind := cam.is_position_behind(wp)
+		var sp2 := cam.unproject_position(wp)
+		var off := behind or sp2.x < 40.0 or sp2.x > vp.x - 40.0 or sp2.y < 60.0 or sp2.y > vp.y - 40.0
+		_mate_off_t = _mate_off_t + dt if off else 0.0
+		if _mate_off_t > 0.25:
+			show_mate = true
+			if behind:
+				sp2 = Vector2(vp.x * 0.5, vp.y) + (Vector2(vp.x * 0.5, vp.y) - sp2)
+			var pos2 := Vector2(clampf(sp2.x, 70.0, vp.x - 70.0), clampf(sp2.y, 130.0, vp.y - 110.0))
+			var d2 := sp2 - pos2
+			tracker.mate_pos = pos2
+			tracker.mate_dir = d2.normalized() if d2.length() > 1.0 else Vector2.DOWN
+			tracker.mate_col = UIKit.team_color(m.team)
+			if _mate_id != String(m.entry_id()):
+				_mate_id = String(m.entry_id())
+				for c in _mate_icon.get_children():
+					c.queue_free()
+				var av := UIKit.avatar(_mate_id, 74, UIKit.team_color(m.team), 5)
+				av.position = Vector2(-37, -37)
+				_mate_icon.add_child(av)
+			_mate_icon.position = pos2
+	else:
+		_mate_off_t = 0.0
+	_mate_icon.visible = show_mate
+	if show_mate != tracker.mate_show or show_mate:
+		tracker.mate_show = show_mate
+		tracker.queue_redraw()
+
+
 # ------------------------------------------------------------------ toasts (achievements / missions / level up)
 ## round badge: gold star for achievements, green tick for missions, blue arrow for level ups
 class _Badge:
@@ -551,6 +680,21 @@ func _build_feel_layers() -> void:
 	timing_ring.set_anchors_preset(Control.PRESET_FULL_RECT)
 	timing_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(timing_ring)
+
+
+## white flash over the whole picture for a frame or two (perfect smashes)
+func flash_screen(alpha := 0.2, dur := 0.12) -> void:
+	if _flash == null:
+		_flash = ColorRect.new()
+		_flash.color = Color(1, 1, 1, 0)
+		_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root_c.add_child(_flash)
+		root_c.move_child(_flash, 0)
+	_flash.color = Color(1, 1, 1, alpha)
+	var tw := _flash.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(_flash, "color:a", 0.0, dur)
 
 
 func flash_speed_lines(dur: float, strength := 1.0) -> void:
@@ -750,10 +894,13 @@ class _Check:
 
 	func _draw() -> void:
 		var c := size * 0.5
-		draw_circle(c, 15.0, Color.WHITE)
-		draw_circle(c, 12.0, Color("4fd16b") if on else Color(0.82, 0.86, 0.93))
+		var r: float = minf(size.x, size.y) * 0.5
+		draw_circle(c, r, Color.WHITE)
+		draw_circle(c, r - 3.0, Color("2fc7b0") if on else Color(0.62, 0.66, 0.7))
 		if on:
-			draw_polyline(PackedVector2Array([c + Vector2(-6, 0), c + Vector2(-2, 5), c + Vector2(7, -5)]), Color.WHITE, 3.5, true)
+			draw_polyline(PackedVector2Array([c + Vector2(-r * 0.42, 0), c + Vector2(-r * 0.1, r * 0.34), c + Vector2(r * 0.48, -r * 0.34)]), Color.WHITE, 5.0, true)
+		else:
+			draw_polyline(PackedVector2Array([c + Vector2(-r * 0.42, 0), c + Vector2(-r * 0.1, r * 0.34), c + Vector2(r * 0.48, -r * 0.34)]), Color(0.82, 0.85, 0.88), 5.0, true)
 
 
 var scoreboard_holder: Control
@@ -764,7 +911,11 @@ var _pr_hearts: _Hearts
 var _pr_medals: _MedalRow
 var _pr_title: Label
 var _co_rows: Array = []
-var _co_tip: Label
+var _co_banner: Control
+var _co_title: Label
+var _co_tip_rich: RichTextLabel
+var _co_step: Label
+var _co_count: Label
 var _medal_seen := 0
 
 
@@ -810,60 +961,98 @@ func _build_practice() -> void:
 		hype_bar.position = Vector2(pos.x + 4.0, pos.y + 236.0)
 		director.practice_rally_over.connect(_on_practice_rally_over)
 	elif director.mode_rules == "training" and ms.coach != null:
-		var items := TrainingCoach.ITEMS
-		_pr_panel = Panel.new()
-		_pr_panel.position = pos
-		_pr_panel.size = Vector2(560, 120 + 50 * items.size() + 130)
-		_pr_panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.92), 36, 0, Color.WHITE, 12))
-		_pr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root_c.add_child(_pr_panel)
-		var t := UIKit.label("新手教学", 38, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		t.position = Vector2(28, 12)
-		t.size = Vector2(300, 52)
-		_pr_panel.add_child(t)
-		var sub := UIKit.label("完成下面每一项就毕业啦", 22, Color(0.3, 0.35, 0.5), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		sub.position = Vector2(28, 62)
-		sub.size = Vector2(420, 32)
-		_pr_panel.add_child(sub)
-		_co_rows.clear()
-		for i in items.size():
-			var ck := _Check.new()
-			ck.position = Vector2(28, 108.0 + 50.0 * float(i))
-			ck.size = Vector2(32, 32)
-			ck.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_pr_panel.add_child(ck)
-			var l := UIKit.label(items[i]["text"], 26, UIKit.INK, 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-			l.position = Vector2(72, 104.0 + 50.0 * float(i))
-			l.size = Vector2(470, 40)
-			_pr_panel.add_child(l)
-			_co_rows.append({"check": ck, "label": l})
-		_co_tip = UIKit.label("", 24, Color(0.85, 0.4, 0.08), 0, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		_co_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_co_tip.position = Vector2(28, 116.0 + 50.0 * float(items.size()))
-		_co_tip.size = Vector2(510, 110)
-		_pr_panel.add_child(_co_tip)
+		_build_tutorial_ui()
+		hype_bar.position = Vector2(pos.x + 4.0, pos.y + 4.0)
 		ms.coach.changed.connect(_refresh_coach)
 		ms.coach.finished.connect(func(): show_banner("教学完成!", Color("ffd24a"), 120, 1.4, Color("c4501a")))
-		hype_bar.position = Vector2(pos.x + 4.0, pos.y + _pr_panel.size.y + 14.0)
 		_refresh_coach()
+
+
+## the reference game's tutorial look: a dark title pill + instruction banner at the top, a step card with check circles
+func _build_tutorial_ui() -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var inset: Dictionary = Game.safe_insets()
+	_co_banner = Control.new()
+	_co_banner.position = Vector2(vp.x * 0.5 - 600.0, 16.0 + float(inset["t"]))
+	_co_banner.size = Vector2(1200, 150)
+	_co_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(_co_banner)
+	var panel := Panel.new()
+	panel.position = Vector2(0, 38)
+	panel.size = Vector2(1200, 86)
+	panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.9), 30, 0, Color.WHITE, 10))
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_co_banner.add_child(panel)
+	var pill := Panel.new()
+	pill.position = Vector2(0, 0)
+	pill.size = Vector2(260, 52)
+	pill.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.24, 0.3, 0.33, 0.95), 26, 0, Color.WHITE, 6))
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_co_banner.add_child(pill)
+	_co_title = UIKit.label("", 30, Color.WHITE)
+	_co_title.size = pill.size
+	pill.add_child(_co_title)
+	_co_tip_rich = RichTextLabel.new()
+	_co_tip_rich.bbcode_enabled = true
+	_co_tip_rich.fit_content = false
+	_co_tip_rich.scroll_active = false
+	_co_tip_rich.position = Vector2(34, 54)
+	_co_tip_rich.size = Vector2(1130, 62)
+	_co_tip_rich.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_co_tip_rich.add_theme_font_size_override("normal_font_size", 32)
+	_co_tip_rich.add_theme_color_override("default_color", Color(0.18, 0.22, 0.3))
+	_co_banner.add_child(_co_tip_rich)
+	# step card (right side)
+	_pr_panel = Panel.new()
+	_pr_panel.size = Vector2(340, 190)
+	_pr_panel.position = Vector2(vp.x - 340.0 - 36.0 - float(inset["r"]), 360.0)
+	_pr_panel.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.93, 0.95, 0.96, 0.95), 30, 0, Color.WHITE, 10))
+	_pr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(_pr_panel)
+	_co_step = UIKit.label("", 40, Color(0.22, 0.27, 0.32))
+	_co_step.position = Vector2(0, 14)
+	_co_step.size = Vector2(340, 56)
+	_pr_panel.add_child(_co_step)
+	_co_rows.clear()
+	for i in 3:
+		var ck := _Check.new()
+		ck.position = Vector2(34.0 + 100.0 * float(i), 92)
+		ck.size = Vector2(72, 72)
+		ck.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_pr_panel.add_child(ck)
+		_co_rows.append(ck)
+	_co_count = UIKit.label("", 44, Color(0.18, 0.5, 0.45))
+	_co_count.position = Vector2(0, 92)
+	_co_count.size = Vector2(340, 72)
+	_pr_panel.add_child(_co_count)
 
 
 func _refresh_coach() -> void:
 	var coach: TrainingCoach = ms.coach
-	if coach == null:
+	if coach == null or _co_banner == null:
 		return
-	for i in _co_rows.size():
-		var it: Dictionary = TrainingCoach.ITEMS[i]
-		var on := coach.is_done(it["id"])
-		(_co_rows[i]["check"] as _Check).on = on
-		(_co_rows[i]["check"] as _Check).queue_redraw()
-		var txt: String = it["text"]
-		if it["id"] == "nice":
-			txt = "打出 3 次 Nice!  (%d/3)" % mini(coach.nice_count, 3)
-		(_co_rows[i]["label"] as Label).text = txt
-		(_co_rows[i]["label"] as Label).add_theme_color_override("font_color", Color(0.45, 0.5, 0.62) if on else UIKit.INK)
 	var cur := coach.current()
-	_co_tip.text = ("提示: " + String(cur["tip"])) if not cur.is_empty() else "全部完成! 马上结算奖励…"
+	if cur.is_empty():
+		_co_title.text = "全部完成"
+		_co_tip_rich.text = "[color=#e0307f]教学完成![/color]  马上结算奖励…"
+		_co_step.text = "毕业!"
+		for ck in _co_rows:
+			(ck as _Check).on = true
+			(ck as _Check).queue_redraw()
+		_co_count.text = ""
+		return
+	_co_title.text = String(cur["title"])
+	_co_tip_rich.text = String(cur["tip"]).replace("[b]", "[color=#e0307f]").replace("[/b]", "[/color]")
+	_co_step.text = "%s!" % cur["title"]
+	var need := int(cur["need"])
+	var have := coach.count_of(String(cur["id"]))
+	var circles := need <= 3
+	for i in _co_rows.size():
+		var ck := _co_rows[i] as _Check
+		ck.visible = circles
+		ck.on = i < have
+		ck.queue_redraw()
+	_co_count.text = "" if circles else "%d / %d" % [have, need]
 
 
 func _on_practice_rally_over(length: int, lost: bool) -> void:
@@ -1025,16 +1214,39 @@ func _build_tutorial() -> void:
 	tutorial.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tutorial.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_c.add_child(tutorial)
-	var text := KEY_HINT_PC
 	if Game.is_touch:
-		text = "左侧滑动移动  ·  右侧按钮 击球 / 跳 / 扑  ·  点击对面场地设定落点"
-	var l := UIKit.label(text, 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.95))
-	l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	l.position = Vector2(-700, -70)
-	l.size = Vector2(1400, 50)
-	tutorial.add_child(l)
+		var l := UIKit.label("左侧滑动移动  ·  右侧按钮 击球 / 跳 / 扑  ·  点击对面场地设定落点", 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.95))
+		l.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		l.position = Vector2(-700, -70)
+		l.size = Vector2(1400, 50)
+		tutorial.add_child(l)
+	else:
+		# keycap chips (like the button prompts of the reference game): [key, what it does]
+		var pads: bool = Input.get_connected_joypads().size() > 0
+		var keys := [["左摇杆", "移动"], ["A", "击球"], ["B", "跳跃"], ["X", "扑救"], ["右摇杆", "瞄准"], ["Start", "暂停"]] if pads \
+				else [["WASD", "移动"], ["J / 左键", "击球"], ["K / 右键", "跳跃"], ["L", "扑救"], ["鼠标", "瞄准"], ["Esc", "暂停"]]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 26)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		row.position = Vector2(-760, -84)
+		row.size = Vector2(1520, 56)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tutorial.add_child(row)
+		for k in keys:
+			var cell := HBoxContainer.new()
+			cell.add_theme_constant_override("separation", 8)
+			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var cap := PanelContainer.new()
+			cap.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.93), 12, 0, Color.WHITE, 5, 14))
+			cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var kl := UIKit.label(String(k[0]), 24, UIKit.INK)
+			cap.add_child(kl)
+			cell.add_child(cap)
+			cell.add_child(UIKit.label(String(k[1]), 26, Color.WHITE, 8, Color(0.05, 0.1, 0.25, 0.95)))
+			row.add_child(cell)
 	var tw := create_tween()
-	tw.tween_interval(9.0)
+	tw.tween_interval(12.0)
 	tw.tween_property(tutorial, "modulate:a", 0.0, 1.0)
 	tw.tween_callback(tutorial.queue_free)
 
@@ -1043,8 +1255,11 @@ func _build_tutorial() -> void:
 func _on_phase(p: int) -> void:
 	match p:
 		MatchDirector.P.INTRO:
-			show_banner("READY?", UIKit.YELLOW, 140, 1.4, UIKit.INK)
-			Sfx.play("countdown")
+			if director.vs_time > 0.0:
+				_show_vs_card()
+			else:
+				show_banner("READY?", UIKit.YELLOW, 140, 1.4, UIKit.INK)
+				Sfx.play("countdown")
 		MatchDirector.P.SERVE_PREP:
 			if director.score[0] + director.score[1] == 0 and director.phase_time < 0.2:
 				show_banner("GO!", UIKit.GREEN, 170, 0.8, UIKit.GREEN_DARK)
@@ -1056,7 +1271,66 @@ func _on_phase(p: int) -> void:
 				show_match_banner("赛点", director.serving_team)
 
 
+func _show_vs_card() -> void:
+	_vs_hold = true
+	_set_replay_hud(true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree() or director.phase != MatchDirector.P.INTRO or director.vs_time <= 0.0:
+		return
+	var round_name := ""
+	if Game.mode == "tournament":
+		round_name = "锦标赛 · %s" % Game.TOURNAMENT_ROUNDS[int(Game.tournament["round"])]["name"]
+	_vs_card = VsCard.new().build(ms.athletes, ms.cam_rig.cam, round_name)
+	root_c.add_child(_vs_card)
+
+
+func _end_vs_card() -> void:
+	if _vs_card != null and is_instance_valid(_vs_card):
+		_vs_card.dismiss()
+	_vs_card = null
+	_vs_hold = false
+	_set_replay_hud(false)
+	if not director.is_practice():
+		scoreboard_holder.modulate.a = 0.0
+		scoreboard_holder.create_tween().tween_property(scoreboard_holder, "modulate:a", 1.0, 0.4)
+	show_target_banner(director.target_points)
+	await get_tree().create_timer(1.6, true, false, true).timeout
+	if is_inside_tree() and director.phase == MatchDirector.P.INTRO:
+		show_banner("READY?", UIKit.YELLOW, 140, 1.0, UIKit.INK)
+		Sfx.play("countdown")
+
+
+## full-width teal band like "Score 5 points to win!" in the reference game
+func show_target_banner(points: int) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(c)
+	var y0 := vp.y * 0.46
+	var hh := 120.0
+	var band := Polygon2D.new()
+	band.polygon = PackedVector2Array([Vector2(60, y0), Vector2(vp.x + 60, y0), Vector2(vp.x, y0 + hh), Vector2(0, y0 + hh)])
+	band.color = Color("2fc7b0")
+	c.add_child(band)
+	var l := UIKit.label("先得 %d 分获胜!" % points, 78, Color.WHITE, 14, Color("17806f"))
+	l.position = Vector2(0, y0 + 8.0)
+	l.size = Vector2(vp.x, hh - 10.0)
+	c.add_child(l)
+	c.position.x = -vp.x - 100.0
+	var tw := c.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(c, "position:x", 0.0, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(1.3)
+	tw.tween_property(c, "position:x", vp.x + 100.0, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(c.queue_free)
+	Sfx.play("ui_swoosh", -4.0)
+
+
 func _on_rally_event(ev: String, data: Dictionary) -> void:
+	if ev == "vs_end":
+		_end_vs_card()
+		return
 	if ev == "match_point":
 		_match_point_team = int(data["team"])
 	elif ev == "hit":
@@ -1129,6 +1403,11 @@ func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 	if kind == "inout":
 		_inout_pill(text, sp)
 		return
+	if kind == "late":
+		_timing_note(text.begins_with("早"), sp)
+		return
+	if kind == "perfect" and text.begins_with("Nice") and text.contains("×"):
+		_combo_badge(int(text.get_slice("×", 1)), sp)
 	var l := UIKit.label(text, size, col, 14, outline)
 	l.position = sp - Vector2(200, 30)
 	l.size = Vector2(400, 60)
@@ -1140,6 +1419,53 @@ func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 	tw.tween_property(l, "position:y", l.position.y - 90.0, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.chain().tween_property(l, "modulate:a", 0.0, 0.25)
 	tw.chain().tween_callback(l.queue_free)
+
+
+## "Your timing was... a bit early" - the same gentle coaching line as the reference game, under the contact point
+func _timing_note(early: bool, sp: Vector2) -> void:
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.position = sp + Vector2(0, 26)
+	var l1 := UIKit.label("你的时机…", 30, Color.WHITE, 9, Color(0.05, 0.12, 0.3, 0.9))
+	l1.position = Vector2(-160, 0)
+	l1.size = Vector2(320, 38)
+	box.add_child(l1)
+	var l2 := UIKit.label("有点早!" if early else "有点晚!", 46, Color("ffe14a") if early else Color("9fd8ff"), 10, Color(0.05, 0.12, 0.3, 0.95))
+	l2.position = Vector2(-160, 34)
+	l2.size = Vector2(320, 56)
+	box.add_child(l2)
+	box.modulate.a = 0.0
+	popup_layer.add_child(box)
+	var tw := box.create_tween()
+	tw.tween_property(box, "modulate:a", 1.0, 0.1)
+	tw.parallel().tween_property(box, "position:y", box.position.y - 24.0, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.5)
+	tw.tween_property(box, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(box.queue_free)
+
+
+## gold "x2 / x3" bubble next to a chained Nice!
+func _combo_badge(n: int, sp: Vector2) -> void:
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.position = sp + Vector2(120, -40)
+	var panel := Panel.new()
+	panel.size = Vector2(70, 70)
+	panel.position = Vector2(-35, -35)
+	panel.add_theme_stylebox_override("panel", UIKit.style_box(Color("ffc928"), 35, 5, Color.WHITE, 8))
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(panel)
+	var l := UIKit.label("×%d" % n, 36, Color.WHITE, 8, Color("a85a00"))
+	l.size = panel.size
+	panel.add_child(l)
+	c.scale = Vector2(0.3, 0.3)
+	popup_layer.add_child(c)
+	var tw := c.create_tween()
+	tw.tween_property(c, "scale", Vector2(1.15, 1.15), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "scale", Vector2.ONE, 0.1)
+	tw.parallel().tween_property(c, "position:y", c.position.y - 70.0, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(c, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(c.queue_free)
 
 
 ## small "In" / "Out" tag where the ball came down
@@ -1246,8 +1572,61 @@ func show_match_banner(text: String, team: int) -> void:
 	Sfx.play("ui_swoosh", -4.0)
 
 
-func _on_match_over(winner: int) -> void:
-	show_banner("比赛结束!", UIKit.YELLOW, 130, 2.5, UIKit.INK)
+func _on_match_over(_winner: int) -> void:
+	pass                                   # the scene calls show_win_banner() after the instant replay
+
+
+## diagonal band across the screen: "胜利!" + the final score + the winning pair (like the reference game's Win! card)
+func show_win_banner(winner: int) -> void:
+	var vp := get_viewport().get_visible_rect().size
+	var human_good := winner == 0 or Game.mode == "versus"
+	var col := Color("2fc7b0") if human_good else Color("7d8bb0")
+	var dark := Color("17806f") if human_good else Color("424d70")
+	var c := Control.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_c.add_child(c)
+	var y0 := vp.y * 0.3
+	var hh := 250.0
+	var skew := 120.0
+	var band := Polygon2D.new()
+	band.polygon = PackedVector2Array([Vector2(skew, y0), Vector2(vp.x + skew, y0), Vector2(vp.x, y0 + hh), Vector2(0, y0 + hh)])
+	band.color = col
+	c.add_child(band)
+	for e in [[-14.0, 0.0], [hh + 6.0, 0.0]]:
+		var ln := Polygon2D.new()
+		ln.polygon = PackedVector2Array([Vector2(skew, y0 + e[0]), Vector2(vp.x + skew, y0 + e[0]), Vector2(vp.x + skew - 3.0, y0 + e[0] + 8.0), Vector2(skew - 3.0, y0 + e[0] + 8.0)])
+		ln.color = Color(1, 1, 1, 0.9)
+		c.add_child(ln)
+	var txt := "胜利!"
+	if Game.mode == "versus":
+		txt = "A 队获胜!" if winner == 0 else "B 队获胜!"
+	elif not human_good:
+		txt = "再接再厉!"
+	var l := UIKit.label(txt, 150, Color.WHITE, 28, dark, HORIZONTAL_ALIGNMENT_LEFT)
+	l.position = Vector2(120, y0 + 38)
+	l.size = Vector2(900, 180)
+	c.add_child(l)
+	var sc := UIKit.label("%d - %d" % [director.score[0], director.score[1]], 140, Color.WHITE, 24, dark, HORIZONTAL_ALIGNMENT_RIGHT)
+	sc.position = Vector2(vp.x - 760, y0 + 42)
+	sc.size = Vector2(640, 170)
+	c.add_child(sc)
+	var ids: Array = Game.team_a if winner == 0 else Game.team_b
+	for i in 2:
+		var a := UIKit.avatar(ids[i], 120, UIKit.team_color(winner), 6)
+		a.position = Vector2(vp.x * 0.5 + 40.0 + float(i) * 110.0 - 110.0, y0 + 64)
+		c.add_child(a)
+	c.position.x = -vp.x - 200.0
+	var tw := c.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(c, "position:x", 0.0, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(2.4)
+	tw.tween_property(c, "position:x", vp.x + 200.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(c.queue_free)
+	Sfx.play("ui_swoosh", -2.0)
+	if Game.main != null and Game.main.dev.has("winshot"):
+		await get_tree().create_timer(1.1, true, false, true).timeout
+		get_viewport().get_texture().get_image().save_png(str(Game.main.dev["winshot"]))
+		get_tree().quit()
 
 
 # ------------------------------------------------------------------ per-frame
@@ -1258,14 +1637,30 @@ func _process(_dt: float) -> void:
 
 
 func _process_impl(dt: float) -> void:
-	if director == null:
+	if director == null or replay_mode or _vs_hold:
 		return
 	_update_serve_bubble()
 	_update_markers()
+	_update_tracker(dt)
 	_update_timing_ring(dt)
 	_update_hype_ui(dt)
 	_update_practice()
 	_update_hint()
+
+
+## during an instant replay only the scoreboard stays: hide hints, markers, rings and touch controls
+func _set_replay_hud(on: bool) -> void:
+	for n in [hint_panel, serve_bubble, rally_lbl, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial]:
+		if n != null and is_instance_valid(n):
+			if n == scoreboard_holder and not on and director != null and director.is_practice():
+				continue                                   # the practice modes have their own panels instead
+			(n as CanvasItem).visible = not on
+	if on:
+		for n in [speed_lines, fever_frame]:
+			if n != null:
+				(n as CanvasItem).visible = false           # (they switch themselves back on when needed)
+	for e in markers:
+		(e["n"] as Control).visible = not on
 
 
 func _update_serve_bubble() -> void:
@@ -1291,7 +1686,7 @@ func _update_hint() -> void:
 	var text := ""
 	var sub := ""
 	var icon_name := ""
-	if h != null:
+	if h != null and not (director.mode_rules == "training" and director.phase == MatchDirector.P.RALLY):
 		var d := director
 		var hit_key := _hit_key_name()
 		if d.phase == MatchDirector.P.SERVING and d.server == h:

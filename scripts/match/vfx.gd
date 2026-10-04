@@ -143,6 +143,10 @@ func dust(pos: Vector3) -> void:
 	_burst(Vector3(pos.x, 0.08, pos.z), _soft_tex, 7, 0.55, 0.6, 1.8, 0.65, -0.5, Color(0.95, 0.9, 0.82, 0.55), 70.0, Vector3.UP, false)
 
 
+func step_dust(pos: Vector3) -> void:
+	_burst(Vector3(pos.x, 0.06, pos.z), _soft_tex, 3, 0.4, 0.25, 0.8, 0.34, -0.2, Color(0.95, 0.92, 0.85, 0.38), 60.0, Vector3.UP, false)
+
+
 func floor_impact(pos: Vector3) -> void:
 	_burst(Vector3(pos.x, 0.05, pos.z), _soft_tex, 6, 0.4, 0.5, 1.4, 0.5, 0.0, Color(1, 1, 1, 0.5), 80.0, Vector3.UP, false)
 	# expanding ring

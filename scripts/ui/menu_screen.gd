@@ -88,6 +88,34 @@ func _build_pages() -> void:
 		var c: Control = pages[k]
 		c.visible = false
 		ui.add_child(c)
+	_build_footer()
+
+
+## button prompts at the bottom right of every page, like the reference menus (Select / Back / OK)
+func _build_footer() -> void:
+	if Game.is_touch:
+		return
+	var pads: bool = Input.get_connected_joypads().size() > 0
+	var items := [["左摇杆", "选择"], ["B", "返回"], ["A", "确定"]] if pads else [["方向键 / 鼠标", "选择"], ["Esc", "返回"], ["Enter / 点击", "确定"]]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	row.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	row.position = Vector2(-820, -64)
+	row.size = Vector2(780, 44)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(row)
+	for it in items:
+		var cell := HBoxContainer.new()
+		cell.add_theme_constant_override("separation", 8)
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cap := PanelContainer.new()
+		cap.add_theme_stylebox_override("panel", UIKit.style_box(Color(1, 1, 1, 0.9), 12, 0, Color.WHITE, 4, 12))
+		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cap.add_child(UIKit.label(String(it[0]), 20, UIKit.INK))
+		cell.add_child(cap)
+		cell.add_child(UIKit.label(String(it[1]), 22, Color.WHITE, 6, Color(0.05, 0.12, 0.3, 0.9)))
+		row.add_child(cell)
 
 
 func _show_page(p: String, instant := false) -> void:
@@ -458,7 +486,7 @@ func _maybe_daily_greeting() -> void:
 	var vp := Vector2(1920, 1080)
 	var card := Panel.new()
 	card.size = Vector2(760, 96)
-	card.position = Vector2((vp.x - card.size.x) * 0.5, -120.0)
+	card.position = Vector2((vp.x - card.size.x) * 0.5, vp.y + 20.0)
 	card.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.08, 0.2, 0.3, 0.94), 48, 3, Color(1, 1, 1, 0.9), 10))
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(card)
@@ -472,9 +500,9 @@ func _maybe_daily_greeting() -> void:
 	card.add_child(l2)
 	Sfx.play("ui_confirm", -6.0)
 	var tw := card.create_tween()
-	tw.tween_property(card, "position:y", 24.0, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(card, "position:y", vp.y - 150.0, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(3.6)
-	tw.tween_property(card, "position:y", -120.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(card, "position:y", vp.y + 20.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(card.queue_free)
 
 

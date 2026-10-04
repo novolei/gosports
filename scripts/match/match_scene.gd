@@ -20,6 +20,8 @@ var _auto_time_scale := 1.0
 var _quit_after := -1.0
 var _elapsed := 0.0
 var _stats_log := []
+var replay: ReplaySystem = null
+var _points_since_replay := 2
 
 
 func setup(data: Dictionary) -> void:
@@ -121,15 +123,28 @@ func _build() -> void:
 	cam_rig.ball = ball
 	cam_rig.director = director
 	cam_rig.set_style(1)
+	for a in athletes:
+		if a.is_human:
+			cam_rig.follow_players.append(a)
 	director.cam = cam_rig
 	for h in humans:
 		h.camera = cam_rig.cam
+
+	if Game.mode == "training":                   # (before the HUD, which builds the tutorial card from it)
+		coach = TrainingCoach.new()
+		add_child(coach)
+		coach.setup(director)
+		coach.finished.connect(_on_training_done)
 
 	# --- HUD
 	var hud_script: GDScript = load("res://scripts/ui/hud.gd")
 	hud = hud_script.new()
 	add_child(hud)
 	hud.bind(self)
+	if not Game.is_practice() and Game.settings.get("replays", true) and (not autoplay or Game.main.dev.has("replay")):
+		replay = ReplaySystem.new()
+		add_child(replay)
+		replay.setup(self)
 	if Game.dbg("nohud"):
 		hud.visible = false
 
@@ -149,14 +164,11 @@ func _build() -> void:
 	if _auto_time_scale != 1.0:
 		Game.base_time_scale = _auto_time_scale
 		Engine.time_scale = _auto_time_scale
-	if Game.mode == "training":
-		coach = TrainingCoach.new()
-		add_child(coach)
-		coach.setup(director)
-		coach.finished.connect(_on_training_done)
 	if Game.profile_enabled:                  # (dev autoplay / --nosave runs switch it off at the top of _build)
 		Game.profile.begin_match()
 	director.start_match()
+	if director.vs_time > 0.0:
+		cam_rig.start_vs()
 
 
 func _connect_signals() -> void:
@@ -210,6 +222,9 @@ func _hit_feel(a: Athlete, kind: String, q: String, power: float) -> void:
 	if q == "perfect":
 		cam_rig.hit_stop(0.055 if big else 0.032)
 		cam_rig.punch(2.2 if not big else 3.5, 0.0, 0.05)
+		if big:
+			cam_rig.roll_kick(randf_range(1.4, 2.2) * (1.0 if a.global_position.x < 0.0 else -1.0))
+			hud.flash_screen(0.2 if power > 0.8 else 0.12, 0.14)
 	elif big:
 		cam_rig.hit_stop(0.03)
 	if big and q != "ok":
@@ -245,6 +260,8 @@ func _on_rally_event(ev: String, data: Dictionary) -> void:
 		"match_point":
 			Sfx.play("match_point", -4.0)
 			Sfx.music_tension(true)
+		"vs_end":
+			cam_rig.intro()
 		"close_call":
 			var cp: Vector3 = data["pos"]
 			Sfx.play("crowd_oh", -5.0)
@@ -288,6 +305,9 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		get_tree().create_timer(2.5).timeout.connect(func(): if crowd: crowd.cheer(false))
 	cam_rig.point_focus(pos, team)
 	cam_rig.slowmo(0.35, 0.55)
+	if _replay_wanted(reason):
+		director.hold_next = true
+		_run_point_replay()
 	var winners_center := Vector3.ZERO
 	var n := 0
 	for a in athletes:
@@ -306,10 +326,40 @@ func _on_point(team: int, reason: String, pos: Vector3) -> void:
 		Sfx.play("point_lose", -6.0)
 
 
+## which points deserve an instant replay: long rallies, aces, kill blocks and power spikes (at most one per three points)
+func _replay_wanted(reason: String) -> bool:
+	if replay == null:
+		return false
+	_points_since_replay += 1
+	var big := director.rally_len >= 8 or reason.begins_with("KILL") or reason == "ACE!" or ball.combo
+	if (big and _points_since_replay >= 3) or (Game.main != null and Game.main.dev.has("replay") and big):
+		_points_since_replay = 0
+		return true
+	return false
+
+
+func _run_point_replay() -> void:
+	await get_tree().create_timer(1.9, true, false, true).timeout
+	if is_inside_tree() and not _over and replay.can_play():
+		replay.start(0.6)
+		await replay.finished
+	director.hold_next = false
+
+
 func _on_match_over(winner: int) -> void:
 	_over = true
 	Sfx.crowd(false)
-	await get_tree().create_timer(3.4, true, false, true).timeout
+	if Game.is_practice():
+		hud.show_banner("练习结束!", UIKit.YELLOW, 130, 2.5, UIKit.INK)
+		await get_tree().create_timer(3.4, true, false, true).timeout
+	else:
+		await get_tree().create_timer(1.9, true, false, true).timeout
+		if is_inside_tree() and replay != null and replay.can_play():
+			replay.start(0.8)
+			await replay.finished
+		if is_inside_tree():
+			hud.show_win_banner(winner)
+			await get_tree().create_timer(3.0, true, false, true).timeout
 	if is_inside_tree():
 		Game.last_result = {
 			"winner": winner, "score": director.score.duplicate(), "stats": director.stats.duplicate(true),
@@ -364,6 +414,11 @@ func _physics_process_impl(dt: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if director != null and director.phase == MatchDirector.P.INTRO and director.vs_time > 0.0:
+		var press: bool = event.is_action_pressed("p1_hit") or event.is_action_pressed("p1_jump")
+		press = press or (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+		if press:
+			director.skip_vs()
 	if event.is_action_pressed("pause") and not _over:
 		toggle_pause()
 	if event.is_action_pressed("camera_toggle"):
