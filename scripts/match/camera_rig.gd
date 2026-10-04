@@ -57,28 +57,49 @@ func _snap() -> void:
 
 
 func intro() -> void:
+	if _mode == "vs":
+		_intro_from = [_pos, _focus, _fov]                  # glide from the end of the broadcast shot to the match camera
+	else:
+		_intro_from = [Vector3(-9.0, 5.5, 15.5), Vector3(2.0, 1.2, -1.5), 46.0]
 	_mode = "intro"
 	_mode_t = 0.0
 
 
 ## side-on shot of the two teams for the VS card (a slow dolly keeps it alive)
-## VS shot: the WHOLE court with the net, filmed from our half at a low diagonal angle (corner of our side line), with a slow dolly
-## towards the net: our pair in the foreground, the opponents across the net in the distance. `--vscam=x0,y0,z0,x1,y1,z1,fx,fy,fz,fov`.
-var _vs := {"a": Vector3(-6.2, 2.7, 11.6), "b": Vector3(-4.6, 2.2, 8.0), "fa": Vector3(0.6, 1.0, -0.2), "fb": Vector3(0.2, 1.1, -1.4), "fov": 44.0, "dur": 3.4}
+## VS shot = a live-broadcast "team photo": both pairs stand in neat rows facing the +x side line, the camera starts low in front of the
+## OPPONENTS (we meet them first), arcs over the court past the net and settles in front of OUR pair; the match camera then takes over
+## from exactly that pose (see intro()). `--vscam=phi0,phi1,radius,height,fov` (degrees) tunes the arc.
+const VS_DUR := 4.4
+var _vs_cfg := {"phi0": -48.0, "phi1": 34.0, "radius": 10.6, "h0": 1.9, "h1": 2.5, "fov0": 38.0, "fov1": 40.0}
+var _intro_from := [Vector3(-9.0, 5.5, 15.5), Vector3(2.0, 1.2, -1.5), 46.0]
 
 
 func _vs_pose(t: float) -> Array:
-	var c: Dictionary = _vs.duplicate()
+	var c: Dictionary = _vs_cfg.duplicate()
 	if Game.main != null and Game.main.dev.has("vscam"):
 		var p: PackedStringArray = String(Game.main.dev["vscam"]).split(",")
-		c["a"] = Vector3(float(p[0]), float(p[1]), float(p[2]))
-		c["b"] = Vector3(float(p[3]), float(p[4]), float(p[5]))
-		c["fa"] = Vector3(float(p[6]), float(p[7]), float(p[8]))
-		c["fb"] = c["fa"]
-		c["fov"] = float(p[9])
-	var u := clampf(t / float(c["dur"]), 0.0, 1.0)
-	u = u * u * (3.0 - 2.0 * u)
-	return [(c["a"] as Vector3).lerp(c["b"], u), (c["fa"] as Vector3).lerp(c["fb"], u), float(c["fov"]) - 3.0 * u]
+		c["phi0"] = float(p[0]); c["phi1"] = float(p[1]); c["radius"] = float(p[2]); c["h0"] = float(p[3]); c["h1"] = float(p[3]); c["fov0"] = float(p[4]); c["fov1"] = float(p[4])
+	var x := clampf(t / VS_DUR, 0.0, 1.0)
+	var u := x * x * x * (x * (x * 6.0 - 15.0) + 10.0)                       # smootherstep: lingers on both teams, sweeps in between
+	var phi := deg_to_rad(lerpf(float(c["phi0"]), float(c["phi1"]), u))
+	var r := float(c["radius"]) - 0.6 * sin(u * PI)                          # a little closer to the net mid-sweep
+	var h := lerpf(float(c["h0"]), float(c["h1"]), u) + 0.5 * sin(u * PI)    # and a gentle crane lift
+	var pos := Vector3(r * cos(phi), h, r * sin(phi))
+	var focus := Vector3(0.0, 1.1, lerpf(-4.3, 4.4, u))                      # look at the row we are introducing
+	return [pos, focus, lerpf(float(c["fov0"]), float(c["fov1"]), u)]
+
+
+var _free: Array = [Vector3(0, 3, 8), Vector3.ZERO, 40.0]
+
+
+## dev: a fixed camera (--refcam=px,py,pz,fx,fy,fz,fov)
+func set_free(pos: Vector3, focus: Vector3, fov: float) -> void:
+	_mode = "free"
+	_mode_t = 0.0
+	_free = [pos, focus, fov]
+	_pos = pos
+	_focus = focus
+	_fov = fov
 
 
 func start_vs() -> void:
@@ -209,9 +230,11 @@ func _physics_process_impl(dt: float) -> void:
 		"intro":
 			var u := clampf(_mode_t / 2.2, 0.0, 1.0)
 			var e := u * u * (3.0 - 2.0 * u)
-			want_pos = Vector3(lerpf(-9.0, 0.0, e), lerpf(5.5, g["h"], e), lerpf(15.5, g["z"], e))
-			want_focus = Vector3(lerpf(2.0, 0.0, e), 1.2, -1.5)
-			want_fov = lerpf(46.0, g["fov"], e)
+			var from_pos: Vector3 = _intro_from[0]
+			var from_focus: Vector3 = _intro_from[1]
+			want_pos = from_pos.lerp(Vector3(0.0, g["h"], g["z"]), e)
+			want_focus = from_focus.lerp(Vector3(0.0, 1.2, -1.5), e)
+			want_fov = lerpf(float(_intro_from[2]), g["fov"], e)
 			if u >= 1.0:
 				_mode = "game"
 		"point":
@@ -221,6 +244,10 @@ func _physics_process_impl(dt: float) -> void:
 			want_fov = float(g["fov"]) - 7.0
 			if _mode_t > 2.2:
 				_mode = "game"
+		"free":
+			want_pos = _free[0]
+			want_focus = _free[1]
+			want_fov = _free[2]
 		"vs":
 			var v := _vs_pose(_mode_t)
 			want_pos = v[0]

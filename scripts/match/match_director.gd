@@ -137,7 +137,7 @@ func start_match() -> void:
 	serving_team = 1 if is_practice() else 0          # practice: the ball machine serves, the human only receives
 	server_idx = [0, 0]
 	_vs_active = _wants_vs()
-	vs_time = 2.9 if _vs_active else 0.0
+	vs_time = CameraRig.VS_DUR + 0.2 if _vs_active else 0.0
 	_set_phase(P.INTRO)
 	_intro_timer = 2.4 + vs_time
 	_formation_for_serve(true)
@@ -153,19 +153,13 @@ func _wants_vs() -> bool:
 	return not is_practice() and not dev.has("autoplay") and not dev.has("skipvs")
 
 
-## everybody poses for the VS shot (camera on our side, low, looking diagonally across the net): our pair in the foreground turned
-## three quarters to the lens, the opponents across the net facing us
+## everybody poses for the VS shot: two neat rows, one per half, all facing the +x side line (where the broadcast camera arcs)
 func _vs_pose() -> void:
 	for a in athletes:
 		var near: bool = a.slot == 0
-		var p: Vector3
-		if a.team == 0:
-			p = Vector3(-0.9 if near else 1.7, 0.0, 3.5 if near else 5.1)
-			a.yaw = 0.95
-		else:
-			p = Vector3(1.0 if near else -1.8, 0.0, -3.6 if near else -5.1)
-			a.yaw = PI - 0.35
-		a.teleport(p)
+		var sgn := 1.0 if a.team == 0 else -1.0
+		a.teleport(Vector3(0.0, 0.0, sgn * (3.3 if near else 5.5)))
+		a.yaw = -PI * 0.5 + (0.12 if a.team == 0 else -0.12)          # forward = +x, nudged a touch towards the middle
 		a.rotation.y = a.yaw
 
 

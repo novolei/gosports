@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://csm8baw0rayw0"
-path="res://.godot/imported/fern.png-b16c87638834378b539b2be0e86392fd.ctex"
+uid="uid://bvt85y2jxfoun"
+path="res://.godot/imported/splash.png-a944da15111e165b7d150f9bebb5d567.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/env/fern.png"
-dest_files=["res://.godot/imported/fern.png-b16c87638834378b539b2be0e86392fd.ctex"]
+source_file="res://assets/ui/splash.png"
+dest_files=["res://.godot/imported/splash.png-a944da15111e165b7d150f9bebb5d567.ctex"]
 
 [params]
 

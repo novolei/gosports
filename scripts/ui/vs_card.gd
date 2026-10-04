@@ -9,35 +9,14 @@ var _vs: Label
 var _tag: Label
 var _gone := false
 var _vp := Vector2(1920, 1080)
+var _cam: Camera3D
+var _plate_of: Array = []
 
 
 func build(athletes: Array, cam: Camera3D, round_name := "", vp := Vector2(1920, 1080)) -> VsCard:
 	_vp = vp
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# diagonal tints: our pair's side is blue, the opponents' side pink (whichever way the broadcast camera happens to point)
-	var ours_x := 0.0
-	var n_ours := 0
-	for a in athletes:
-		if a.team == 0:
-			ours_x += cam.unproject_position((a as Node3D).global_position).x
-			n_ours += 1
-	var ours_right := n_ours > 0 and ours_x / float(n_ours) > vp.x * 0.5
-	var skew := 150.0
-	var left := Polygon2D.new()
-	left.polygon = PackedVector2Array([Vector2(0, 0), Vector2(vp.x * 0.5 + skew, 0), Vector2(vp.x * 0.5 - skew, vp.y), Vector2(0, vp.y)])
-	var lc := UIKit.PINK if ours_right else UIKit.BLUE
-	left.color = Color(lc.r, lc.g, lc.b, 0.09)
-	add_child(left)
-	var right := Polygon2D.new()
-	right.polygon = PackedVector2Array([Vector2(vp.x * 0.5 + skew, 0), Vector2(vp.x, 0), Vector2(vp.x, vp.y), Vector2(vp.x * 0.5 - skew, vp.y)])
-	var rc := UIKit.BLUE if ours_right else UIKit.PINK
-	right.color = Color(rc.r, rc.g, rc.b, 0.09)
-	add_child(right)
-	var split := Polygon2D.new()
-	split.polygon = PackedVector2Array([Vector2(vp.x * 0.5 + skew + 3.0, 0), Vector2(vp.x * 0.5 + skew - 3.0, 0), Vector2(vp.x * 0.5 - skew - 3.0, vp.y), Vector2(vp.x * 0.5 - skew + 3.0, vp.y)])
-	split.color = Color(1, 1, 1, 0.55)
-	add_child(split)
 	# "LIVE" bug (broadcast feel)
 	var live := Panel.new()
 	live.size = Vector2(122, 46)
@@ -67,13 +46,12 @@ func build(athletes: Array, cam: Camera3D, round_name := "", vp := Vector2(1920,
 		add_child(b)
 		_bars.append(b)
 		create_tween().tween_property(b, "position:y", 0.0 if top else vp.y - 96.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	# name plates
+	# name plates (UI-style capsules) under every player; they follow their player while the camera orbits
+	_cam = cam
 	for a in athletes:
-		var sp := cam.unproject_position((a as Node3D).global_position)
 		var team: int = a.team
 		var col := UIKit.team_color(team)
 		var plate := Control.new()
-		plate.position = Vector2(clampf(sp.x, 170.0, vp.x - 170.0), clampf(sp.y + 16.0, 260.0, vp.y - 220.0))
 		var perk := Roster.perk_info(String(a.perk))
 		var title := UIKit.label(String(perk["name"]) if perk["name"] != "" else "新秀", 28, col.lightened(0.35), 8, col.darkened(0.55))
 		title.position = Vector2(-120, -4)
@@ -89,14 +67,17 @@ func build(athletes: Array, cam: Camera3D, round_name := "", vp := Vector2(1920,
 		nm.size = bar.size
 		bar.add_child(nm)
 		plate.modulate.a = 0.0
-		var dx := -420.0 if team == 0 else 420.0
-		plate.position.x += dx
 		add_child(plate)
 		_plates.append(plate)
+		_plate_of.append({"plate": plate, "who": a})
+		# the opponents are introduced first, our pair fades in as the camera arrives
+		var delay := (0.35 + 0.12 * float(a.slot)) if team == 1 else (2.2 + 0.12 * float(a.slot))
 		var tw := plate.create_tween()
-		tw.tween_interval(0.35 + 0.1 * float(_plates.size()))
-		tw.tween_property(plate, "position:x", plate.position.x - dx, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(plate, "modulate:a", 1.0, 0.2)
+		tw.tween_interval(delay)
+		tw.tween_property(plate, "modulate:a", 1.0, 0.25)
+		plate.pivot_offset = Vector2(0, 50)
+		plate.scale = Vector2(0.7, 0.7)
+		tw.parallel().tween_property(plate, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# VS
 	_vs = UIKit.label("VS", 210, Color("2fe0c4"), 34, Color.WHITE)
 	_vs.position = Vector2(vp.x * 0.5 - 250.0, vp.y * 0.5 - 330.0)
@@ -107,7 +88,7 @@ func build(athletes: Array, cam: Camera3D, round_name := "", vp := Vector2(1920,
 	_vs.modulate.a = 0.0
 	add_child(_vs)
 	var vt := _vs.create_tween().set_parallel(true)
-	vt.tween_interval(0.2)
+	vt.tween_interval(1.5)
 	vt.chain().tween_property(_vs, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	vt.parallel().tween_property(_vs, "modulate:a", 1.0, 0.12)
 	if round_name != "":
@@ -127,6 +108,23 @@ func build(athletes: Array, cam: Camera3D, round_name := "", vp := Vector2(1920,
 	add_child(chip)
 	Sfx.play("ui_swoosh", -3.0)
 	return self
+
+
+func _process(_dt: float) -> void:
+	if _cam == null or _gone:
+		return
+	for e in _plate_of:
+		var who: Node3D = e["who"]
+		var pl: Control = e["plate"]
+		var wp := who.global_position
+		if _cam.is_position_behind(wp):
+			pl.visible = false
+			continue
+		var sp := _cam.unproject_position(wp)
+		# a plate lives only while its player is comfortably in frame (no piles of capsules on the screen edge)
+		var edge := minf(sp.x - 130.0, _vp.x - 130.0 - sp.x)
+		pl.visible = edge > -60.0
+		pl.position = Vector2(sp.x, clampf(sp.y + 14.0, 240.0, _vp.y - 200.0))
 
 
 ## slides the card away (bars retreat, plates fade)

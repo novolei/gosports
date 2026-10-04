@@ -6,6 +6,7 @@ var arena: Arena
 var ball: Ball
 var vfx: Vfx
 var crowd: Crowd = null
+var referee: Referee = null
 var cam_rig: CameraRig
 var director: MatchDirector
 var athletes: Array[Athlete] = []
@@ -88,6 +89,10 @@ func _build() -> void:
 		a.setup(i / 2, i % 2, Roster.by_id(roster[i]), ball, director)
 		athletes.append(a)
 	director.setup(athletes, ball, Game.match_points, diff)
+	if not Game.dbg("noref"):
+		referee = Referee.new()
+		add_child(referee)
+		referee.build(director, ball, Arena.LOOKS.get(arena.theme_id, Arena.LOOKS["day"]))
 	if Game.is_practice():
 		director.mode_rules = Game.mode
 		director.serving_team = 1
@@ -169,6 +174,11 @@ func _build() -> void:
 	if Game.profile_enabled:                  # (dev autoplay / --nosave runs switch it off at the top of _build)
 		Game.profile.begin_match()
 	director.start_match()
+	if Game.main != null and Game.main.dev.has("refcam"):
+		var rc := String(Game.main.dev["refcam"]).split(",")
+		cam_rig.set_free(Vector3(float(rc[0]), float(rc[1]), float(rc[2])), Vector3(float(rc[3]), float(rc[4]), float(rc[5])), float(rc[6]))
+	if Game.main != null and Game.main.dev.has("callshot"):          # dev: --callshot=in|out|inclose|outclose fires a fake line call after 4 s
+		_dev_call(String(Game.main.dev["callshot"]))
 	if director.vs_time > 0.0:
 		cam_rig.start_vs()
 		ball.visible = false                    # no stray ball on the floor in the broadcast shot
@@ -184,10 +194,28 @@ func _connect_signals() -> void:
 	director.match_over.connect(_on_match_over)
 	director.fever_started.connect(_on_fever_started)
 	director.fever_ended.connect(_on_fever_ended)
-	director.popup.connect(func(t, k, p): if _log_events: print("[popup] ", t, " ", k))
+	director.popup.connect(_on_popup_fx)
 	ball.floor_contact.connect(_on_floor)
 	ball.net_contact.connect(func(p): vfx.hit_burst(p, "good", 0.2); cam_rig.shake(0.2))
 	director.score_changed.connect(func(s, st): if _log_events: print("[score] ", s, " serving=", st))
+
+
+func _dev_call(kind: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	var p := Vector3(4.2, 0.3, 3.0)
+	match kind:
+		"out": p = Vector3(5.05, 0.3, 3.2)
+		"inclose": p = Vector3(4.46, 0.3, 3.2)
+		"outclose": p = Vector3(4.62, 0.3, 3.2)
+	director.popup.emit("In" if kind.begins_with("in") else "Out", "inout", p)
+
+
+func _on_popup_fx(text: String, kind: String, pos: Vector3) -> void:
+	if _log_events:
+		print("[popup] ", text, " ", kind)
+	if kind == "inout":
+		vfx.line_call(pos, text == "In")
+		Sfx.play("ui_confirm" if text == "In" else "ui_back", -7.0)
 
 
 func _on_hit_done(a: Athlete, info: Dictionary) -> void:
@@ -283,7 +311,6 @@ func _on_rally_event(ev: String, data: Dictionary) -> void:
 		"close_call":
 			var cp: Vector3 = data["pos"]
 			Sfx.play("crowd_oh", -5.0)
-			vfx.ring_pulse(Vector3(cp.x, 0.0, cp.z), Color(1.0, 0.95, 0.5, 1.0))
 		"point":
 			pass
 

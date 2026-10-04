@@ -41,10 +41,6 @@ static func t(zh: String) -> String:
 	return TranslationServer.translate(zh)
 
 
-static func howto(i: int, zh: String) -> String:
-	return String(LocEn.HOWTO[i]).replace("\r", "") if lang == "en" and i < LocEn.HOWTO.size() else zh
-
-
 class EnTranslation:
 	extends Translation
 	var _exact := {}

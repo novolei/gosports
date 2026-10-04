@@ -25,8 +25,6 @@ var _lineup_go: Button
 var _mode_cards: Control
 var _roster: Array[Dictionary] = []
 var _lineup := {"a": [], "b": []}
-var _how_tab := 0
-var _how_label: RichTextLabel
 var _rebinding := ""
 var _key_rows := {}
 var _key_note: Label
@@ -192,6 +190,7 @@ func _on_page(p: String) -> void:
 			stage.look(Vector3(0.0, 4.0, 13.0), Vector3(0, 0.8, 0))
 		"howto":
 			stage.look(Vector3(0.0, 5.0, 12.0), Vector3(0, 0.8, -1))
+			(pages["howto"] as HowToPage).focus_first()
 
 
 func _bg_dim() -> ColorRect:
@@ -766,6 +765,9 @@ func _build_mode() -> Control:
 	cards.set_meta("modes", modes)
 	_mode_cards = cards
 	_mode_desc = null
+	_venue_row = Control.new()
+	root.add_child(_venue_row)
+	_fill_venue_row()
 	# ---- right: match settings on frosted glass
 	var hd2 := GW.header("比赛设置", "ball", 920.0, 48)
 	hd2.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -817,6 +819,84 @@ func _build_mode() -> Control:
 	root.add_child(back)
 	_refresh_mode_cards(cards)
 	return root
+
+
+var _venue_row: Control
+
+
+## the venue (court scene) picker under the mode list: four sticker cards; locked venues show the level that opens them
+func _fill_venue_row() -> void:
+	for c in _venue_row.get_children():
+		c.queue_free()
+	if Game.profile == null or not Game.profile_enabled:
+		return
+	var p: Profile = Game.profile
+	var title := UIKit.label(tr("球场"), 34, Color.WHITE, 10, Color(0.05, 0.2, 0.34, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+	title.position = Vector2(112, 626)
+	title.size = Vector2(300, 46)
+	_venue_row.add_child(title)
+	var cur_name := UIKit.label("", 28, Color(1, 1, 1, 0.95), 8, Color(0.05, 0.2, 0.34, 0.9), HORIZONTAL_ALIGNMENT_RIGHT)
+	cur_name.position = Vector2(410, 630)
+	cur_name.size = Vector2(400, 40)
+	_venue_row.add_child(cur_name)
+	var cat := Profile.catalog("court")
+	for i in cat.size():
+		var it: Dictionary = cat[i]
+		var unlocked := p.is_unlocked("court", String(it["id"]))
+		var on: bool = String(p.equipped.get("court", "day")) == String(it["id"]) and unlocked
+		if on:
+			cur_name.text = tr(String(it["name"]))
+		var b := Button.new()
+		b.size = Vector2(160, 150)
+		b.position = Vector2(104.0 + float(i) * 176.0, 678)
+		b.pivot_offset = b.size * 0.5
+		b.focus_mode = Control.FOCUS_ALL
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, empty)
+		var rim := Panel.new()
+		rim.position = Vector2(6, 4)
+		rim.size = Vector2(148, 100)
+		rim.add_theme_stylebox_override("panel", UIKit.style_box(Color("4fd16b") if on else Color.WHITE, 40, 0, Color.WHITE, 8))
+		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(rim)
+		var clip := Panel.new()
+		clip.position = Vector2(11, 9)
+		clip.size = Vector2(138, 90)
+		clip.add_theme_stylebox_override("panel", UIKit.style_box(Color(0.82, 0.9, 0.94), 36))
+		clip.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(clip)
+		var sw := CareerPage._Swatch.new()
+		sw.kind = "court"
+		sw.item = it
+		sw.locked = not unlocked
+		sw.size = Vector2(138, 90)
+		sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clip.add_child(sw)
+		if not unlocked:
+			var lk := UIKit.label("Lv.%d" % int(it["level"]), 26, Color.WHITE, 8, Color(0.3, 0.12, 0.0, 0.9))
+			lk.position = Vector2(0, 30)
+			lk.size = Vector2(160, 40)
+			b.add_child(lk)
+		var nm := UIKit.label(tr(String(it["name"])), 24, Color.WHITE if unlocked else Color(0.62, 0.78, 0.88), 7, Color(0.03, 0.14, 0.26, 0.95))
+		nm.position = Vector2(-10, 108)
+		nm.size = Vector2(180, 36)
+		nm.clip_text = true
+		b.add_child(nm)
+		b.mouse_entered.connect(func(): UIKit._bump(b, 1.06))
+		b.focus_entered.connect(func(): UIKit._bump(b, 1.06))
+		b.mouse_exited.connect(func(): UIKit._bump(b, 1.0))
+		b.focus_exited.connect(func(): UIKit._bump(b, 1.0))
+		b.pressed.connect(func():
+			if unlocked:
+				if p.equip("court", String(it["id"])):
+					Sfx.play("ui_confirm", -3.0)
+					_fill_venue_row()
+			else:
+				Sfx.play("ui_hover", -4.0)
+				cur_name.text = tr("达到 Lv.%d 解锁") % int(it["level"]))
+		_venue_row.add_child(b)
 
 
 ## "label   <  [a | b | c]  >" row: the orange arrows step through the options (like the reference's CPU Strength row)
@@ -1510,100 +1590,8 @@ func _toggle(text: String, key: String) -> HBoxContainer:
 		Game.save_settings(), 640, 28)
 
 
-# ---- HOW TO PLAY
+# ---- HOW TO PLAY (scripts/ui/howto_page.gd)
 func _build_howto() -> Control:
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var title := UIKit.label("操作说明 & 小技巧", 60, Color.WHITE, 14, Color(0.05, 0.2, 0.45, 0.95))
-	title.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	title.position = Vector2(-500, 28)
-	title.size = Vector2(1000, 90)
-	root.add_child(title)
-	var tw := 290 if Loc.is_en() else 230
-	var tabs := _segmented(["键盘 + 鼠标", "手柄", "触屏", "规则 & 技巧", "节奏 & 成长"], _how_tab, func(i): _how_tab = i; _refresh_howto(), tw)
-	tabs.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	tabs.position = Vector2(-(float(tw) * 5.0 + 40.0) * 0.5, 130)
-	root.add_child(tabs)
-	var pn := UIKit.panel(Color(1, 1, 1, 0.93), 40, 14)
-	pn.set_anchors_preset(Control.PRESET_CENTER)
-	pn.position = Vector2(-760, -300)
-	pn.custom_minimum_size = Vector2(1520, 640)
-	root.add_child(pn)
-	_how_label = RichTextLabel.new()
-	_how_label.bbcode_enabled = true
-	_how_label.fit_content = false
-	_how_label.custom_minimum_size = Vector2(1460, 600)
-	_how_label.add_theme_font_size_override("normal_font_size", 29)
-	_how_label.add_theme_font_size_override("bold_font_size", 29)
-	_how_label.add_theme_color_override("default_color", UIKit.INK)
-	pn.add_child(_how_label)
-	var back := UIKit.button("返回", Vector2(300, 70), UIKit.GREEN, 34)
-	back.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	back.position = Vector2(-150, -110)
-	back.pressed.connect(func(): _show_page("main"))
-	root.add_child(back)
-	_refresh_howto()
-	return root
-
-
-const HOW_TEXT := [
-"""[b][color=#1668c9]玩家1[/color][/b]
-  移动  [b]W A S D[/b]　　击球（垫球/传球/扣球/发球）  [b]J[/b] 或 [b]鼠标左键[/b]
-  跳跃（起跳/拦网）  [b]K[/b] / [b]空格[/b] / [b]鼠标右键[/b]　　扑救  [b]L[/b] / [b]Shift[/b]
-  瞄准  [b]鼠标指针[/b] 指向对方场地的落点；单人模式也可用 [b]方向键[/b] 瞄准　　暂停  [b]Esc[/b]
-
-[b][color=#c42473]玩家2（同一键盘）[/color][/b]
-  移动  [b]方向键[/b]　　击球  [b]小键盘1[/b] 或 [b],[/b]　　跳跃  [b]小键盘2[/b] 或 [b].[/b]　　扑救  [b]小键盘3[/b] 或 [b]/[/b]
-  瞄准  [b]小键盘 8 4 5 6[/b]
-
-[b]击球键是「情境按键」[/b]：球低 → 垫球；球在头顶 → 传球；起跳后 → 扣球；发球时第一次按下抛球，第二次击球。
-球很高时直接按击球键，角色会自动起跳去扣球。
-""",
-"""[b]手柄（P1 = 1 号手柄，P2 = 2 号手柄）[/b]
-  移动  [b]左摇杆 / 十字键[/b]　　击球  [b]A[/b] 或 [b]RB / RT[/b]　　跳跃  [b]B[/b] 或 [b]LB[/b]　　扑救  [b]X[/b] 或 [b]LT[/b]
-  瞄准  [b]右摇杆[/b]（推向哪里，球就打向对方场地的哪里；松开 = 智能落点）
-  暂停  [b]Start[/b]
-
-[b]小提示[/b]
-  · 地面上的发光圈是你的「击球范围」，球进入圈内并变亮时按击球键就是 PERFECT。
-  · 第一次触球若想直接把球打过网，用右摇杆向前瞄准即可。
-""",
-"""[b]触屏操作[/b]
-  · 屏幕左侧任意位置按住拖动：[b]浮动摇杆[/b] 移动角色
-  · 右下角 [b]击球[/b] 大按钮 / [b]跳[/b] / [b]扑[/b]
-  · 点击对方半场：设置 [b]落点标记[/b]（击球后自动清除，不点则为智能落点）
-  · 设置里可开启 [b]左手模式[/b]（按键镜像）
-  · 开启「自动跑位辅助」后，不碰摇杆时角色会自动跑向球的落点，你只需要掌握击球时机！
-""",
-"""[b]基本规则[/b]
-  · 2 对 2，每队最多触球 [b]3 次[/b]（垫 → 传 → 扣），同一人不能连续触球两次。
-  · 球落在对方场内得分；出界算最后触球一方失分。先到 [b]7 / 11 / 15[/b] 分且领先 2 分获胜。
-  · 得分方发球；换发球权时由队友轮流发球。
-
-[b]小技巧[/b]
-  · [b]快速扣球[/b]：在队友完成传球之前就起跳——传球会变成低而快的「QUICK」球，直接送到你手上。
-  · [b]拦网[/b]：对方传出高球时，在网前起跳，手臂过网可把球拦回去（KILL BLOCK 直接得分）。
-  · [b]扑救[/b]：够不到的低球用扑救键；落点圈会提示球的落点。
-  · [b]吊球[/b]：扣球时把瞄准点放在靠近球网的位置，就变成轻轻吊过网。
-  · [b]跳发球[/b]：抛球后先按跳跃，在空中击球，球速更快但更难控制。
-""",
-"""[b]击球节奏 (Nice!)[/b]
-  · 球进入击球范围时，球上会出现一个缩小的光圈：圈缩到最小时按下击球键 = [b]Nice![/b]，球更快更准。
-  · 连续的 Nice! 会攒满[b]热血条[/b]，进入 [b]热血时刻[/b]：判定更宽、扣球更强、球会拖着火焰！
-  · 垫球、传球、扣球三次全是 Nice! = 一记[b]强力扣球[/b]（球色变粉红，几乎拦不住）。
-
-[b]角色特性[/b]  每个角色有一个独门特性（选角色时可见）：有的跑得更快、有的拦网更强，挑一个最适合你的。
-
-[b]别撞人![/b]  跑动中撞到别人会被弹开，撞得很狠还会摔倒、眼冒金星一会儿。AI 同样会撞晕。
-
-[b]成长系统[/b]
-  · 每场比赛、每次练习都会获得经验、升级，解锁新的球拖尾 / 比赛用球 / 球场主题，在「生涯」里装备。
-  · 每天 3 个随机任务，连续登录提升经验加成；成就收集满 20 个。
-  · 「锦标赛」连打三轮（小组赛 → 半决赛 → 决赛），夺冠有大量经验奖励。
-  · 「练习场」里的回合挑战可以拿铜 / 银 / 金牌。
-"""]
-
-
-func _refresh_howto() -> void:
-	# the rounded UI font has no real bold: emphasise with colour instead
-	_how_label.text = Loc.howto(_how_tab, HOW_TEXT[_how_tab] as String).replace("[b]", "[color=#e0307f]").replace("[/b]", "[/color]")
+	var hp := HowToPage.new().build()
+	hp.back_pressed.connect(func(): _show_page("main"))
+	return hp

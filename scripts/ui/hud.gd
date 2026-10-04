@@ -1464,7 +1464,7 @@ func _on_popup(text: String, kind: String, wpos: Vector3) -> void:
 			col = Color("ffffff")
 			outline = Color("e0307f")
 	if kind == "inout":
-		_inout_pill(text, sp)
+		_inout_pill(text, sp, wpos)
 		return
 	if kind == "late":
 		_timing_note(text.begins_with("早"), sp)
@@ -1531,25 +1531,63 @@ func _combo_badge(n: int, sp: Vector2) -> void:
 	tw.tween_callback(c.queue_free)
 
 
-## small "In" / "Out" tag where the ball came down
-func _inout_pill(text: String, sp: Vector2) -> void:
+## the line call, drawn like a broadcast judge badge: IN = teal / OUT = coral, a check / cross disc, big caps and a tail pointing
+## at the spot where the ball came down; when it was close, a second line says by how much
+func _inout_pill(text: String, sp: Vector2, wpos: Vector3) -> void:
 	var inn := text == "In"
-	var pn := Panel.new()
-	pn.size = Vector2(88, 40)
-	pn.position = sp - Vector2(44, 20)
-	pn.add_theme_stylebox_override("panel", UIKit.style_box(Color.WHITE if inn else Color("ff6b6b"), 20, 0, Color.WHITE, 6))
-	pn.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := UIKit.label(text, 26, Color("17806f") if inn else Color.WHITE)
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pn.add_child(l)
-	pn.pivot_offset = pn.size * 0.5
-	pn.scale = Vector2(0.4, 0.4)
-	popup_layer.add_child(pn)
-	var tw := pn.create_tween()
-	tw.tween_property(pn, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(0.9)
-	tw.tween_property(pn, "modulate:a", 0.0, 0.25)
-	tw.tween_callback(pn.queue_free)
+	var col := Color("14b08a") if inn else Color("f2475f")
+	var edge := minf(Court.HALF_W - absf(wpos.x), Court.HALF_D - absf(wpos.z))      # metres inside the line (negative = outside)
+	var note := ""
+	if inn and edge < 0.1:
+		note = tr("压线球！")
+	elif absf(edge) < 0.5:
+		note = (tr("仅余 %d cm") if inn else tr("差 %d cm")) % int(round(maxf(absf(edge), 0.01) * 100.0))
+	var vp := get_viewport().get_visible_rect().size
+	var w := 232.0
+	var h := 74.0 if note == "" else 100.0
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.position = Vector2(clampf(sp.x, w * 0.5 + 24.0, vp.x - w * 0.5 - 24.0), maxf(sp.y, h + 120.0))
+	popup_layer.add_child(box)
+	var tail := Polygon2D.new()
+	tail.polygon = PackedVector2Array([Vector2(-17, -26), Vector2(17, -26), Vector2(0, -2)])
+	tail.color = col
+	box.add_child(tail)
+	var pill := Control.new()
+	pill.position = Vector2(-w * 0.5, -22.0 - h)
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(pill)
+	pill.add_child(GW.pill_bg(Vector2(w, h), 37.0, col))
+	var disc := GW.glyph("check" if inn else "cross", 54.0, Color.WHITE)
+	disc.set("ink", col)
+	disc.position = Vector2(11.0, 10.0)
+	pill.add_child(disc)
+	var main := UIKit.label(tr("界内").to_upper() if inn else tr("出界").to_upper(), 44, Color.WHITE, 8, col.darkened(0.45))
+	main.position = Vector2(70.0, -3.0)
+	main.size = Vector2(w - 82.0, 68.0)
+	pill.add_child(main)
+	if note != "":
+		var nl := UIKit.label(note, 26, Color(1, 1, 1, 0.95), 4, col.darkened(0.5))
+		nl.position = Vector2(14.0, 62.0)
+		nl.size = Vector2(w - 28.0, 32.0)
+		pill.add_child(nl)
+	box.scale = Vector2(0.25, 0.25)
+	box.modulate.a = 0.0
+	var tw := box.create_tween()
+	tw.tween_property(box, "modulate:a", 1.0, 0.08)
+	tw.parallel().tween_property(box, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if inn:
+		tw.tween_property(box, "scale", Vector2(1.06, 1.06), 0.1)
+		tw.tween_property(box, "scale", Vector2.ONE, 0.1)
+	else:
+		for i in 3:                                       # a head-shake "no"
+			tw.tween_property(pill, "position:x", -w * 0.5 + 9.0, 0.045)
+			tw.tween_property(pill, "position:x", -w * 0.5 - 9.0, 0.045)
+		tw.tween_property(pill, "position:x", -w * 0.5, 0.045)
+	tw.tween_interval(1.15)
+	tw.tween_property(box, "position:y", box.position.y - 26.0, 0.3)
+	tw.parallel().tween_property(box, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(box.queue_free)
 
 
 ## big centre card after a point: both teams' avatars around the new score

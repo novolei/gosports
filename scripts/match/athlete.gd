@@ -439,6 +439,8 @@ func _clamp_to_court(p: Vector3) -> Vector3:
 	else:
 		p.z = clampf(p.z * sgn, 0.55, Court.PLAYER_MAX_Z + 1.0) * sgn
 	p.x = clampf(p.x, -Court.PLAYER_MAX_X, Court.PLAYER_MAX_X)
+	if absf(p.x - Referee.SPOT.x) < 0.95 and absf(p.z) < 1.05:      # the umpire's chair is solid
+		p.z = sgn * 1.05
 	return p
 
 

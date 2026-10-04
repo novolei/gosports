@@ -7,7 +7,7 @@ extends RefCounted
 
 const LOOPING := ["idle_a", "idle_b", "idle_c", "idle_d", "run_forward", "run_backwards", "run_left", "run_right",
 		"run_strafe_left", "run_strafe_right", "walk_forward", "walk_backwards", "walk_left", "walk_right",
-		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling"]
+		"walk_strafe_left", "walk_strafe_right", "fight_idle", "falling", "ref_idle", "ref_sleep"]
 
 # retargeted Mixamo clips: name -> {file, loop, keep_xz, trim}
 ## Locomotion blend-space clips: direction -> Cubebrush source clip (all 0.79 s cycles, phase aligned).
@@ -201,8 +201,70 @@ static func authored() -> Dictionary:
 	var sit_b := _m(sit_a, {"body": Vector3(-8, 0, -4), "torso": Vector3(-2, 0, 0), "head": Vector3(16, 0, -12),
 			"handc_r": Vector3(0.22, 0.55, 0.2)})
 
+	# --- the umpire on the high chair (scripts/match/referee.gd): sitting, hands on the knees, and a bag of reactions
+	var rsit := _m(stand, {
+		"hips": Vector3(0, -0.5, -0.16), "body": Vector3(-2, 0, 0), "torso": Vector3(2, 0, 0), "head": Vector3.ZERO,
+		"handc_l": Vector3(-0.3, -0.62, 0.38), "handc_r": Vector3(0.3, -0.62, 0.38),
+		"elbow_l": Vector3(-0.8, -0.4, -0.5), "elbow_r": Vector3(0.8, -0.4, -0.5),
+		"foot_l_off": Vector3(-0.08, 0.04, 0.5), "foot_r_off": Vector3(0.08, 0.04, 0.5),
+		"knee_l": Vector3(-0.15, 1, 0.4), "knee_r": Vector3(0.15, 1, 0.4)})
+	var rsit_b := _m(rsit, {"hips": Vector3(0, -0.508, -0.16), "torso": Vector3(4, 0, 0)})
+	var rl := _m(rsit_b, {"head": Vector3(-2, -16, 0), "body": Vector3(-2, -5, 0)})
+	var rr := _m(rsit_b, {"head": Vector3(-2, 16, 0), "body": Vector3(-2, 5, 0)})
+	var r_whistle := _m(rsit, {"handc_r": Vector3(0.1, 0.55, 0.42), "elbow_r": Vector3(0.6, 0.3, -0.5), "head": Vector3(-8, 0, 0), "torso": Vector3(-2, 0, 0)})
+	var r_point_l := _m(rsit, {"handc_l": Vector3(-1.0, 0.18, 0.3), "elbow_l": Vector3(-1, 0.0, -0.1), "head": Vector3(-4, -26, 0),
+			"body": Vector3(-2, -10, 0), "torso": Vector3(0, -14, 0)})
+	var r_point_r := _m(rsit, {"handc_r": Vector3(1.0, 0.18, 0.3), "elbow_r": Vector3(1, 0.0, -0.1), "head": Vector3(-4, 26, 0),
+			"body": Vector3(-2, 10, 0), "torso": Vector3(0, 14, 0)})
+	var r_out := _m(rsit, {"handc_l": Vector3(-0.42, 0.52, 0.18), "handc_r": Vector3(0.42, 0.52, 0.18),
+			"elbow_l": Vector3(-1, -0.2, -0.1), "elbow_r": Vector3(1, -0.2, -0.1), "head": Vector3(-8, 0, 0)})
+	var r_no_a := _m(rsit, {"head": Vector3(4, -30, -6), "torso": Vector3(6, -6, 0), "body": Vector3(2, -4, 0)})
+	var r_no_b := _m(rsit, {"head": Vector3(4, 30, 6), "torso": Vector3(6, 6, 0), "body": Vector3(2, 4, 0)})
+	var r_inhale := _m(rsit, {"torso": Vector3(-8, 0, 0), "body": Vector3(-5, 0, 0), "head": Vector3(-12, 0, 0), "hips": Vector3(0, -0.49, -0.17),
+			"handc_l": Vector3(-0.3, -0.5, 0.36), "handc_r": Vector3(0.3, -0.5, 0.36)})
+	var r_slump := _m(rsit, {"torso": Vector3(16, 0, 0), "body": Vector3(12, 0, 0), "head": Vector3(26, 0, 0), "hips": Vector3(0, -0.54, -0.12),
+			"handc_l": Vector3(-0.3, -0.72, 0.3), "handc_r": Vector3(0.3, -0.72, 0.3)})
+	var r_cheer_a := _m(rsit, {"handc_l": Vector3(-0.55, 0.92, 0.15), "handc_r": Vector3(0.55, 0.92, 0.15),
+			"elbow_l": Vector3(-0.9, 0.1, -0.3), "elbow_r": Vector3(0.9, 0.1, -0.3), "head": Vector3(-14, 0, 0), "body": Vector3(-6, 0, 0)})
+	var r_cheer_b := _m(r_cheer_a, {"hips": Vector3(0, -0.44, -0.16), "handc_l": Vector3(-0.45, 0.8, 0.2), "handc_r": Vector3(0.45, 0.8, 0.2)})
+	var r_wow := _m(rsit, {"body": Vector3(-12, 0, 0), "torso": Vector3(-6, 0, 0), "head": Vector3(-12, 0, 0), "hips": Vector3(0, -0.47, -0.2),
+			"handc_l": Vector3(-0.3, 0.3, 0.36), "handc_r": Vector3(0.3, 0.3, 0.36), "elbow_l": Vector3(-1, -0.2, -0.2), "elbow_r": Vector3(1, -0.2, -0.2)})
+	var r_yawn := _m(rsit, {"head": Vector3(-26, 0, 0), "body": Vector3(-8, 0, 0), "torso": Vector3(-4, 0, 0), "handc_r": Vector3(0.12, 0.6, 0.5),
+			"elbow_r": Vector3(0.7, 0.2, -0.5)})
+	var r_yawn_b := _m(r_yawn, {"head": Vector3(-30, 0, 0), "body": Vector3(-10, 0, 0)})
+	var r_wipe_a := _m(rsit, {"handc_r": Vector3(0.22, 0.92, 0.34), "elbow_r": Vector3(0.9, 0.4, -0.3), "head": Vector3(4, 4, 0), "torso": Vector3(6, 0, 0)})
+	var r_wipe_b := _m(r_wipe_a, {"handc_r": Vector3(-0.06, 0.92, 0.38), "head": Vector3(4, -4, 0)})
+	var r_nod_a := _m(rsit, {"head": Vector3(16, 0, 0)})
+	var r_think := _m(rsit, {"handc_r": Vector3(0.1, 0.5, 0.42), "elbow_r": Vector3(0.6, 0.3, -0.5), "head": Vector3(-6, 8, 8), "torso": Vector3(4, 0, 0)})
+	var r_wave_a := _m(rsit, {"handc_r": Vector3(0.6, 0.9, 0.22), "elbow_r": Vector3(0.9, 0.2, -0.3), "head": Vector3(-6, 8, 4), "body": Vector3(-3, 5, 0)})
+	var r_wave_b := _m(r_wave_a, {"handc_r": Vector3(0.9, 0.95, 0.2)})
+	var r_sleep_a := _m(rsit, {"head": Vector3(26, 0, 6), "body": Vector3(8, 0, 0), "torso": Vector3(10, 0, 0), "hips": Vector3(0, -0.53, -0.14),
+			"handc_l": Vector3(-0.3, -0.7, 0.32), "handc_r": Vector3(0.3, -0.7, 0.32)})
+	var r_sleep_b := _m(r_sleep_a, {"head": Vector3(38, 0, 8), "body": Vector3(12, 0, 0), "torso": Vector3(14, 0, 0)})
+	var r_shrug := _m(rsit, {"handc_l": Vector3(-0.6, -0.1, 0.3), "handc_r": Vector3(0.6, -0.1, 0.3), "elbow_l": Vector3(-1, -0.3, -0.1),
+			"elbow_r": Vector3(1, -0.3, -0.1), "head": Vector3(0, 0, 10), "torso": Vector3(-2, 0, 0)})
+
 	return {
 		"ready": {"loop": true, "keys": [[0.0, ready], [0.55, ready_b, "smooth"], [1.1, ready, "smooth"]]},
+		"ref_idle": {"loop": true, "keys": [[0.0, rsit], [0.7, rl, "smooth"], [1.5, rsit_b, "smooth"], [2.2, rr, "smooth"], [3.0, rsit, "smooth"], [3.6, rsit_b, "smooth"], [4.2, rsit, "smooth"]]},
+		"ref_whistle": {"keys": [[0.0, rsit], [0.16, r_whistle, "smooth"], [0.8, r_whistle], [1.05, rsit, "smooth"]]},
+		"ref_point_l": {"keys": [[0.0, rsit], [0.18, r_point_l, "out"], [1.2, r_point_l], [1.55, rsit, "smooth"]]},
+		"ref_point_r": {"keys": [[0.0, rsit], [0.18, r_point_r, "out"], [1.2, r_point_r], [1.55, rsit, "smooth"]]},
+		"ref_out": {"keys": [[0.0, rsit], [0.16, r_out, "out"], [0.3, _m(r_out, {"handc_l": Vector3(-0.4, 0.6, 0.18), "handc_r": Vector3(0.4, 0.6, 0.18)}), "smooth"],
+				[0.45, r_out, "smooth"], [1.1, r_out], [1.4, rsit, "smooth"]]},
+		"ref_shake": {"keys": [[0.0, rsit], [0.14, r_no_a, "out"], [0.34, r_no_b, "smooth"], [0.54, r_no_a, "smooth"], [0.74, r_no_b, "smooth"], [0.95, _m(r_no_a, {"head": Vector3(4, -18, -4)}), "smooth"],
+				[1.25, rsit, "smooth"]]},
+		"ref_sigh": {"keys": [[0.0, rsit], [0.55, r_inhale, "smooth"], [0.95, r_inhale], [1.5, r_slump, "smooth"], [2.4, r_slump], [3.0, rsit, "smooth"]]},
+		"ref_cheer": {"keys": [[0.0, rsit], [0.2, r_cheer_a, "out"], [0.4, r_cheer_b, "smooth"], [0.6, r_cheer_a, "smooth"], [0.8, r_cheer_b, "smooth"], [1.0, r_cheer_a, "smooth"],
+				[1.2, r_cheer_b, "smooth"], [1.6, rsit, "smooth"]]},
+		"ref_wow": {"keys": [[0.0, rsit], [0.12, r_wow, "out"], [1.1, r_wow], [1.5, rsit, "smooth"]]},
+		"ref_yawn": {"keys": [[0.0, rsit], [0.5, r_yawn, "smooth"], [1.7, r_yawn_b, "smooth"], [2.2, _m(rsit, {"head": Vector3(8, 0, 0)}), "smooth"], [2.8, rsit, "smooth"]]},
+		"ref_wipe": {"keys": [[0.0, rsit], [0.3, r_wipe_a, "smooth"], [0.6, r_wipe_b, "smooth"], [0.9, r_wipe_a, "smooth"], [1.2, r_wipe_b, "smooth"], [1.5, r_slump, "smooth"], [2.4, r_slump], [3.0, rsit, "smooth"]]},
+		"ref_nod": {"keys": [[0.0, rsit], [0.15, r_nod_a, "smooth"], [0.35, rsit, "smooth"], [0.55, r_nod_a, "smooth"], [0.75, rsit, "smooth"]]},
+		"ref_think": {"keys": [[0.0, rsit], [0.3, r_think, "smooth"], [1.4, _m(r_think, {"head": Vector3(-6, -6, -8)}), "smooth"], [1.8, rsit, "smooth"]]},
+		"ref_wave": {"keys": [[0.0, rsit], [0.25, r_wave_a, "out"], [0.5, r_wave_b, "smooth"], [0.75, r_wave_a, "smooth"], [1.0, r_wave_b, "smooth"], [1.25, r_wave_a, "smooth"], [1.7, rsit, "smooth"]]},
+		"ref_sleep": {"loop": true, "keys": [[0.0, r_sleep_a], [1.4, r_sleep_b, "smooth"], [2.8, r_sleep_a, "smooth"]]},
+		"ref_shrug": {"keys": [[0.0, rsit], [0.2, r_shrug, "out"], [1.1, r_shrug], [1.5, rsit, "smooth"]]},
 		"bump": {"keys": [[0.0, ready], [0.12, bump_load], [0.2, bump_hit, "out"], [0.38, bump_follow, "smooth"], [0.7, ready, "smooth"]]},
 		"set": {"keys": [[0.0, ready], [0.1, set_load], [0.2, set_hit, "out"], [0.36, set_follow, "smooth"], [0.65, ready, "smooth"]]},
 		"air": {"loop": true, "keys": [[0.0, air], [0.4, _m(air, {"hips": Vector3(0, -0.05, 0.0)}), "smooth"], [0.8, air, "smooth"]]},

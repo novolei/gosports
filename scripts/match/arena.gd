@@ -28,7 +28,20 @@ const THEMES := {
 			"amb": 1.0, "amb_col": Color(0.92, 0.88, 1.0), "fog": Color(0.95, 0.85, 0.95), "sat": 1.12, "sun_col": Color(1.0, 0.88, 0.92), "sun_e": 1.05,
 			"sun_rot": Vector3(-30, 14, 0), "backdrop": Color(0.96, 0.88, 0.97), "extra_light": false},
 }
-var _fern_xf: Array[Transform3D] = []
+
+## the venue's own look on top of the sky preset: court palette (shader colours), run-off rim and advertising boards
+const LOOKS := {
+	"day": {"court": {}, "rim": Color(0.16, 0.42, 0.40), "plinth": Color(0.15, 0.2, 0.29), "cap": Color(0.2, 0.8, 0.72), "bright": 1.0, "tint": Color(1, 1, 1)},
+	"sunset": {"court": {"col_net": Vector3(1.0, 0.7, 0.4), "col_base": Vector3(0.96, 0.5, 0.42), "col_attack": Vector3(1.0, 0.7, 0.36),
+				"col_free": Vector3(0.46, 0.4, 0.64), "col_free_dark": Vector3(0.37, 0.31, 0.55)},
+			"rim": Color(0.3, 0.22, 0.48), "plinth": Color(0.24, 0.15, 0.3), "cap": Color(1.0, 0.62, 0.3), "bright": 0.97, "tint": Color(1.0, 0.93, 0.88)},
+	"night": {"court": {"col_net": Vector3(0.45, 0.66, 0.95), "col_base": Vector3(0.3, 0.46, 0.88), "col_attack": Vector3(0.42, 0.62, 0.95),
+				"col_free": Vector3(0.12, 0.24, 0.42), "col_free_dark": Vector3(0.08, 0.17, 0.33)},
+			"rim": Color(0.08, 0.16, 0.3), "plinth": Color(0.06, 0.08, 0.16), "cap": Color(0.3, 0.9, 1.0), "bright": 1.25, "tint": Color(1, 1, 1)},
+	"dawn": {"court": {"col_net": Vector3(1.0, 0.82, 0.88), "col_base": Vector3(0.74, 0.62, 0.92), "col_attack": Vector3(1.0, 0.8, 0.86),
+				"col_free": Vector3(0.52, 0.8, 0.78), "col_free_dark": Vector3(0.42, 0.7, 0.7)},
+			"rim": Color(0.3, 0.52, 0.55), "plinth": Color(0.28, 0.26, 0.4), "cap": Color(1.0, 0.7, 0.85), "bright": 1.0, "tint": Color(1.0, 0.96, 1.0)},
+}
 
 
 func build(p_quality := 2) -> void:
@@ -41,8 +54,8 @@ func build(p_quality := 2) -> void:
 	_build_net()
 	if not Game.dbg("nostands"):
 		_build_stands()
-	if not Game.dbg("noferns"):
-		_build_greenery()
+	if not Game.dbg("noboards"):
+		_build_boards()
 	if not Game.dbg("nobackdrop"):
 		_build_backdrop()
 
@@ -157,6 +170,9 @@ func _build_ground() -> void:
 	sm.set_shader_parameter("half_size", Vector2(Court.HALF_W, Court.HALF_D))
 	sm.set_shader_parameter("attack", Court.ATTACK_LINE)
 	court.material_override = sm
+	var look: Dictionary = LOOKS.get(theme_id, LOOKS["day"])
+	for k in (look["court"] as Dictionary).keys():
+		sm.set_shader_parameter(k, look["court"][k])
 	if Game.dbg("nocourt"):
 		var flat := StandardMaterial3D.new()
 		flat.albedo_color = Color(0.93, 0.62, 0.55)
@@ -168,7 +184,7 @@ func _build_ground() -> void:
 
 	# raised rim so the free zone reads as a platform
 	var rim_mat := StandardMaterial3D.new()
-	rim_mat.albedo_color = Color(0.16, 0.42, 0.40)
+	rim_mat.albedo_color = look["rim"]
 	rim_mat.roughness = 0.55
 	for s in [-1.0, 1.0]:
 		var b := MeshInstance3D.new()
@@ -380,72 +396,102 @@ func _build_stands() -> void:
 	_kit("Stadium_Tree", "Stadium_green", Vector3(hw + 3.0, 0, hd + 4.0), 0.0, 0.8)
 
 
-# ------------------------------------------------------------------ greenery
-func _build_greenery() -> void:
-	var fern_tex := _tex(ENV + "fern.png")
-	var fm := StandardMaterial3D.new()
-	fm.albedo_texture = fern_tex
-	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	fm.alpha_scissor_threshold = 0.5
-	fm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	fm.roughness = 0.8
-	fm.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
-	fm.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
-	var hd := Court.HALF_D + Court.FREE_ZONE
-	var hw := Court.HALF_W + Court.FREE_ZONE
-	var planter_mat := StandardMaterial3D.new()
-	planter_mat.albedo_color = Color(0.22, 0.24, 0.27)
-	planter_mat.roughness = 0.6
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	# planter boxes with ferns along the far end and the two sides
-	var rows := [
-		[Vector3(-hw - 0.5, 0, 0), Vector3(1.2, 0.45, hd * 2.0 + 1.0)],
-		[Vector3(hw + 0.5, 0, 0), Vector3(1.2, 0.45, hd * 2.0 + 1.0)],
-		[Vector3(0, 0, -hd - 0.6), Vector3(hw * 2.0 + 2.2, 0.45, 1.2)],
+# ------------------------------------------------------------------ advertising boards
+const BOARD_H := 0.82
+const BOARD_W := 2.05            # one panel (atlas cells are 2.5 : 1)
+
+
+## A low LED hoarding around the run-off area, like a real venue: a dark plinth with a coloured cap and rotating sponsor panels
+## (fictional brands, tools/make_ads.py). Everything is two meshes: the plinth (lit, vertex colours) and all panels (one shader).
+func _build_boards() -> void:
+	var look: Dictionary = LOOKS.get(theme_id, LOOKS["day"])
+	var hw := Court.HALF_W + Court.FREE_ZONE + 0.45
+	var hd := Court.HALF_D + Court.FREE_ZONE + 0.55
+	var depth := 0.3
+	# runs: centre, direction along the run, length, normal towards the court
+	var runs := [
+		[Vector3(-hw, 0, 0), Vector3(0, 0, 1), hd * 2.0 + depth, Vector3(1, 0, 0)],
+		[Vector3(hw, 0, 0), Vector3(0, 0, 1), hd * 2.0 + depth, Vector3(-1, 0, 0)],
+		[Vector3(0, 0, -hd), Vector3(1, 0, 0), hw * 2.0 - depth, Vector3(0, 0, 1)],
 	]
-	for r in rows:
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = r[1]
-		box.mesh = bm
-		box.material_override = planter_mat
-		box.position = (r[0] as Vector3) + Vector3(0, 0.225, 0)
-		add_child(box)
-		var len_x: float = (r[1] as Vector3).x
-		var len_z: float = (r[1] as Vector3).z
-		var count := int(maxf(len_x, len_z) / 0.9)
-		for i in count:
-			var t := (float(i) + rng.randf() * 0.6) / float(count) - 0.5
-			var p := (r[0] as Vector3) + Vector3(t * len_x if len_x > len_z else rng.randf_range(-0.3, 0.3), 0.45, t * len_z if len_z >= len_x else rng.randf_range(-0.3, 0.3))
-			_fern(p, fm, rng.randf_range(0.8, 1.5), rng.randf() * 360.0)
-	_flush_ferns(fm)
+	var plinth := SurfaceTool.new()
+	plinth.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var faces := SurfaceTool.new()
+	faces.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var body_col: Color = look["plinth"]
+	var cap_col: Color = look["cap"]
+	var idx := 0
+	for r in runs:
+		var c: Vector3 = r[0]
+		var dir: Vector3 = r[1]
+		var length: float = r[2]
+		var n: Vector3 = r[3]
+		var size := Vector3(depth, 0.96, length) if absf(dir.z) > 0.5 else Vector3(length, 0.96, depth)
+		_add_box(plinth, c + Vector3(0, 0.48, 0), size, body_col)
+		var cap_size := size + (Vector3(0.1, 0.0, 0.0) if absf(dir.z) > 0.5 else Vector3(0.0, 0.0, 0.1))
+		cap_size.y = 0.07
+		_add_box(plinth, c + Vector3(0, 0.99, 0), cap_size, cap_col)
+		var count := int(floor(length / BOARD_W))
+		var used := float(count) * BOARD_W
+		for side in [1.0, -1.0]:                  # inner face (towards the court) and outer face (towards the stands)
+			var nn: Vector3 = n * side
+			var right: Vector3 = (-nn).cross(Vector3.UP)
+			for i in count:
+				var along := -used * 0.5 + (float(i) + 0.5) * BOARD_W
+				var centre := c + dir * along + nn * (depth * 0.5 + 0.012)
+				var bl := centre - right * (BOARD_W * 0.5) + Vector3(0, 0.1, 0)
+				var cell := (idx * 5 + i * 3 + (1 if side > 0.0 else 7)) % 16
+				_add_panel(faces, bl, right, BOARD_W, BOARD_H, cell, fposmod(float(i) * 0.37 + (0.0 if side > 0.0 else 0.5), 1.0))
+		idx += 1
+	plinth.generate_normals()
+	var pm := MeshInstance3D.new()
+	pm.mesh = plinth.commit()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.55
+	pm.material_override = mat
+	pm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(pm)
+	var fm := MeshInstance3D.new()
+	fm.mesh = faces.commit()
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/ad_board.gdshader")
+	sm.set_shader_parameter("atlas", _tex(ENV + "ads.png"))
+	sm.set_shader_parameter("bright", look["bright"])
+	sm.set_shader_parameter("night_tint", Vector3((look["tint"] as Color).r, (look["tint"] as Color).g, (look["tint"] as Color).b))
+	fm.material_override = sm
+	fm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(fm)
 
 
-## one fern = three crossed quads; every quad of every fern is an instance of ONE MultiMesh (a single draw call)
-func _fern(pos: Vector3, _mat: Material, size: float, yaw: float) -> void:
-	for k in 3:
-		var basis := Basis(Vector3.UP, deg_to_rad(yaw + float(k) * 60.0)) * Basis.from_scale(Vector3(size, size, 1.0))
-		_fern_xf.append(Transform3D(basis, pos + Vector3(0, size * 0.5 - 0.04, 0)))
+func _add_panel(st: SurfaceTool, bl: Vector3, right: Vector3, w: float, h: float, cell: int, phase: float) -> void:
+	var br := bl + right * w
+	var tl := bl + Vector3(0, h, 0)
+	var tr := br + Vector3(0, h, 0)
+	var col := Color(float(cell) / 15.0, phase, 0.0, 1.0)
+	for v in [[tl, Vector2(0, 0)], [tr, Vector2(1, 0)], [br, Vector2(1, 1)], [tl, Vector2(0, 0)], [br, Vector2(1, 1)], [bl, Vector2(0, 1)]]:
+		st.set_color(col)
+		st.set_uv(v[1])
+		st.add_vertex(v[0])
 
 
-func _flush_ferns(mat: Material) -> void:
-	if _fern_xf.is_empty():
-		return
-	var qm := QuadMesh.new()
-	qm.size = Vector2(1, 1)
-	qm.material = mat
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = qm
-	mm.instance_count = _fern_xf.size()
-	for i in _fern_xf.size():
-		mm.set_instance_transform(i, _fern_xf[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mmi)
-	_fern_xf.clear()
+func _add_box(st: SurfaceTool, c: Vector3, size: Vector3, col: Color) -> void:
+	var h := size * 0.5
+	# 6 faces, vertices wound clockwise seen from outside (Godot front faces)
+	var f := [
+		[Vector3(1, 0, 0), [Vector3(h.x, -h.y, h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(h.x, h.y, h.z)]],
+		[Vector3(-1, 0, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(-h.x, -h.y, h.z), Vector3(-h.x, h.y, h.z), Vector3(-h.x, h.y, -h.z)]],
+		[Vector3(0, 1, 0), [Vector3(-h.x, h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(h.x, h.y, -h.z), Vector3(-h.x, h.y, -h.z)]],
+		[Vector3(0, -1, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, -h.y, h.z), Vector3(-h.x, -h.y, h.z)]],
+		[Vector3(0, 0, 1), [Vector3(-h.x, -h.y, h.z), Vector3(h.x, -h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z)]],
+		[Vector3(0, 0, -1), [Vector3(h.x, -h.y, -h.z), Vector3(-h.x, -h.y, -h.z), Vector3(-h.x, h.y, -h.z), Vector3(h.x, h.y, -h.z)]],
+	]
+	for face in f:
+		var q: Array = face[1]
+		for i in [0, 2, 1, 0, 3, 2]:
+			st.set_color(col)
+			st.set_normal(face[0])
+			st.add_vertex(c + (q[i] as Vector3))
 
 
 # ------------------------------------------------------------------ backdrop

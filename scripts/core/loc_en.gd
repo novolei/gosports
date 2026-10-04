@@ -203,6 +203,11 @@ Nice! 击球后短暂加速	A brief speed boost after a Nice! hit
 发球失误	Service fault
 得分!	Point!
 出界	Out
+界内	In
+达到 Lv.%d 解锁	Reach Lv.%d to unlock
+压线球！	On the line!
+仅余 %d cm	%d cm to spare
+差 %d cm	%d cm out
 赛点	Match Point
 比赛结束!	Game Set!
 练习结束!	Session over!
@@ -511,57 +516,58 @@ ACE 发球	Aces
 声音与提示	Sound & Hints
 %s!	%s!
 %s ×%.2f	%s ×%.2f
+WASD · 鼠标 · 双人同屏	WASD · Mouse · Two players
+摇杆 · 按键 · 瞄准	Sticks · Buttons · Aiming
+浮动摇杆 · 动作按钮	Floating stick · Action buttons
+快速扣球 · 拦网 · 吊球	Quick spike · Block · Tip
+Nice! · 热血 · 升级解锁	Nice! · Fever · Unlocks
+玩家2（同一键盘）	Player 2 (same keyboard)
+暂停键	Pause
+鼠标左键	LMB
+鼠标右键	RMB
+空格	Space
+小键盘1	Num 1
+小键盘2	Num 2
+小键盘3	Num 3
+小键盘 8 4 5 6	Num 8 4 5 6
+击球键会看情况变化	The Hit key adapts to the situation
+球低 → 垫球	Low ball → Bump
+球在头顶 → 传球	Overhead → Set
+起跳后 → 扣球	In the air → Spike
+发球：第一次按下抛球，第二次击球。球很高时直接按击球键，角色会自动起跳去扣球。	Serve: press once to toss, again to hit. For a very high ball just press Hit and the character jumps for the spike by itself.
+手柄（1 号手柄 = 玩家1，2 号手柄 = 玩家2）	Gamepad (pad 1 = Player 1, pad 2 = Player 2)
+十字键	D-pad
+推右摇杆瞄准：推向哪里，球就打向对方场地的哪里；松开 = 智能落点。	Push the right stick to aim: the ball goes where you push it; release = smart placement.
+地面上的发光圈是你的击球范围：球进入圈内并变亮时按击球键就是 PERFECT。	The glowing ring on the floor is your hit range: press Hit while the ball is inside it and glowing for a PERFECT.
+左半屏任意位置按住并拖动（浮动摇杆）	Press and drag anywhere on the left half (floating stick)
+右下角的大按钮；它会随情境变成垫 / 传 / 扣 / 发	The big button at the bottom right; it becomes Bump / Set / Spike / Serve as needed
+起跳与拦网	Jump and block
+够不到的低球	For low balls out of reach
+落点	Target
+点击对方半场设置落点标记（不点 = 智能落点）	Tap the opponent's half to place a target mark (no tap = smart placement)
+设置里开启后，不碰摇杆时角色会自己跑向落点	Turn it on in Settings: the character runs to the landing spot by itself when you leave the stick alone
+左手模式	Left-handed mode
+设置里可以把按键镜像到左边	Mirror the buttons to the left in Settings
+得分方发球	Scorer serves
+3 次触球	3 touches
+垫 → 传 → 扣	Bump → Set → Spike
+先到且领先 2 分	Win by 2
+跳发球	Jump Serve
+在队友传球之前就起跳：传球会变成低而快的 QUICK 球，直接送到你手上。	Jump before your partner's set: it becomes a low, fast QUICK ball delivered right to your hand.
+对方传出高球时在网前起跳，手臂过网把球拦回去（KILL BLOCK 直接得分）。	When a high ball comes over, jump at the net and reach over to block it back (a KILL BLOCK scores outright).
+够不到的低球用扑救键；地面的落点圈会提示球要落在哪里。	Use Dive for low balls out of reach; the ring on the floor shows where the ball will land.
+扣球时把瞄准点放在靠近球网的位置，就变成轻轻吊过网。	Aim close to the net when spiking for a soft tip over.
+抛球后先按跳跃，在空中击球：球速更快，但更难控制。	Press Jump after the toss and hit in the air: faster, but harder to control.
+跑动中撞到别人会被弹开，撞得很狠还会摔倒、眼冒金星一会儿。	Running into someone bounces you off; a hard hit knocks you down and leaves you seeing stars.
+角色特性	Perks
+升级解锁	Level Up
+每日任务	Daily Missions
+球进入击球范围时会出现缩小的光圈：圈缩到最小时按击球键，球更快更准。	A shrinking ring appears when the ball enters hit range: press Hit when it is smallest for a faster, more accurate ball.
+连续的 Nice! 攒满热血条：判定更宽、扣球更强、球会拖着火焰。	Chain Nice! to fill the fever meter: a wider timing window, stronger spikes and a flaming ball.
+垫、传、扣三次全是 Nice!，球色变粉红，几乎拦不住。	Bump, set and spike all Nice! and the ball turns pink: nearly unstoppable.
+每个角色都有独门特性：有的跑得快、有的拦网强，挑最适合你的。	Every character has a unique perk: some run faster, some block better. Pick what suits you.
+比赛和练习都能获得经验，解锁球拖尾、比赛用球、球场主题，在「生涯」里装备。	Matches and practice earn XP and unlock ball trails, balls and court themes. Equip them under Career.
+每天 3 个随机任务，连续登录提升经验加成，成就可收集 20 个。	3 random missions every day; log in on consecutive days for an XP bonus; 20 achievements to collect.
+三轮连战（小组赛 → 半决赛 → 决赛），夺冠有大量经验；练习场的回合挑战可拿铜 / 银 / 金牌。	Three rounds (groups → semi-final → final) with big XP for winning; the Practice rally challenge awards bronze / silver / gold.
+小心碰撞	Collisions
 """
-
-const HOWTO := [
-"""[b][color=#1668c9]Player 1[/color][/b]
-  Move  [b]W A S D[/b]　　Hit (bump / set / spike / serve)  [b]J[/b] or [b]Left Mouse Button[/b]
-  Jump (jump / block)  [b]K[/b] / [b]Space[/b] / [b]Right Mouse Button[/b]　　Dive  [b]L[/b] / [b]Shift[/b]
-  Aim  [b]Mouse pointer[/b] on a spot of the other court; in solo you can also aim with the [b]arrow keys[/b]　　Pause  [b]Esc[/b]
-
-[b][color=#c42473]Player 2 (same keyboard)[/color][/b]
-  Move  [b]Arrow keys[/b]　　Hit  [b]Numpad 1[/b] or [b],[/b]　　Jump  [b]Numpad 2[/b] or [b].[/b]　　Dive  [b]Numpad 3[/b] or [b]/[/b]
-  Aim  [b]Numpad 8 4 5 6[/b]
-
-[b]The Hit button is contextual[/b]: low ball → bump; ball overhead → set; in the air → spike; when serving, the first press tosses and the second hits.
-If the ball is very high, just press Hit and your character jumps for the spike by itself.""",
-"""[b]Gamepad (P1 = pad 1, P2 = pad 2)[/b]
-  Move  [b]Left stick / D-pad[/b]　　Hit  [b]A[/b] or [b]RB / RT[/b]　　Jump  [b]B[/b] or [b]LB[/b]　　Dive  [b]X[/b] or [b]LT[/b]
-  Aim  [b]Right stick[/b] (push where you want the ball to land on the other court; release for a smart landing)
-  Pause  [b]Start[/b]
-
-[b]Tips[/b]
-  · The glowing ring on the floor is your "hit range". Press Hit when the ball is inside the ring and it lights up for a PERFECT.
-  · To send the first touch straight over the net, aim forward with the right stick.""",
-"""[b]Touch controls[/b]
-  · Hold and drag anywhere on the left side: a [b]floating stick[/b] moves your character
-  · Bottom right: the big [b]Hit[/b] button / [b]Jump[/b] / [b]Dive[/b]
-  · Tap the other half of the court to place a [b]target marker[/b] (cleared after your hit; without one you get a smart landing)
-  · Settings has a [b]left-handed mode[/b] (mirrored buttons)
-  · With "Auto-positioning" on, your character runs to the landing spot when you leave the stick alone, so you only need to nail the timing!""",
-"""[b]Basic rules[/b]
-  · 2 vs 2. A team gets at most [b]3 touches[/b] (bump → set → spike) and nobody touches twice in a row.
-  · A ball that lands inside the other court scores; out-of-bounds counts against the last team to touch it. First to [b]7 / 11 / 15[/b] points with a 2-point lead wins.
-  · The team that scores serves; when serve changes, partners take turns.
-
-[b]Tips[/b]
-  · [b]Quick spike[/b]: jump before your partner finishes the set. The set turns into a low, fast "QUICK" ball that goes straight to you.
-  · [b]Block[/b]: when the other side sets high, jump at the net; reach over and you can send it back (KILL BLOCK scores outright).
-  · [b]Dive[/b]: use Dive for low balls you can't reach; the ring shows where it will land.
-  · [b]Tip[/b]: aim close to the net when you spike for a soft tip over the block.
-  · [b]Jump serve[/b]: after the toss press Jump first and hit in the air for more speed but less control.""",
-"""[b]Timing (Nice!)[/b]
-  · When the ball enters your hit range a shrinking ring appears on it: press Hit when it is smallest for a [b]Nice![/b], faster and more accurate.
-  · Chained Nice! hits fill the [b]fever bar[/b] and start [b]Fever Time[/b]: a wider window, stronger spikes and a flaming ball!
-  · Nice! on bump, set and spike = a [b]power spike[/b] (the ball turns pink and is nearly unblockable).
-
-[b]Character traits[/b]  Every character has a trait (shown when you pick): some run faster, some block better. Pick what suits you.
-
-[b]Don't collide![/b]  Running into someone knocks you apart, and a hard hit makes you fall and see stars for a moment. The CPU gets dizzy too.
-
-[b]Progression[/b]
-  · Every match and practice earns XP and levels, unlocking new ball trails / balls / court themes you can equip under "Career".
-  · 3 random missions every day, a login streak boosts XP, and there are 20 achievements to collect.
-  · "Tournament" runs three rounds (group stage → semifinal → final) with a big XP bonus for the title.
-  · Rally Challenge in "Practice" awards bronze / silver / gold medals."""
-]

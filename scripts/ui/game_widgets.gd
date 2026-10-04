@@ -355,6 +355,21 @@ class _Glyph:
 				draw_arc(c, s * 0.5, PI * 0.5, PI * 1.5, 14, ink, 2.6, true)
 				draw_arc(c, s * 0.5, -PI * 0.5, PI * 0.5, 14, ink, 2.6, true)
 				draw_line(c + Vector2(-s, 0), c + Vector2(s, 0), ink, 2.6, true)
+			"pad":
+				draw_rect(Rect2(c + Vector2(-s * 1.05, -s * 0.55), Vector2(s * 2.1, s * 1.1)), ink, false, 3.0)
+				draw_line(c + Vector2(-s * 0.6, -s * 0.2), c + Vector2(-s * 0.6, s * 0.2), ink, 3.2, true)
+				draw_line(c + Vector2(-s * 0.8, 0), c + Vector2(-s * 0.4, 0), ink, 3.2, true)
+				draw_circle(c + Vector2(s * 0.45, -s * 0.12), s * 0.12, ink)
+				draw_circle(c + Vector2(s * 0.7, s * 0.14), s * 0.12, ink)
+			"touch":
+				draw_rect(Rect2(c + Vector2(-s * 0.55, -s * 0.95), Vector2(s * 1.1, s * 1.9)), ink, false, 3.0)
+				draw_circle(c + Vector2(0, s * 0.62), s * 0.1, ink)
+				draw_arc(c + Vector2(0, -s * 0.15), s * 0.3, 0.0, TAU, 16, ink, 2.8, true)
+			"check":
+				draw_polyline(PackedVector2Array([c + Vector2(-s * 0.8, s * 0.05), c + Vector2(-s * 0.25, s * 0.62), c + Vector2(s * 0.85, -s * 0.6)]), ink, 6.0, true)
+			"cross":
+				draw_line(c + Vector2(-s * 0.68, -s * 0.68), c + Vector2(s * 0.68, s * 0.68), ink, 6.0, true)
+				draw_line(c + Vector2(-s * 0.68, s * 0.68), c + Vector2(s * 0.68, -s * 0.68), ink, 6.0, true)
 			"person":
 				draw_arc(c + Vector2(0, -s * 0.45), s * 0.32, 0.0, TAU, 16, ink, 3.2, true)
 				draw_arc(c + Vector2(0, s * 0.85), s * 0.7, PI + 0.4, TAU - 0.4, 14, ink, 3.2, true)

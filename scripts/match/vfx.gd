@@ -246,6 +246,65 @@ func ring_pulse(pos: Vector3, col: Color) -> void:
 	t.tween_method(func(v: float): r.material_override.set_shader_parameter("intensity", v), 1.0, 0.0, 0.7)
 	t.chain().tween_callback(r.queue_free)
 
+## the line call: a coloured ripple + ball mark where the ball came down, a red cross for OUT, and a flashing line when it was close
+func line_call(pos: Vector3, inside: bool) -> void:
+	var col := Color(0.25, 0.95, 0.7, 1.0) if inside else Color(1.0, 0.32, 0.42, 1.0)
+	ring_pulse(pos, col)
+	var grad: Texture2D = load("res://assets/env/ring_gradient.png")
+	var mark := _make_ring(col, 0.0, grad)
+	var sm: ShaderMaterial = mark.material_override
+	sm.set_shader_parameter("inner", 0.0)
+	sm.set_shader_parameter("rainbow", 0.0)
+	sm.set_shader_parameter("fill_alpha", 0.4)
+	sm.set_shader_parameter("width", 0.14)
+	add_child(mark)
+	mark.global_position = Vector3(pos.x, 0.035, pos.z)
+	mark.scale = Vector3(0.95, 0.95, 1.0)
+	var t := mark.create_tween()
+	t.tween_interval(1.0)
+	t.tween_method(func(v: float): sm.set_shader_parameter("intensity", v), 1.0, 0.0, 0.4)
+	t.tween_callback(mark.queue_free)
+	if not inside:
+		for k in 2:
+			var q := _flat_quad(Vector2(0.62, 0.1), col, Vector3(pos.x, 0.045, pos.z), PI * 0.25 * (1.0 if k == 0 else -1.0))
+			q.scale = Vector3(0.2, 0.2, 1.0)
+			var qt := q.create_tween()
+			qt.tween_property(q, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			qt.tween_interval(0.9)
+			qt.tween_callback(q.queue_free)
+	var ex := Court.HALF_W - absf(pos.x)
+	var ez := Court.HALF_D - absf(pos.z)
+	if minf(absf(ex), absf(ez)) < 0.35:
+		var on_end_line := absf(ez) < absf(ex)
+		var lp := Vector3(pos.x, 0.05, signf(pos.z) * Court.HALF_D) if on_end_line else Vector3(signf(pos.x) * Court.HALF_W, 0.05, pos.z)
+		var ln := _flat_quad(Vector2(2.6, 0.14) if on_end_line else Vector2(0.14, 2.6), col, lp, 0.0)
+		var m: StandardMaterial3D = ln.material_override
+		var lt := ln.create_tween()
+		for i in 3:
+			lt.tween_property(m, "albedo_color:a", 0.15, 0.1)
+			lt.tween_property(m, "albedo_color:a", 1.0, 0.1)
+			lt.tween_interval(0.12)
+		lt.tween_property(m, "albedo_color:a", 0.0, 0.3)
+		lt.tween_callback(ln.queue_free)
+
+
+## unlit coloured quad lying on the floor (rotated `yaw` about the vertical)
+func _flat_quad(size: Vector2, col: Color, at: Vector3, yaw: float) -> MeshInstance3D:
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = size
+	q.mesh = qm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	q.material_override = m
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(q)
+	q.transform = Transform3D(Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -PI * 0.5), at)
+	return q
+
+
 # ------------------------------------------------------------------ body collisions
 ## level 1 = brushed, 2 = stumble, 3 = knock-down
 func body_hit(pos: Vector3, level: int) -> void:
