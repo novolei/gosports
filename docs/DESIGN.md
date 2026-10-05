@@ -594,7 +594,7 @@ PC 手感新增：
 用户要求参考篮球 / Minitanks 的触屏优化来升级排球的手机触屏体验。完整说明、表格和测试命令在 [TOUCH_CONTROLS.md](TOUCH_CONTROLS.md)。
 
 * **套件**：`scripts/touch/`（`TouchMetrics` 毫米 ↔ 画布像素 + 真实 DPI、`TouchFeel` 手感参数 + 调参表、`StickModel` 径向死区摇杆、`TouchRouter` 手指路由 / 最短按压 / 取消、`TouchHaptics`、`GestureExclusion`、`TouchTuner` 真机调参面板）从篮球仓库拷来，唯一的改动是 `TouchFeel.hidden` / `rows()`（调参面板可跳过游戏不用的参数）。`TouchControls` 在它上面重写：毫米布局（摇杆 11 mm、按键 9.5 / 8 / 7.5 mm、离边 ≥ 7 / 6 mm）、手指绑定、55 ms 最短按压（去掉旧的 +90 ms 尾巴）、取消 / 失焦 / 暂停时释放、按下触觉、Android 边缘手势排除区、点选落点的「差一点没点中按键不算」+ HUD 按钮保留区。
-* **一个排球自己的疑点**：`p1_hit` / `p1_jump` 绑了鼠标左 / 右键，Godot 的 `emulate_mouse_from_touch` 会把第一根手指变成左键点击——手指落在摇杆上就可能触发击球。触屏模式下现在把这两个鼠标绑定摘掉（`Game._sync_mouse_bindings`）。**未在真机验证**（机器人绕过 `Input` 单例，测不出）。
+* **鼠标键绑定（推断被实测推翻，防御性保留）**：`p1_hit` / `p1_jump` 绑了鼠标左 / 右键，我曾推断 Godot 的 `emulate_mouse_from_touch` 会让手指落在摇杆上就触发击球；网球 session 在 Godot 4.7.1 桌面上实测不成立（仿真点击 `device = -1`，不会让动作变 pressed），Android 真机未测。触屏模式下仍摘掉这两个鼠标绑定（`Game._sync_mouse_bindings`），无害，但不是在修一个已发生的 bug。
 * **其他**：`display/window/handheld/orientation` 6 → 4 + `Main._ready` 里移动端锁横屏（所有 GoSports 游戏打开即横屏）；调试包可以从 `files/dev_args.txt` 读开关；设置 → 操作新增「触屏按键大小」「摇杆样式」。
 * **验证**：`tools/test_touch.gd` 56 项；`--touch --touchbot` 整链路机器人 31 项（后方 / 侧面视角各一遍，16:9 与 20:9 窗口）。**真机和真手指没验证**：手感数字是起点，真机上用调参面板（三指按住 2 秒）调。
 * **通知**：已让足球 / 乒乓球 / 网球 session 照篮球的做法优化触屏；乒乓球已开工并同样修了鼠标键位问题，网球排进了待办，足球 session 当时离线（消息排队）。

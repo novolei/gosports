@@ -137,7 +137,7 @@ func _run() -> void:
 		for e in InputMap.action_get_events(act):
 			if e is InputEventMouseButton:
 				has_mouse = true
-	_check("touch mode: no mouse button is bound to p1_hit / p1_jump (the finger -> left click emulation cannot swing)", Game.is_touch and not has_mouse)
+	_check("touch mode: no mouse button is bound to p1_hit / p1_jump (defensive: a finger's emulated click can never swing)", Game.is_touch and not has_mouse)
 
 	_sandbox()
 	await _wait(0.4)

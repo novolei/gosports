@@ -116,8 +116,9 @@ func set_touch(v: bool) -> void:
 		touch_mode_changed.emit(v)
 
 
-## While the touch controls are in use the mouse buttons must not drive P1's HIT / JUMP: Godot turns the first finger on the screen into a left
-## mouse click (emulate_mouse_from_touch), and p1_hit is bound to the left button - a thumb that only lands on the stick would swing.
+## While the touch controls are in use the mouse buttons are taken off P1's HIT / JUMP: Godot turns the first finger on the screen into a left
+## mouse click (emulate_mouse_from_touch) and p1_hit is bound to the left button. A desktop measurement (Godot 4.7.1, tennis session) says the
+## emulated click (device -1) does NOT press the action, so this is a harmless precaution rather than a fix; Android was not measured.
 ## (Mouse aiming is switched off in touch mode already, see HumanBrain._update_aim.)
 const MOUSE_BINDINGS := [["p1_hit", MOUSE_BUTTON_LEFT], ["p1_jump", MOUSE_BUTTON_RIGHT]]
 var _mouse_bound := true
