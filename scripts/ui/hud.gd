@@ -1499,6 +1499,8 @@ func _build_touch() -> void:
 	if Game.is_touch:
 		touch = TouchControls.new()
 		root_c.add_child(touch)
+		touch.reserve(_pause_btn)                            # (a touch on a HUD button belongs to the GUI: not the stick, not an aim tap)
+		touch.reserve(_cam_btn)
 		touch.aim_tapped.connect(_on_aim_tap)
 
 

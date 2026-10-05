@@ -1545,7 +1545,7 @@ func _fill_settings(cat: int) -> void:
 	for i in int(_set_cards.get_meta("n")):
 		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
 	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
-	var rows_n: int = [2, 6, 4, 5, 1][cat]
+	var rows_n: int = [2, 6, 6, 5, 1][cat]
 	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
 	var old_panel := _set_panel
 	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
@@ -1582,6 +1582,8 @@ func _fill_settings(cat: int) -> void:
 			onoff.call("移动方向瞄准（按住方向键击球）", "aim_by_move")
 			onoff.call("触觉震动（手机 / 手柄）", "haptics")
 			onoff.call("左手模式（触屏按键镜像）", "left_handed")
+			col.add_child(GW.option_row("触屏按键大小", ["小", "中", "大"], clampi(int(Game.settings["touch_size"]), 0, 2), func(i): Game.settings["touch_size"] = i; Game.settings_changed.emit(); Game.save_settings(), 904.0, 170.0))
+			col.add_child(GW.option_row("摇杆样式", ["浮动", "固定"], 1 if String(Game.settings["touch_stick"]) == "fixed" else 0, func(i): Game.settings["touch_stick"] = "fixed" if i == 1 else "float"; Game.settings_changed.emit(); Game.save_settings(), 904.0, 170.0))
 			var kb := UIKit.button("按键设置", Vector2(360, 70), UIKit.GREEN, 34)
 			kb.pressed.connect(func(): _show_page("keys"))
 			var wrap := HBoxContainer.new()

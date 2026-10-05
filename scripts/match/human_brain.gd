@@ -3,6 +3,8 @@ extends RefCounted
 ## Translates player input (keyboard+mouse / gamepad / touch) into athlete commands.
 ## Aiming: mouse cursor, gamepad right stick / arrow keys, or a tapped marker on the court (touch).
 
+const DEADZONE := 0.18          ## radial dead zone of Input.get_vector (the touch stick pre-compensates it, see TouchControls._on_stick_changed)
+
 var index := 1
 var camera: Camera3D = null
 var rig: CameraRig = null       # the match camera: the move / aim input is relative to the SCREEN (see CameraRig.input_basis)
@@ -25,7 +27,7 @@ func _to_world(v: Vector2) -> Vector2:
 
 func think(a: Athlete, dt: float) -> void:
 	var p := "p%d_" % index
-	var v := _to_world(Input.get_vector(p + "left", p + "right", p + "up", p + "down", 0.18))
+	var v := _to_world(Input.get_vector(p + "left", p + "right", p + "up", p + "down", DEADZONE))
 	_move_v = v
 	var d: Node = a.director
 	if Game.main != null and Game.main.dev.has("dbghuman") and d.phase == MatchDirector.P.RALLY:

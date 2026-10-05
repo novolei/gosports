@@ -17,6 +17,8 @@ var settings := {
 	"points": 11,
 	"shake": true,
 	"touch": "auto",         # auto | on | off
+	"touch_size": 1,         # touch button size: 0 small (x0.85) / 1 medium / 2 large (x1.15), see TouchControls
+	"touch_stick": "float",  # touch stick: "float" (the base appears where the thumb lands) / "fixed" (always at its home)
 	"fullscreen": false,
 	"quality": 2,            # 0 low (phones), 1 medium, 2 high
 	"char_style": 0,         # character rendering: 0 classic soft shading (default) / 1 outlined "toon" look (CharacterRig.hero)
@@ -110,7 +112,30 @@ func _detect_touch() -> void:
 func set_touch(v: bool) -> void:
 	if is_touch != v:
 		is_touch = v
+		_sync_mouse_bindings()
 		touch_mode_changed.emit(v)
+
+
+## While the touch controls are in use the mouse buttons must not drive P1's HIT / JUMP: Godot turns the first finger on the screen into a left
+## mouse click (emulate_mouse_from_touch), and p1_hit is bound to the left button - a thumb that only lands on the stick would swing.
+## (Mouse aiming is switched off in touch mode already, see HumanBrain._update_aim.)
+const MOUSE_BINDINGS := [["p1_hit", MOUSE_BUTTON_LEFT], ["p1_jump", MOUSE_BUTTON_RIGHT]]
+var _mouse_bound := true
+
+
+func _sync_mouse_bindings() -> void:
+	var want := not is_touch
+	if want == _mouse_bound or not InputMap.has_action("p1_hit"):
+		return
+	_mouse_bound = want
+	for pair in MOUSE_BINDINGS:
+		var act: String = pair[0]
+		if want:
+			_mouse(act, pair[1])
+		else:
+			for e in InputMap.action_get_events(act):
+				if e is InputEventMouseButton:
+					InputMap.action_erase_event(act, e)
 
 
 ## Every second: if the average frame took longer than ~21 ms lower the 3D resolution a notch, if it was comfortably
@@ -254,6 +279,9 @@ func _load_settings() -> void:
 	settings["difficulty"] = clampi(int(settings["difficulty"]), 0, 3)
 	settings["cam_view"] = clampi(int(settings["cam_view"]), 0, 1)           # (a saved value from another version / a damaged file)
 	settings["cam_zoom"] = clampi(int(settings["cam_zoom"]), 0, 2)
+	settings["touch_size"] = clampi(int(settings["touch_size"]), 0, 2)
+	if not ["float", "fixed"].has(String(settings["touch_stick"])):
+		settings["touch_stick"] = "float"
 	p1_char = cf.get_value("profile", "p1_char", p1_char)
 	p2_char = cf.get_value("profile", "p2_char", p2_char)
 	partner_char = cf.get_value("profile", "partner_char", partner_char)

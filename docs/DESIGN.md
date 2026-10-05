@@ -588,3 +588,13 @@ PC 手感新增：
 * 统一入口：`MatchScene.cycle_camera_view()` / `cycle_camera_zoom()`（C 键切视角、V 键切距离，原来 C 键切的是远 / 中 / 近）；HUD 暂停键左边的相机按钮、暂停菜单「切换视角 (C)」、底部按键提示条「C 视角」都调用它们；设置 → 画面：「默认视角」「镜头距离」（`cam_view` / `cam_zoom`，读档时夹取，在局内切换也会记住）。切换只在普通比赛镜头 / 得分特写时生效，回放 / VS 镜头不被打断。
 * 开发：`--view=0|1`、`--zoom=0|1|2`、`--sidecam=`、`--camcycle=<秒>`（每隔几秒调用一次 C / V 的真实代码路径）、`--botkeys`（真人替身关掉辅助跑位、按屏幕方向键跑位；错误的换算会让它一次也接不到球：正确 3:2 / 3:1，错误 2:3 且击球时机统计全 0）。
 * 没做 / 已知：左侧视角（真实转播不用；要做就必须把裁判椅和替补席换边）；侧面机位下 +x 侧的场边装饰（garden / bunting / festival / beach / sakura / party）会出现在画面底部，樱花树 / 气球会盖住近侧角落一点；想更接近电视距离（22～24 m、27～30°）需要在侧面视角时隐藏 +x 两块侧看台（`Arena._build_stands`）并把这 6 种装饰的 +x 一半拆成独立网格。手机上的帧率 / 发热没测。
+
+## 39. 触屏手感升级（毫米制触摸套件，2026‑10‑05）
+
+用户要求参考篮球 / Minitanks 的触屏优化来升级排球的手机触屏体验。完整说明、表格和测试命令在 [TOUCH_CONTROLS.md](TOUCH_CONTROLS.md)。
+
+* **套件**：`scripts/touch/`（`TouchMetrics` 毫米 ↔ 画布像素 + 真实 DPI、`TouchFeel` 手感参数 + 调参表、`StickModel` 径向死区摇杆、`TouchRouter` 手指路由 / 最短按压 / 取消、`TouchHaptics`、`GestureExclusion`、`TouchTuner` 真机调参面板）从篮球仓库拷来，唯一的改动是 `TouchFeel.hidden` / `rows()`（调参面板可跳过游戏不用的参数）。`TouchControls` 在它上面重写：毫米布局（摇杆 11 mm、按键 9.5 / 8 / 7.5 mm、离边 ≥ 7 / 6 mm）、手指绑定、55 ms 最短按压（去掉旧的 +90 ms 尾巴）、取消 / 失焦 / 暂停时释放、按下触觉、Android 边缘手势排除区、点选落点的「差一点没点中按键不算」+ HUD 按钮保留区。
+* **一个排球自己的疑点**：`p1_hit` / `p1_jump` 绑了鼠标左 / 右键，Godot 的 `emulate_mouse_from_touch` 会把第一根手指变成左键点击——手指落在摇杆上就可能触发击球。触屏模式下现在把这两个鼠标绑定摘掉（`Game._sync_mouse_bindings`）。**未在真机验证**（机器人绕过 `Input` 单例，测不出）。
+* **其他**：`display/window/handheld/orientation` 6 → 4 + `Main._ready` 里移动端锁横屏（所有 GoSports 游戏打开即横屏）；调试包可以从 `files/dev_args.txt` 读开关；设置 → 操作新增「触屏按键大小」「摇杆样式」。
+* **验证**：`tools/test_touch.gd` 56 项；`--touch --touchbot` 整链路机器人 31 项（后方 / 侧面视角各一遍，16:9 与 20:9 窗口）。**真机和真手指没验证**：手感数字是起点，真机上用调参面板（三指按住 2 秒）调。
+* **通知**：已让足球 / 乒乓球 / 网球 session 照篮球的做法优化触屏；乒乓球已开工并同样修了鼠标键位问题，网球排进了待办，足球 session 当时离线（消息排队）。

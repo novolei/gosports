@@ -313,6 +313,12 @@ Lv.%d 解锁	Lv.%d
 远	Far
 近	Near
 视角	View
+触屏按键大小	Touch button size
+摇杆样式	Stick style
+小	Small
+大	Large
+浮动	Floating
+固定	Fixed
 重新开始本局	Restart match
 更改比赛设置	Match settings
 退出到主菜单	Quit to menu

@@ -21,6 +21,10 @@ var dev := {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	Game.main = self
+	if OS.has_feature("mobile"):
+		# every GoSports game opens in landscape (the layout is landscape only; portrait shows a broken screen). The export already writes
+		# sensor-landscape into the manifest (display/window/handheld/orientation = 4); this also covers a launcher that ignores it.
+		DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 	_fade_layer = CanvasLayer.new()
 	_fade_layer.layer = 100
 	add_child(_fade_layer)
@@ -29,15 +33,26 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_fade_layer.add_child(_fade)
-	for a in OS.get_cmdline_user_args():
+	var raw_args: Array = Array(OS.get_cmdline_user_args())
+	if OS.has_feature("mobile") and OS.is_debug_build() and FileAccess.file_exists("user://dev_args.txt"):
+		# dev (phone probes, e.g. --touchbot): one flag per line in files/dev_args.txt (debug builds only), e.g. --screen=match
+		for line in FileAccess.get_file_as_string("user://dev_args.txt").replace("\r", "").split("\n", false):
+			var l := String(line).strip_edges()
+			if l.begins_with("--"):
+				raw_args.append(l)
+	for ra in raw_args:
+		var a: String = ra
 		if a.begins_with("--") and "=" in a:
 			var kv := a.substr(2).split("=", true, 1)
 			dev[kv[0]] = kv[1]
 		elif a.begins_with("--"):
 			dev[a.substr(2)] = true
+	if dev.has("quit_after") and String(dev.get("screen", "menu")) != "match":        # dev: menu / howto / results runs end by themselves (a match handles --quit_after itself)
+		get_tree().create_timer(float(dev["quit_after"]), true, false, true).timeout.connect(func() -> void: get_tree().quit())
 	if dev.has("touch"):
 		Game.settings["touch"] = "on"
 		Game._detect_touch()
+		Input.emulate_touch_from_mouse = true         # desktop: the mouse is a single finger (two-thumb checks: --touchbot)
 	if dev.has("quality"):
 		Game.settings["quality"] = int(dev["quality"])
 		Game.apply_settings()
