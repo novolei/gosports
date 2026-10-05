@@ -300,6 +300,19 @@ Lv.%d 解锁	Lv.%d
 自动跑位辅助	Auto-positioning
 击球时机提示圈	Timing ring
 切换镜头 (C)	Switch camera (C)
+切换视角 (C)	Switch view (C)
+后方视角	Behind view
+侧面视角	Side view
+镜头：远景	Camera: far
+镜头：中景	Camera: mid
+镜头：近景	Camera: near
+默认视角	Default view
+镜头距离	Camera distance
+后方	Behind
+侧面	Side
+远	Far
+近	Near
+视角	View
 重新开始本局	Restart match
 更改比赛设置	Match settings
 退出到主菜单	Quit to menu

@@ -31,6 +31,8 @@ var settings := {
 	"timing_window": 0,      # the human's hit-timing window: 0 relaxed (x1.4, default) / 1 standard (x1.2) / 2 precise (x1.0, the original)
 	"landing_hint_set": false, # the player chose a level (otherwise newcomers get the full marker for a few matches)
 	"replays": true,         # instant replay after the big points and at the end of a match
+	"cam_view": 0,           # match camera: 0 behind the end line / 1 the broadcast side camera (key C switches during a match, CameraRig.VIEW_NAMES)
+	"cam_zoom": 1,           # camera distance: 0 far / 1 normal / 2 close (key V switches during a match, CameraRig.ZOOM_NAMES)
 	"render_scale": 0.0,     # 3D resolution scale; 0 = automatic (phones render below native resolution)
 	"shadow_size": 0,        # directional shadow map; 0 = automatic
 	"dbg": "",               # dev: comma separated render kill switches (see Game.dbg) for phone profiling
@@ -250,6 +252,8 @@ func _load_settings() -> void:
 	if not [7, 11, 15].has(int(settings["points"])):
 		settings["points"] = 11                 # old dev runs could leave odd values behind
 	settings["difficulty"] = clampi(int(settings["difficulty"]), 0, 3)
+	settings["cam_view"] = clampi(int(settings["cam_view"]), 0, 1)           # (a saved value from another version / a damaged file)
+	settings["cam_zoom"] = clampi(int(settings["cam_zoom"]), 0, 2)
 	p1_char = cf.get_value("profile", "p1_char", p1_char)
 	p2_char = cf.get_value("profile", "p2_char", p2_char)
 	partner_char = cf.get_value("profile", "partner_char", partner_char)
@@ -528,5 +532,7 @@ func _setup_inputs() -> void:
 	_key("toggle_fullscreen", KEY_F11)
 	_add_action("camera_toggle")
 	_key("camera_toggle", KEY_C)
+	_add_action("camera_zoom")
+	_key("camera_zoom", KEY_V)
 	_add_action("debug_slowmo")
 	_key("debug_slowmo", KEY_F9)

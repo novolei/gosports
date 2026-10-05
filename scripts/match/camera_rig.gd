@@ -1,6 +1,7 @@
 class_name CameraRig
 extends Node3D
-## Match camera: low, wide "behind the baseline" view like Switch Sports, with gentle ball tracking,
+## Match camera: low, wide "behind the baseline" view like Switch Sports (view 0), or the broadcast "main camera" from the side line (view 1,
+## the court runs left / right so a landing spot reads on both axes; C = view, V = distance), with gentle ball tracking,
 ## punch-in zoom on spikes / blocks, shake, slow-motion and a victory orbit.
 
 var cam: Camera3D
@@ -20,7 +21,12 @@ var _slow_tween: Tween
 var follow_players: Array = []              # human athletes: the camera slides sideways with them (like the broadcast view of the reference game)
 var _slowmo_until := 0.0
 var _stop_active := false
-var style := 1              # 0 far / 1 normal / 2 close
+var style := 1              # camera distance: 0 far / 1 normal / 2 close (key V, settings "cam_zoom")
+var view := 0               # 0 behind the end line / 1 the broadcast main camera on the +x side line (key C, settings "cam_view")
+const VIEW_NAMES := ["后方视角", "侧面视角"]
+const ZOOM_NAMES := ["镜头：远景", "镜头：中景", "镜头：近景"]
+const SIDE_ZOOM := [1.12, 1.0, 0.84]        # side view: distance of the camera from its focus, relative to the normal pose
+const SIDE_PAN := [0.5, 0.8, 1.6]           # side view: how far (m) the camera may slide along the court to follow the play (the whole court has to stay in the picture)
 var _replay := {}
 var _roll := 0.0               # camera roll kick (radians) on big hits, decays by itself
 
@@ -39,20 +45,77 @@ func set_style(s: int) -> void:
 	style = clampi(s, 0, 2)
 
 
+## the resting pose of the match camera for the current view / distance: {pos, focus, fov}
 func game_pose() -> Dictionary:
-	var h: float = [6.0, 4.2, 3.4][style]
-	var z: float = [16.5, 13.0, 11.2][style]
-	var f: float = [50.0, 54.0, 56.0][style]
+	# the end-line camera of a broadcast: raised a little (was 6.0 / 4.2 / 3.4 m) so the far half of the court is no longer a thin strip behind the net
+	# (the floor hidden behind the net top 14 m -> 8 m, far half 13 -> 18 px/m at 1600x900) - docs/DESIGN.md 38
+	var h: float = [7.8, 6.0, 4.8][style]
+	var z: float = [17.5, 14.0, 12.0][style]
+	var f: float = [48.0, 52.0, 54.0][style]
 	if Game.main != null and Game.main.dev.has("cam"):
 		var p: PackedStringArray = String(Game.main.dev["cam"]).split(",")
 		h = float(p[0]); z = float(p[1]); f = float(p[2])
-	return {"h": h, "z": z, "fov": f}
+	var pos := Vector3(0, h, z)
+	var focus := Vector3(0, 1.2, -1.5)
+	if view == 1:
+		var sd := Court.CAM_SIDE_DIST
+		var sh := Court.CAM_SIDE_H
+		var sy := 0.3
+		f = Court.CAM_SIDE_FOV
+		if Game.main != null and Game.main.dev.has("sidecam"):               # dev: --sidecam=dist,height,fov[,focus_y]
+			var q: PackedStringArray = String(Game.main.dev["sidecam"]).split(",")
+			sd = float(q[0]); sh = float(q[1]); f = float(q[2])
+			if q.size() > 3:
+				sy = float(q[3])
+		focus = Vector3(0.0, sy, 0.0)
+		pos = focus + (Vector3(sd, sh, 0.0) - focus) * float(SIDE_ZOOM[style])
+	return {"pos": pos, "focus": focus, "fov": f}
+
+
+## C key: behind the end line <-> the side line (the umpire chair and the benches are on the far side line, like on TV).
+## Only the normal match camera is switched: a replay / point shot / VS shot keeps running and the new view is used when it ends.
+func set_view(v: int) -> void:
+	view = clampi(v, 0, VIEW_NAMES.size() - 1)
+	Game.settings["cam_view"] = view
+	Game.save_settings()
+	if _mode == "game" or _mode == "point":
+		_mode = "game"
+		_mode_t = 0.0
+
+
+func cycle_view() -> void:
+	set_view((view + 1) % VIEW_NAMES.size())
+
+
+## V key: far / normal / close
+func set_zoom(z: int) -> void:
+	style = clampi(z, 0, 2)
+	Game.settings["cam_zoom"] = style
+	Game.save_settings()
+
+
+func cycle_zoom() -> void:
+	set_zoom((style + 1) % 3)
+
+
+## screen directions in world xz for the controls: [right, down]. The move stick / the aim keys are interpreted relative to the SCREEN,
+## so "right" always moves to the right of the picture, whichever camera is active.
+static func input_basis(v: int) -> Array:
+	if v == 1:
+		return [Vector2(0.0, -1.0), Vector2(1.0, 0.0)]      # camera on the +x side: screen-right = -z, screen-down (towards the camera) = +x
+	return [Vector2(1.0, 0.0), Vector2(0.0, 1.0)]
+
+
+## the horizontal position of a world point on the screen, in metres (behind view: x, side view: -z): left < 0 < right
+func screen_x(p: Vector3) -> float:
+	return -p.z if view == 1 else p.x
 
 
 func _snap() -> void:
 	var g := game_pose()
-	_pos = Vector3(0, g["h"], g["z"])
-	_focus = Vector3(0, 1.2, -1.5)
+	_pos = g["pos"]
+	_focus = g["focus"]
+	_fov = g["fov"]
 	_apply(0.0)
 
 
@@ -214,10 +277,25 @@ func _physics_process_impl(dt: float) -> void:
 	var rt := dt / maxf(Engine.time_scale, 0.05)    # real time step for smooth camera motion
 	_mode_t += rt
 	var g := game_pose()
-	var want_pos := Vector3(0, g["h"], g["z"])
+	var want_pos: Vector3 = g["pos"]
 	var want_focus := Vector3(0, 1.2, -1.6)
 	var want_fov: float = g["fov"]
-	if ball != null:
+	var pan: float = float(SIDE_PAN[style])
+	if view == 1 and ball != null:
+		# the broadcast main camera: a static shot that only breathes with the play - it slides a little along the court towards the ball /
+		# the human players and tilts up for a high ball (the whole court and the servers stay in the picture, see SIDE_PAN)
+		var b := ball.global_position
+		var along := b.z
+		if not follow_players.is_empty():
+			var pz := 0.0
+			for fp in follow_players:
+				pz += (fp as Node3D).global_position.z
+			along = lerpf(pz / float(follow_players.size()), b.z, 0.4)
+		want_pos.z += clampf(along * 0.2, -pan, pan)
+		want_focus = Vector3(0.0, clampf(float(g["focus"].y) + b.y * 0.15, 0.3, 1.5), clampf(along * 0.28, -pan * 1.4, pan * 1.4))
+	elif view == 1:
+		want_focus = g["focus"]
+	elif ball != null:
 		var b := ball.global_position
 		# follow the player (and a little of the ball): sideways, with a lead in the running direction
 		var px := b.x
@@ -253,16 +331,22 @@ func _physics_process_impl(dt: float) -> void:
 			var e := u * u * (3.0 - 2.0 * u)
 			var from_pos: Vector3 = _intro_from[0]
 			var from_focus: Vector3 = _intro_from[1]
-			want_pos = from_pos.lerp(Vector3(0.0, g["h"], g["z"]), e)
-			want_focus = from_focus.lerp(Vector3(0.0, 1.2, -1.5), e)
+			want_pos = from_pos.lerp(g["pos"], e)
+			want_focus = from_focus.lerp(g["focus"], e)
 			want_fov = lerpf(float(_intro_from[2]), g["fov"], e)
 			if u >= 1.0:
 				_mode = "game"
 		"point":
 			# stay on the broadcast view, drift slightly towards where the ball came down and zoom in a touch
-			want_pos.x = clampf(_point_focus.x * 0.25, -1.6, 1.6)
-			want_focus = Vector3(clampf(_point_focus.x * 0.55, -3.0, 3.0), 0.8, _point_focus.z * 0.55)
-			want_fov = float(g["fov"]) - 7.0
+			if view == 1:
+				want_pos = g["pos"]
+				want_pos.z += clampf(_point_focus.z * 0.15, -pan, pan)
+				want_focus = Vector3(0.0, 0.5, clampf(_point_focus.z * 0.3, -2.0, 2.0))
+				want_fov = float(g["fov"]) - 4.0
+			else:
+				want_pos.x = clampf(_point_focus.x * 0.25, -1.6, 1.6)
+				want_focus = Vector3(clampf(_point_focus.x * 0.55, -3.0, 3.0), 0.8, _point_focus.z * 0.55)
+				want_fov = float(g["fov"]) - 7.0
 			if _mode_t > 2.2:
 				_mode = "game"
 		"free":

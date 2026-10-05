@@ -40,6 +40,7 @@ var _msg_label: Label
 var replay_overlay: ReplayOverlay
 var _vs_card: VsCard = null
 var _pause_btn: Button
+var _cam_btn: Button
 var _flash: ColorRect
 var tracker: _EdgeTracker
 var _mate_icon: Control
@@ -77,6 +78,7 @@ func bind(p_ms: MatchScene) -> void:
 	replay_overlay = ReplayOverlay.new().build(get_viewport().get_visible_rect().size)
 	root_c.add_child(replay_overlay)
 	_build_pause_button()
+	_build_cam_button()
 	_build_pause_menu()
 	_build_touch()
 	_build_tutorial()
@@ -1348,6 +1350,40 @@ func _build_pause_button() -> void:
 	_pause_btn = b
 
 
+## the camera view (behind the end line / the broadcast side camera): the C key on a keyboard, this small round button next to the pause button
+func _build_cam_button() -> void:
+	var b := Button.new()
+	b.flat = false
+	b.custom_minimum_size = Vector2(76, 76)
+	b.add_theme_stylebox_override("normal", UIKit.style_box(Color(1, 1, 1, 0.82), 38, 0, Color.WHITE, 8))
+	b.add_theme_stylebox_override("hover", UIKit.style_box(Color(1, 1, 1, 1.0), 38, 0, Color.WHITE, 10))
+	b.add_theme_stylebox_override("pressed", UIKit.style_box(Color(0.85, 0.9, 1.0, 1.0), 38, 0, Color.WHITE, 4))
+	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	var inset: Dictionary = Game.safe_insets()
+	b.position = Vector2(-102.0 - 92.0 - float(inset["r"]), 24 + float(inset["t"]))
+	b.size = Vector2(76, 76)
+	b.focus_mode = Control.FOCUS_NONE
+	var g := _CamGlyph.new()
+	g.size = b.size
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(g)
+	b.pressed.connect(func(): ms.cycle_camera_view())
+	root_c.add_child(b)
+	_cam_btn = b
+
+
+class _CamGlyph:
+	extends Control
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var ink := UIKit.INK
+		draw_rect(Rect2(c + Vector2(-19, -11), Vector2(38, 26)), ink, false, 4.0, true)
+		draw_rect(Rect2(c + Vector2(-9, -17), Vector2(18, 7)), ink)
+		draw_arc(c + Vector2(0, 2), 8.0, 0.0, TAU, 20, ink, 4.0, true)
+		draw_circle(c + Vector2(13, -5), 2.2, ink)
+
+
 var _pause_main: Control
 var _pause_sub: Control
 
@@ -1395,8 +1431,8 @@ func _build_pause_menu() -> void:
 	var snd := UIKit.button("声音与提示", Vector2(560, 76), UIKit.BLUE, 36)
 	snd.pressed.connect(func(): _pause_page(true))
 	vb.add_child(snd)
-	var cam := UIKit.button("切换镜头 (C)", Vector2(560, 76), UIKit.BLUE, 36)
-	cam.pressed.connect(func(): ms.cam_rig.set_style((ms.cam_rig.style + 1) % 3))
+	var cam := UIKit.button("切换视角 (C)", Vector2(560, 76), UIKit.BLUE, 36)
+	cam.pressed.connect(func(): ms.cycle_camera_view())
 	vb.add_child(cam)
 	var quit := UIKit.button("退出到主菜单", Vector2(560, 76), UIKit.BLUE, 36)
 	quit.pressed.connect(func():
@@ -1501,7 +1537,7 @@ func _build_tutorial() -> void:
 		# keycap chips (like the button prompts of the reference game): [key, what it does]
 		var pads: bool = Input.get_connected_joypads().size() > 0
 		var keys := [["左摇杆", "移动"], ["A", "击球"], ["B", "跳跃"], ["X", "扑救"], ["右摇杆", "瞄准"], ["Start", "暂停"]] if pads \
-				else [[_move_keys_text(), "移动"], ["%s / 左键" % Game.key_name("p1_hit"), "击球"], ["%s / 右键" % Game.key_name("p1_jump"), "跳跃"], [Game.key_name("p1_dive"), "扑救"], ["鼠标", "瞄准"], ["Esc", "暂停"]]
+				else [[_move_keys_text(), "移动"], ["%s / 左键" % Game.key_name("p1_hit"), "击球"], ["%s / 右键" % Game.key_name("p1_jump"), "跳跃"], [Game.key_name("p1_dive"), "扑救"], ["鼠标", "瞄准"], ["C", "视角"], ["Esc", "暂停"]]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 26)
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2106,7 +2142,7 @@ func _process_impl(dt: float) -> void:
 
 ## during an instant replay only the scoreboard stays: hide hints, markers, rings and touch controls
 func _set_replay_hud(on: bool) -> void:
-	for n in [hint_panel, serve_bubble, _combo_root, _clock, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial, _pause_btn]:
+	for n in [hint_panel, serve_bubble, _combo_root, _clock, timing_ring, hype_bar, popup_layer, touch, scoreboard_holder, tracker, _mate_icon, tutorial, _pause_btn, _cam_btn]:
 		if n != null and is_instance_valid(n):
 			if n == scoreboard_holder and not on and director != null and director.is_practice():
 				continue                                   # the practice modes have their own panels instead

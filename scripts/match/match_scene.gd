@@ -19,6 +19,7 @@ var _data := {}
 var _log_events := false
 var _auto_time_scale := 1.0
 var _quit_after := -1.0
+var _cam_cycle_step := 0
 var _elapsed := 0.0
 var _stats_log := []
 var replay: ReplaySystem = null
@@ -150,16 +151,22 @@ func _build() -> void:
 
 	# --- camera
 	cam_rig = CameraRig.new()
+	cam_rig.set_style(clampi(int(Game.settings.get("cam_zoom", 1)), 0, 2))        # (before add_child: the first pose is snapped in _ready)
+	cam_rig.view = clampi(int(Game.settings.get("cam_view", 0)), 0, CameraRig.VIEW_NAMES.size() - 1)
+	if Game.main != null and Game.main.dev.has("view"):                   # dev: --view=0|1 / --zoom=0|1|2
+		cam_rig.view = clampi(int(Game.main.dev["view"]), 0, CameraRig.VIEW_NAMES.size() - 1)
+	if Game.main != null and Game.main.dev.has("zoom"):
+		cam_rig.set_style(int(Game.main.dev["zoom"]))
 	add_child(cam_rig)
 	cam_rig.ball = ball
 	cam_rig.director = director
-	cam_rig.set_style(1)
 	for a in athletes:
 		if a.is_human:
 			cam_rig.follow_players.append(a)
 	director.cam = cam_rig
 	for h in humans:
 		h.camera = cam_rig.cam
+		h.rig = cam_rig
 
 	if Game.mode == "training":                   # (before the HUD, which builds the tutorial card from it)
 		coach = TrainingCoach.new()
@@ -304,7 +311,7 @@ func _smash_feel(a: Athlete, contact: Vector3) -> void:
 	Sfx.play("crowd_oh", -6.0, 1.15)
 	cam_rig.shake(0.6)
 	cam_rig.punch(11.0, 0.7, 0.3)
-	cam_rig.roll_kick(randf_range(2.4, 3.2) * (1.0 if a.global_position.x < 0.0 else -1.0))
+	cam_rig.roll_kick(randf_range(2.4, 3.2) * (1.0 if cam_rig.screen_x(a.global_position) < 0.0 else -1.0))
 	hud.flash_screen(0.34, 0.2)
 	hud.flash_speed_lines(0.55, 1.0)
 	vfx.hit_burst(contact, "perfect", 1.0)
@@ -332,7 +339,7 @@ func _hit_feel(a: Athlete, kind: String, q: String, power: float) -> void:
 		cam_rig.hit_stop(0.055 if big else 0.032)
 		cam_rig.punch(2.2 if not big else 3.5, 0.0, 0.05)
 		if big:
-			cam_rig.roll_kick(randf_range(1.4, 2.2) * (1.0 if a.global_position.x < 0.0 else -1.0))
+			cam_rig.roll_kick(randf_range(1.4, 2.2) * (1.0 if cam_rig.screen_x(a.global_position) < 0.0 else -1.0))
 			hud.flash_screen(0.2 if power > 0.8 else 0.12, 0.14)
 	elif big:
 		cam_rig.hit_stop(0.03)
@@ -575,6 +582,16 @@ func _physics_process_impl(dt: float) -> void:
 	if Game.main != null and Game.main.dev.has("pausetest") and _elapsed > 6.0 and not paused and not _pause_test_done:
 		_pause_test_done = true
 		_run_pause_test()
+	if Game.main != null and Game.main.dev.has("camcycle"):                # dev: --camcycle=<s> presses C (view) / V (distance) every <s> seconds
+		var every := maxf(float(Game.main.dev["camcycle"]), 1.0)
+		var step := int(_elapsed / every)
+		if step > _cam_cycle_step:
+			_cam_cycle_step = step
+			if step % 2 == 1:
+				cycle_camera_view()
+			else:
+				cycle_camera_zoom()
+			print("[camcycle] t=%.1f view=%d zoom=%d" % [_elapsed, cam_rig.view, cam_rig.style])
 	if _quit_after > 0.0 and _elapsed >= _quit_after:
 		print("QUIT_AFTER score=", director.score, " stats=", director.stats, " phase=", director.phase)
 		get_tree().quit()
@@ -612,8 +629,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			director.skip_vs()
 	if event.is_action_pressed("pause") and not _over:
 		toggle_pause()
-	if event.is_action_pressed("camera_toggle"):
-		cam_rig.set_style((cam_rig.style + 1) % 3)
+	if event.is_action_pressed("camera_toggle") and not _over:
+		cycle_camera_view()
+	if event.is_action_pressed("camera_zoom") and not _over:
+		cycle_camera_zoom()
+
+
+## C key / the HUD and pause-menu camera buttons: behind the end line -> the broadcast main camera on the side line -> ...
+func cycle_camera_view() -> void:
+	cam_rig.cycle_view()
+	Sfx.play("ui_click", -5.0)
+	if hud != null and hud.has_method("say"):
+		hud.say("sub", tr(CameraRig.VIEW_NAMES[cam_rig.view]), 54, Color(1, 1, 1), Color(0.75, 0.9, 1.0), Color(0.05, 0.15, 0.4), 1.0)
+
+
+## V key: camera distance far / normal / close
+func cycle_camera_zoom() -> void:
+	cam_rig.cycle_zoom()
+	if hud != null and hud.has_method("say"):
+		hud.say("sub", tr(CameraRig.ZOOM_NAMES[cam_rig.style]), 54, Color(1, 1, 1), Color(0.75, 0.9, 1.0), Color(0.05, 0.15, 0.4), 1.0)
 
 
 func _notification(what: int) -> void:

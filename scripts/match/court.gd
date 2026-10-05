@@ -16,6 +16,14 @@ const PLAYER_MAX_X := 8.0
 const PLAYER_MAX_Z := 11.0
 const FLOOR_BOUNCE := 0.62
 
+## The SIDE camera (C key, docs/DESIGN.md 38): the "main camera" of a real volleyball broadcast - high, on the +x side line, in line with the net
+## (the net is seen end-on, the teams stand left / right), a long lens, the whole court in the picture. The umpire chair and the benches are on
+## the opposite side line (-x), exactly like the real thing. 18 m / 11 m / fov 34 keeps the whole court (and the servers) in the picture at 16:9
+## and 20:9; the far half of the court is ~60-85 px/m here instead of ~13 px/m behind the end line. `--sidecam=dist,height,fov[,focus_y]` tunes it.
+const CAM_SIDE_DIST := 18.0
+const CAM_SIDE_H := 11.0
+const CAM_SIDE_FOV := 34.0
+
 static func team_sign(team: int) -> float:
 	## +1 for team 0 (z > 0), -1 for team 1
 	return 1.0 if team == 0 else -1.0

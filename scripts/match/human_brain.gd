@@ -5,6 +5,7 @@ extends RefCounted
 
 var index := 1
 var camera: Camera3D = null
+var rig: CameraRig = null       # the match camera: the move / aim input is relative to the SCREEN (see CameraRig.input_basis)
 var touch_aim = null            # Vector3 set by tapping the court on a touch screen
 var _mouse_t := 99.0
 var _last_mouse := Vector2(-1, -1)
@@ -14,9 +15,17 @@ var aim_source := ""             # "key" / "mouse" / "touch" / "move" (where the
 var _move_v := Vector2.ZERO     # the movement input of this frame (steers the ball when no other aim is active)
 
 
+## a stick / key vector in SCREEN terms (x = right, y = down) -> the world xz plane, whichever camera view is active
+func _to_world(v: Vector2) -> Vector2:
+	if rig == null or rig.view == 0:
+		return v
+	var b := CameraRig.input_basis(rig.view)
+	return (b[0] as Vector2) * v.x + (b[1] as Vector2) * v.y
+
+
 func think(a: Athlete, dt: float) -> void:
 	var p := "p%d_" % index
-	var v := Input.get_vector(p + "left", p + "right", p + "up", p + "down", 0.18)
+	var v := _to_world(Input.get_vector(p + "left", p + "right", p + "up", p + "down", 0.18))
 	_move_v = v
 	var d: Node = a.director
 	if Game.main != null and Game.main.dev.has("dbghuman") and d.phase == MatchDirector.P.RALLY:
@@ -53,10 +62,10 @@ func _update_aim(a: Athlete, dt: float) -> void:
 	var ap = null
 	if Game.main != null and Game.main.dev.has("aimdemo"):                 # dev: --aimdemo=x,y holds that direction (e.g. 0.7,-0.7)
 		var pr := String(Game.main.dev["aimdemo"]).split(",")
-		_move_v = Vector2(float(pr[0]), float(pr[1]))
+		_move_v = _to_world(Vector2(float(pr[0]), float(pr[1])))
 	# 1) explicit aim stick / keys (absolute lane + depth)
 	var p := "p%d_" % index
-	var st := Vector2(Input.get_axis(p + "aim_left", p + "aim_right"), Input.get_axis(p + "aim_up", p + "aim_down"))
+	var st := _to_world(Vector2(Input.get_axis(p + "aim_left", p + "aim_right"), Input.get_axis(p + "aim_up", p + "aim_down")))
 	if st.length() > 0.35:
 		var deep := -st.y * S                     # +1 = towards the far end line
 		ap = Vector3(clampf(st.x * 4.2, -4.2, 4.2), 0.0, -S * lerpf(1.8, 6.4, (deep + 1.0) * 0.5))

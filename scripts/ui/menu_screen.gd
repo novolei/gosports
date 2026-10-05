@@ -1545,7 +1545,7 @@ func _fill_settings(cat: int) -> void:
 	for i in int(_set_cards.get_meta("n")):
 		(_set_cards.get_child(i) as MenuEntry).mark(i == cat)
 	# the frosted panel is rebuilt to fit its rows (a short list on a huge pane looks empty)
-	var rows_n: int = [2, 4, 4, 5, 1][cat]
+	var rows_n: int = [2, 6, 4, 5, 1][cat]
 	var ph := float(rows_n) * 96.0 + 72.0 + (96.0 if cat == 2 else 0.0)
 	var old_panel := _set_panel
 	_set_panel = GW.frost(Vector2(1000, ph), 40.0)
@@ -1572,6 +1572,8 @@ func _fill_settings(cat: int) -> void:
 			col.add_child(GW.option_row("角色渲染", ["柔和", "描边"], int(Game.settings["char_style"]), func(i): Game.settings["char_style"] = i; Game.save_settings(), 904.0, 220.0))
 			onoff.call("全屏", "fullscreen")
 			onoff.call("镜头震动", "shake")
+			col.add_child(GW.option_row("默认视角", ["后方", "侧面"], clampi(int(Game.settings["cam_view"]), 0, 1), func(i): Game.settings["cam_view"] = i; Game.save_settings(), 904.0, 170.0))
+			col.add_child(GW.option_row("镜头距离", ["远", "中", "近"], clampi(int(Game.settings["cam_zoom"]), 0, 2), func(i): Game.settings["cam_zoom"] = i; Game.save_settings(), 904.0, 170.0))
 		2:
 			col.add_child(GW.option_row("触屏控制", ["自动", "开启", "关闭"], maxi(["auto", "on", "off"].find(Game.settings["touch"]), 0), func(i):
 				Game.settings["touch"] = ["auto", "on", "off"][i]

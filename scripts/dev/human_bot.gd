@@ -2,6 +2,8 @@ class_name HumanBot
 extends Node
 ## Dev tool: plays player 1 through the real InputMap actions (so HumanBrain, assist, aim and the HUD are exercised).
 ## Enabled with --humanbot. Not part of normal play.
+## --botkeys (with --nosave): the auto-run assist is switched off and the bot walks to the landing spot with the move KEYS, interpreted relative
+## to the screen like a real player's (CameraRig.input_basis) - so a camera view whose controls are wrong shows up as a bot that cannot reach the ball.
 
 var ms: MatchScene
 var athlete: Athlete
@@ -17,6 +19,8 @@ func _ready() -> void:
 
 func attach(p_ms: MatchScene) -> void:
 	ms = p_ms
+	if Game.main != null and Game.main.dev.has("botkeys") and Game.main.dev.has("nosave"):
+		Game.settings["assist"] = false
 	for a in ms.athletes:
 		if a.is_human and a.player_index == 1:
 			athlete = a
@@ -56,6 +60,8 @@ func _physics_process(dt: float) -> void:
 	var plan: Dictionary = d.plans[a.team]
 	if plan.get("who") != a or plan.get("mode") != "play":
 		return
+	if Game.main != null and Game.main.dev.has("botkeys"):
+		_steer(plan["pos"])
 	var tn: int = plan["touch"]
 	var kind := a._choose_kind()
 	if tn >= 3 and plan["h"] > 2.5:
@@ -71,3 +77,22 @@ func _physics_process(dt: float) -> void:
 		print("[bot] tn=%d kind=%s dist=%.2f can=%s st=%d ball=%s" % [tn, kind, a.hit_distance(kind), d.can_hit(a), a.state, str(ball.global_position)])
 	if d.can_hit(a) and a.hit_distance(kind) < 0.5:
 		_press("p1_hit")
+
+
+## walk towards a world spot by pressing the move keys the way the picture shows them (screen right / down -> the world axes of the view)
+func _steer(spot: Vector3) -> void:
+	var to := Vector2(spot.x - athlete.global_position.x, spot.z - athlete.global_position.z)
+	if to.length() < 0.25:
+		return
+	var dir := to.normalized()
+	var b := CameraRig.input_basis(ms.cam_rig.view)
+	var sx := dir.dot(b[0] as Vector2)               # how much of the way is "screen right"
+	var sy := dir.dot(b[1] as Vector2)               # ... and "screen down"
+	if sx > 0.35:
+		_press("p1_right")
+	elif sx < -0.35:
+		_press("p1_left")
+	if sy > 0.35:
+		_press("p1_down")
+	elif sy < -0.35:
+		_press("p1_up")
